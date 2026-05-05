@@ -3,6 +3,7 @@ sys.path.append("/Users/theophilemounier/Desktop/git/projet_g3/python")
 sys.path.append("/home/theophile/Desktop/git/projet_g3/python")
 import pyomo.environ as pyo
 from pyomo.opt import SolverFactory
+import matplotlib.pyplot as plt
 
 #%% test de device.py
 
@@ -608,3 +609,23 @@ solver.solve(mod2)
 print('x =', mod1.x())
 print('y =', mod1.y())
 print('Objective =', mod1.obj())
+
+#%% test generation data V2 : Markov states
+from commu_opti.data.generate_data_V2 import generate_profile, generate_building, average_surface
+from commu_opti.data.utils import compute_average_number
+
+
+build = generate_building()
+print("House generated : ", build)
+
+nb_people = 1
+states = [f"{k}{j}" for k in range(nb_people+1) for j in range(nb_people+1)]
+states = {states[i] : i for i in range(len(states))}
+profile = generate_profile(nb_people, False, 1)
+
+plt.figure("profile")
+plt.plot([states[profile[k]] for k in range(len(profile))])
+
+
+
+

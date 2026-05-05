@@ -1,0 +1,500 @@
+{
+    "refrigerator": {
+        "proba": 1,
+        "nb_proba": {
+            "1": 0.8,
+            "2": 0.17,
+            "3": 0.03
+        },
+        "types_proba": {
+            "A": 0.4,
+            "B": 0.04,
+            "C": 0.04,
+            "D": 0.05,
+            "E": 0.02,
+            "F": 0.02,
+            "G": 0.03
+        },
+        "E_types": {
+            "A": 100,
+            "B": 120,
+            "C": 140,
+            "D": 160,
+            "E": 180,
+            "F": 200,
+            "G": 220
+        },
+        "V_popu": {
+            "1": 200,
+            "2": 240,
+            "3": 242,
+            "4": 265,
+            "5": 280
+        },
+        "cycle_length": 0.36666666666666664,
+        "time_between_cycles": 1.5,
+        "increase_power": 0.08333333333333333,
+        "when": {
+            "presence_state": [
+                "awake",
+                "asleep",
+                "away"
+            ]
+        }
+    },
+    "TV": {
+        "proba": 0.92,
+        "nb_proba": {
+            "1": 0.57,
+            "2": 0.25,
+            "3": 0.07,
+            "4": 0.02,
+            "5": 0.01,
+            "0": 0.08
+        },
+        "type_proba": {
+            "LCD_LED": 0.43,
+            "LCD": 0.35,
+            "OLED": 0.12,
+            "Plasma": 0.08,
+            "Cathodique": 0.025
+        },
+        "P_types": {
+            "OLED": 100,
+            "LCD_LED": 90,
+            "LCD": 120,
+            "Plasma": 400,
+            "Cathodique": 100
+        },
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "proba_t": 0.7
+        }
+    },
+    "congelateur": {
+        "proba": 0.445,
+        "nb_proba": {
+            "1": 0.4,
+            "2": 0.05,
+            "3": 0.01
+        },
+        "types_proba": {
+            "A": 0.4,
+            "B": 0.05,
+            "C": 0.05,
+            "D": 0.06,
+            "E": 0.04
+        },
+        "E_types": {
+            "A": 100,
+            "B": 120,
+            "C": 140,
+            "D": 160,
+            "E": 180,
+            "F": 200,
+            "G": 220
+        },
+        "V_popu": {
+            "1": 160,
+            "2": 220,
+            "3": 220,
+            "4": 220,
+            "5": 230
+        },
+        "cycle_length": 0.36666666666666664,
+        "time_between_cycles": 3,
+        "when": {
+            "presence_state": [
+                "awake",
+                "asleep",
+                "away"
+            ]
+        }
+    },
+    "lighting": {
+        "proba": 1,
+        "types_proba": {
+            "LED": 0.5,
+            "Fluo": 0.14,
+            "Incandescence": 0.13,
+            "halogene": 0.23
+        },
+        "P_types": {
+            "LED": 2.142857142857143,
+            "Fluo": 4.285714285714286,
+            "Incandescence": 25.0,
+            "halogene": 13.636363636363637
+        },
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "where": "room",
+            "time": [
+                "night"
+            ]
+        }
+    },
+    "plaque_electrique": {
+        "proba": 0.4732,
+        "energy_needed": 1200.0,
+        "cycle_length": 0.5,
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "where": "kitchen",
+            "time": [
+                [
+                    12,
+                    14,
+                    0.5
+                ],
+                [
+                    18,
+                    22,
+                    0.5
+                ]
+            ]
+        }
+    },
+    "hoven": {
+        "proba": 0.1,
+        "E_types": {
+            "A++ 50L": 380.0,
+            "A+ 50L": 532.0,
+            "A 50L": 684.0,
+            "B 50L": 874,
+            "C 50L": 1102.0,
+            "D 50L": 1368.0,
+            "A++ 70L": 422,
+            "A+ 70L": 590.8,
+            "A 70L": 759.6,
+            "B 70L": 970.6,
+            "C 70L": 1223.8,
+            "D 70L": 1519.2
+        },
+        "types_proba": {
+            "A++ 50L": 0.112,
+            "A+ 50L": 0.112,
+            "A 50L": 0.056,
+            "B 50L": 0.028,
+            "C 50L": 0.014,
+            "D 50L": 0.0056,
+            "A++ 70L": 0.088,
+            "A+ 70L": 0.088,
+            "A 70L": 0.044,
+            "B 70L": 0.022,
+            "C 70L": 0.011,
+            "D 70L": 0.0044
+        },
+        "cycle_length": 0.5,
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "where": "kitchen",
+            "time": [
+                [
+                    12,
+                    14,
+                    0.3
+                ],
+                [
+                    18,
+                    22,
+                    0.3
+                ]
+            ]
+        }
+    },
+    "microwave": {
+        "proba": 0.69,
+        "cycle_length": 0.08333333333333333,
+        "power": 700,
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "where": "kitchen",
+            "time": [
+                [
+                    6,
+                    10,
+                    0.2
+                ],
+                [
+                    12,
+                    14,
+                    0.5
+                ],
+                [
+                    18,
+                    22,
+                    0.5
+                ]
+            ]
+        }
+    },
+    "boiler": {
+        "proba": 0.9,
+        "power": 1200,
+        "cycle_length": 0.016666666666666666,
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "where": "kitchen",
+            "time": [
+                [
+                    6,
+                    10,
+                    0.7
+                ],
+                [
+                    18,
+                    22,
+                    0.2
+                ]
+            ]
+        }
+    },
+    "toaster": {
+        "proba": 0.8,
+        "power": 1000,
+        "cycle_length": 0.08333333333333333,
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "where": "kitchen",
+            "time": [
+                [
+                    6,
+                    10,
+                    0.8
+                ],
+                [
+                    12,
+                    14,
+                    0.3
+                ]
+            ]
+        }
+    },
+    "washing_machine": {
+        "proba": 0.87,
+        "cap_popu": {
+            "1": 6.8,
+            "2": 7.25,
+            "3": 7.7,
+            "4": 8.2,
+            "5": 8.75
+        },
+        "E_types": {
+            "A+++": 60,
+            "A++": 80,
+            "A+": 90,
+            "B": 100,
+            "C": 110,
+            "D": 120
+        },
+        "types_proba": {
+            "A+++": 0.075,
+            "A++": 0.15,
+            "A+": 0.15,
+            "A": 0.075,
+            "B": 0.06,
+            "C": 0.02,
+            "D": 0.02
+        },
+        "cycle_length": 3,
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "spec": [
+                "at start"
+            ],
+            "proba": 0.2857142857142857
+        }
+    },
+    "dryer": {
+        "proba": 0.25,
+        "types_proba": {
+            "A+++": 0.09,
+            "A++": 0.16,
+            "A+": 0.14,
+            "A": 0.08,
+            "B": 0.075,
+            "C": 0.04,
+            "D": 0.02
+        },
+        "cap_popu": {
+            "1": 6.8,
+            "2": 7.25,
+            "3": 7.7,
+            "4": 8.2,
+            "5": 8.75
+        },
+        "E_types": {
+            "A+++": 24,
+            "A++": 32,
+            "A+": 42,
+            "A": 65,
+            "B": 76,
+            "C": 85,
+            "D": 100
+        },
+        "cycle_length": 2,
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "spec": [
+                "at start"
+            ],
+            "proba": 0.2857142857142857
+        }
+    },
+    "dishwasher": {
+        "proba": 0.51,
+        "cap_popu": {
+            "1": 12.5,
+            "2": 12.7,
+            "3": 13,
+            "4": 13.1,
+            "5": 13.4
+        },
+        "types_proba": {
+            "A+++": 0.075,
+            "A++": 0.16,
+            "A+": 0.15,
+            "A": 0.08,
+            "B": 0.03,
+            "C": 0.025,
+            "D": 0.02
+        },
+        "E_types": {
+            "A+++": 50,
+            "A++": 56,
+            "A+": 63,
+            "A": 71,
+            "B": 80,
+            "C": 90,
+            "D": 100
+        },
+        "cycle_length": 2,
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "spec": [
+                "at start"
+            ],
+            "proba": 0.5714285714285714
+        }
+    },
+    "small_object_charge": {
+        "proba": 1,
+        "P_needed": 20,
+        "cycle_length": 1,
+        "deviation": 1,
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "spec": [
+                "before leave"
+            ]
+        }
+    },
+    "fix_computer": {
+        "proba": 0.54,
+        "P_needed": 100,
+        "when": {
+            "presence_state": [
+                "awake"
+            ],
+            "proba_t": 0.5
+        }
+    },
+    "fixed_load_parameters": {
+        "P_needed": 30
+    },
+    "heating_system": {
+        "proba": 0.37,
+        "T_needed_awake": 20,
+        "T_needed_asleep": 18,
+        "net_deviation": 3,
+        "DPE_proba": {
+            "A": 0.05,
+            "B": 0.06,
+            "C": 0.37,
+            "D": 0.29,
+            "E": 0.15,
+            "F": 0.06,
+            "G": 0.03
+        },
+        "R_DPE": {
+            "A": 2.5,
+            "B": 1.7,
+            "C": 1.3,
+            "D": 1,
+            "E": 0.7,
+            "F": 0.55,
+            "G": 0.35
+        },
+        "coef_R": [
+            0.3,
+            0.7
+        ],
+        "C_proba": {
+            "25": 0.2,
+            "20": 0.3,
+            "15": 0.3,
+            "10": 0.2
+        },
+        "types_proba": {
+            "resistor": 0.8648648648648649,
+            "heat_pump": 0.13513513513513514
+        },
+        "when": {
+            "presence_state": [
+                "awake",
+                "asleep"
+            ]
+        }
+    },
+    "climatisation": {
+        "proba": 0.25,
+        "T_activation": 25,
+        "T_minus": -7,
+        "net_deviation": 3,
+        "when": {
+            "presence_state": [
+                "awake",
+                "asleep"
+            ]
+        }
+    },
+    "water_heater": {
+        "proba": 0.44,
+        "E": 2190,
+        "P_popu": {
+            "2": 1500,
+            "4": 2500,
+            "6": 3000
+        },
+        "deviation": 0.5,
+        "when": {
+            "presence_state": [
+                "awake",
+                "asleep",
+                "away"
+            ]
+        }
+    }
+}
