@@ -76,6 +76,7 @@ folder_path = os.path.join(os.path.dirname(__file__), "transition_matrices")
 if not os.path.exists(folder_path) : 
     os.mkdir(folder_path)
 
+#%%
 for name in sheet_names : 
     df = pd.read_excel(path_crest, sheet_name=name, skiprows=9)
     cols = df.columns
@@ -110,7 +111,7 @@ for files in os.listdir(folder_path)[:] :
             error = profile.get("Error")
             profile = profile["results"]
             if error : 
-                if len(profile)/144 > 15: 
+                if len(profile)/144 > 30: 
                     flag = False
                     profiles.append(profile)
                 else :
@@ -128,9 +129,66 @@ for files in os.listdir(folder_path)[:] :
         init_steps = [profile[i] for i in range(0, len(profile), 144)]
         initial_state_proba = {i: init_steps.count(i)/len(init_steps) for i in set(init_steps)}
         probas[files] = initial_state_proba
+        
+#%% Proba initial from crest
+
+sheet_name = "Starting states"
+skiprows = [0, 1, 2, 3, 5]
+cols = ["occ", 1, 2, 3, 4, 5, 6]
+df_wd = pd.read_excel(path_crest, sheet_name=sheet_name, skiprows=skiprows, nrows=55-5)
+df_wd.columns = cols
+
+df_we = pd.read_excel(path_crest, sheet_name=sheet_name, skiprows=58).drop(index=0)
+df_we.columns = cols
+
+
+probas = {}
+for nb_people in range(6) : 
+    file_we = f"tpm{nb_people+1}_we.npy"
+    file_wd = f"tpm{nb_people+1}_wd.npy"
+    states = [f"{k}{j}" for k in range(nb_people+1) for j in range(nb_people+1)]
+    states = {states[i] : i for i in range(len(states))}
+    
+    probas[file_we] = [0 for _ in range(len(states))]
+    probas[file_wd] = [0 for _ in range(len(states))]
+    proba = 0
+    for i in df_we.index : 
+        occ = str(df_we["occ"][i])
+        if len(occ) == 1 : 
+            occ = "0" + occ
+        if occ in states :
+            proba += df_we[1][i]
+            probas[file_we][states[occ]] = float(proba)
+    proba = 0
+    for i in df_wd.index : 
+        occ = str(df_wd["occ"][i])
+        if len(occ) == 1 : 
+            occ = "0" + occ
+        if occ in states :
+            proba += df_wd[1][i]
+            probas[file_wd][states[occ]] = float(proba)
     
 
-with open("initial_state_probabilities.json", "w") as f: 
+with open(os.path.join(os.path.dirname(__file__),"initial_state_probabilities.json"), "w") as f: 
+    json.dump(probas, f, indent = 4)
+#%% Save the initial state probabilities in a json file
+# probas = initial_state_probabilities
+for key in probas :
+    transitions = np.load(os.path.join(folder_path, key))
+    k = transitions.shape[1]
+    array = [0 for _ in range(k)]
+    proba = None
+    for i in range(k) : 
+        if probas[key].get(i) :
+            if proba is None : 
+                proba = probas[key][i]
+            else :
+                proba += probas[key][i]
+        array[i] = proba 
+    probas[key] = array
+    
+
+with open(os.path.join(os.path.dirname(__file__),"initial_state_probabilities.json"), "w") as f: 
     json.dump(probas, f, indent = 4)
 
 

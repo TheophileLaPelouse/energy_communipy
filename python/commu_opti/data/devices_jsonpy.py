@@ -29,7 +29,8 @@ list_devices = {
         # "types" : {"A", "B", "C", "D", "E", "F", "G"},
         "nb_proba" : {1 : 0.8, 2 : 0.17, 3 : 0.03},
         "types_proba" : {"A" : 0.4, "B" : 0.04, "C" : 0.04, "D" : 0.05, "E" : 0.02, "F": 0.02, "G" : 0.03},
-        "E_types" : {"A" : 100, "B" : 120, "C" : 140, "D" : 160, "E" : 180, "F" : 200, "G" : 220}, # EEI %
+        "E_types" : {"A" : 40, "B" : 50, "C" : 63, "D" : 79, "E" : 100, "F" : 125, "G" : 160}, # IEE %
+        
         "V_popu" : {1 : 200, 2 : 240, 3 : 242, 4 : 265, 5 : 280}, # L
         "cycle_length" : 22/60, # h
         "time_between_cycles" : 1.5, # h
@@ -51,7 +52,7 @@ list_devices = {
         "nb_proba" : {1 : 0.4, 2 : 0.05, 3 : 0.01},
         # "types" : {"A", "B", "C", "D", "E", "F", "G"},
         "types_proba" : {"A" : 0.4, "B" : 0.05, "C" : 0.05, "D" : 0.06, "E" : 0.04},
-        "E_types" : {"A" : 100, "B" : 120, "C" : 140, "D" : 160, "E" : 180, "F" : 200, "G" : 220}, # EEI % 
+        "E_types" : {"A" : 40, "B" : 50, "C" : 63, "D" : 79, "E" : 100, "F" : 125, "G" : 160}, # EEI % 
         "V_popu" : {1 : 160, 2 : 220, 3 : 220, 4 : 220, 5 : 230}, # L
         "cycle_length" : 22/60, # h arbitrairement choisi comme pour le frigo
         "time_between_cycles" : 3, # h arbitrairerement choisi 2 fois plus grand que le frigo.
@@ -65,7 +66,7 @@ list_devices = {
         # Hypothèse : 300 lux moyen dans chaque pièce, lumen = lux * surface
         "P_types" : {"LED" : 1/140*300, "Fluo" : 1/70*300, "Incandescence" : 1/12*300, "halogene" : 1/22*300}, # W/surface 
         # source : https://fr.wikipedia.org/wiki/Efficacit%C3%A9_lumineuse_d'une_source
-        "when" : {"presence_state" : ["awake"], "where" : "room", "time" : ["night"]}
+        "when" : {"presence_state" : ["awake"], "where" : "room", "moment" : ["night"]}
     },
     "plaque_electrique" : {
         "proba" : 0.91*0.52, # 0.5 because not everyone has an electric stove
@@ -143,18 +144,18 @@ list_devices = {
     }, 
     "small_object_charge" : {
         "proba" : 1,
-        "P_needed" : 20, # W
+        "power" : 20, # W
         "cycle_length" : 1, # h
         "deviation" : 1, 
         "when" : {"presence_state" : ["awake"], "spec" : ["before leave"]}, 
     }, 
     "fix_computer" : {
         "proba" : 0.54, 
-        "P_needed" : 100, # W
+        "power" : 100, # W
         "when" : {"presence_state" : ["awake"], "proba_t" : 0.5}
     }, 
     "fixed_load_parameters" : {
-        "P_needed" : 30, # W 
+        "power" : 30, # W 
     }, 
     "heating_system" : {
         "proba" : 0.37, 

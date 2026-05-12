@@ -38,6 +38,18 @@ members_params = []
 c = 0
 for file in os.listdir(candidate_folder) : 
     if file.endswith(".json") : 
+        c += 1
+        
+
+battery_part_param = {'parameters': {'p_range': [-10000/c, 10000/c],
+                                            'E_range': [6000.0/c, 30000/c],
+                                            'name': 'battery'}, 
+                             'type': 'battery'
+                            }
+
+c = 0
+for file in os.listdir(candidate_folder) : 
+    if file.endswith(".json") : 
         with open(os.path.join(candidate_folder, file), "r") as fp : 
             data = json.load(fp)
             devices = data["devices"]
@@ -45,7 +57,9 @@ for file in os.listdir(candidate_folder) :
             # if "PV" in devices : 
             #     devices["PV"]["parameters"]["surface"] = None
             # if "battery" in devices : 
-            #     devices["battery"]["parameters"]["E_range"] = None
+            #     devices["battery"]["parameters"]["E_range"] = [0, 0]
+            
+            # devices["battery"] = battery_part_param
             
             parameters = data["parameters"]
             parameters["bat_exchange"] = True
@@ -160,7 +174,8 @@ for test_member in members :
 #%% commu basic
 
 
-profiles = [[0.4, 0.1, 0, 0.5], [0.5, 0.2, 0, 0.3], [0.8, 0.1, 0, 0.1], [0.4, 0.4, 0, 0.2], [0.2, 0.6, 0, 0.2]]
+# profiles = [[0.4, 0.1, 0, 0.5], [0.5, 0.2, 0, 0.3], [0.8, 0.1, 0, 0.1], [0.4, 0.4, 0, 0.2], [0.2, 0.6, 0, 0.2]]
+profiles = [[1, 0.1, 0, 0.5], [1, 0.2, 0, 0.3], [1, 0.1, 0, 0.1], [1, 0.4, 0, 0.2], [1, 0.6, 0, 0.2]]
 
 for member in members :
     member.socio = profiles[member.id]
@@ -180,11 +195,11 @@ price_options = {
         "cost_grid_buy" : 0.0003, # €/wh
         "cost_grid_sell" : -0.00003,
         "cost_ex" : 0, 
-        # "cost_PV" : 800, # € per m2
-        "cost_PV" : 0, # per m2
+        "cost_PV" : 800, # € per m2
+        # "cost_PV" : 0, # per m2
         "PV_min" : 0,
-        # "cost_bat" : 0.5, # € per wh
-        "cost_bat" : 0, # per kwh
+        "cost_bat" : 0.5, # € per wh
+        # "cost_bat" : 0, # per kwh
         "bat_min" : 0,
     },
     "enviro" : {
@@ -259,7 +274,7 @@ values["Production"] = prod_values
 values["Battery capacity"] = bat_values
 values["Consumption"] = conso_values
 
-folder_path = os.path.join(home_path, "figs/gains_allocation_without_invest")
+folder_path = os.path.join(home_path, "figs/test")
 if not os.path.exists(folder_path) :
     os.makedirs(folder_path)
 
@@ -271,7 +286,7 @@ to_plot = {
     "labels" : labels,
     "dimension" : 1,
     "title" : "Gains allocation in proportion to total gains among members",
-    "save_path" : os.path.join(folder_path, "gains_allocation_proportional.eps")
+    "save_path" : os.path.join(folder_path, "gains_allocation_proportional.pdf")
 }
 fig1, ax1 = plot_hexagon_objective(**to_plot)
 
@@ -302,8 +317,11 @@ to_plot = {
 }
 fig2, ax2 = plot_hexagon_objective(**to_plot)
 
+# fig2.canvas.manager.full_screen_toggle()
+
 to_plot = {
-    "values" : {"Shapley allocation" : values["shapley"],
+    "values" : {#"Shapley allocation" : values["shapley"],
+                "" : {0:(0, 0), 1:(0, 0), 2:(0, 0), 3:(0, 0), 4:(0, 0)},
                 "Production rate" : values["Production"],
                 "Battery capacity rate" : values["Battery capacity"],
                 "Consumption rate" : values["Consumption"]

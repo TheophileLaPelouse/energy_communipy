@@ -1,0 +1,40 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.6 Chrome/140.0.7339.249 Electron/38.8.0 Safari/537.36" version="29.3.6">
+  <diagram name="Page-1" id="mquViC7cCTM2wTPr1vJq">
+    <mxGraphModel dx="976" dy="723" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="I3JucGrd_l7LZzyZqbCv-7" parent="1" style="rounded=1;html=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;labelPosition=center;verticalLabelPosition=middle;spacingLeft=-10;spacingRight=20;spacing=0;" value="&lt;div style=&quot;text-align: left;&quot;&gt;&lt;div&gt;&lt;font face=&quot;libertinus serif&quot;&gt;&lt;span style=&quot;font-size: 15px;&quot;&gt;&lt;br&gt;&lt;/span&gt;&lt;/font&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="140" x="70" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="I3JucGrd_l7LZzyZqbCv-1" parent="1" style="rounded=1;html=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;labelPosition=center;verticalLabelPosition=middle;spacingLeft=-10;spacingRight=20;spacing=0;" value="&lt;font face=&quot;libertinus serif&quot; style=&quot;font-size: 15px;&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&lt;b&gt;Membre&lt;/b&gt;&lt;/font&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;ul&gt;&lt;li&gt;&lt;font face=&quot;libertinus serif&quot; style=&quot;font-size: 15px;&quot;&gt;Profil de présence&lt;/font&gt;&lt;/li&gt;&lt;li&gt;&lt;font face=&quot;libertinus serif&quot; style=&quot;font-size: 15px;&quot;&gt;Equipements&lt;/font&gt;&lt;/li&gt;&lt;li&gt;&lt;font face=&quot;libertinus serif&quot; style=&quot;font-size: 15px;&quot;&gt;Habitudes d&#39;usage&amp;nbsp;&lt;/font&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="140" x="90" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="I3JucGrd_l7LZzyZqbCv-2" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;font style=&quot;font-size: 15px;&quot;&gt;&lt;b&gt;Agrégateur&lt;/b&gt;&lt;/font&gt;&lt;div&gt;&lt;font&gt;Optimise les échanges&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="150" x="330" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="I3JucGrd_l7LZzyZqbCv-3" edge="1" parent="1" style="shape=flexArrow;endArrow=classic;startArrow=classic;html=1;rounded=0;fillColor=light-dark(#000000,#000000);strokeWidth=0;startSize=5;endSize=5;shadow=0;sourcePerimeterSpacing=0;" value="">
+          <mxGeometry height="100" relative="1" width="100" as="geometry">
+            <mxPoint x="240" y="284.5" as="sourcePoint" />
+            <mxPoint x="310" y="284.5" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="I3JucGrd_l7LZzyZqbCv-5" edge="1" parent="1" style="shape=flexArrow;endArrow=classic;startArrow=classic;html=1;rounded=0;fillColor=light-dark(#000000,#000000);strokeWidth=0;startSize=5;endSize=5;shadow=0;sourcePerimeterSpacing=0;" value="">
+          <mxGeometry height="100" relative="1" width="100" as="geometry">
+            <mxPoint x="500" y="284.5" as="sourcePoint" />
+            <mxPoint x="570" y="284.5" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="I3JucGrd_l7LZzyZqbCv-6" parent="1" style="rounded=1;html=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;labelPosition=center;verticalLabelPosition=middle;spacingLeft=-10;spacingRight=20;spacing=0;whiteSpace=wrap;" value="&lt;font face=&quot;libertinus serif&quot; style=&quot;font-size: 15px;&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&lt;b&gt;Marché&lt;/b&gt;&lt;/font&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;ul&gt;&lt;li&gt;&lt;span style=&quot;font-size: 15px; font-family: &amp;quot;libertinus serif&amp;quot;; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Prix vente&lt;/span&gt;&lt;/li&gt;&lt;li&gt;&lt;span style=&quot;font-size: 15px; font-family: &amp;quot;libertinus serif&amp;quot;; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Prix achat&lt;/span&gt;&lt;/li&gt;&lt;li&gt;&lt;span style=&quot;font-size: 15px; font-family: &amp;quot;libertinus serif&amp;quot;; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Autre signal ?&lt;/span&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="115" width="140" x="590" y="227.5" as="geometry" />
+        </mxCell>
+        <mxCell id="I3JucGrd_l7LZzyZqbCv-12" edge="1" parent="1" source="I3JucGrd_l7LZzyZqbCv-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;curved=1;" target="I3JucGrd_l7LZzyZqbCv-2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="I3JucGrd_l7LZzyZqbCv-9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;" value="Base de données météo" vertex="1">
+          <mxGeometry height="60" width="120" x="345" y="140" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

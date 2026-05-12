@@ -3,7 +3,7 @@ import pandas as pd
 
 # Reference functions for the power of the devices
 def SAE_frigo(V) : 
-    return 1.1*0.12*V + 100 # Voir législation https://eur-lex.europa.eu/eli/reg_del/2021/340/oj/fra, valeur calculée bourrine kWh/an
+    return 1.1*0.12*V + 100 # Voir législation https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32019R2019#anx_IV, valeur calculée bourrine kWh/an
 
 def SAE_congelateur(V) : 
     return 2.1*0.15 + 138 # même source que pour le frigo. kWh/an
@@ -22,9 +22,27 @@ def SAEC_dishwasher(C, d) :
     # d in hour, C in couverts
     return (7*C + 378) / 365 * 24/d # kWh/cycle https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32010R1059#anx_VI
 
-def frigo_power(V, types) : 
-    EEI = {"A" : 40, "B" : 50, "C" : 63, "D" : 79, "E" : 100, "F" : 125, "G" : 160}
-    return SAE_frigo(V) * EEI[types] / 100
+def frigo_power(V, deltat_active, deltat_inactive) : 
+    time_active_day = 24/(deltat_active + deltat_inactive) * deltat_active
+    time_active_year = time_active_day * 365
+    return SAE_frigo(V) / time_active_year
+
+def congelateur_power(V, deltat_active, deltat_inactive) :
+    time_active_day = 24/(deltat_active + deltat_inactive) * deltat_active
+    time_active_year = time_active_day * 365
+    return SAE_congelateur(V) / time_active_year
+
+def four_power(V, cook_time) :
+    return SEC_four(V) / cook_time
+
+def washing_machine_power(C, cycle_time) :
+    return SCE_washing_machine(C) / cycle_time
+
+def dryer_power(C, d) :
+    return SEC_dryer(C, d) / d
+
+def dishwasher_power(C, d) :
+    return SAEC_dishwasher(C, d) / d
 
 
 # Data
@@ -129,6 +147,23 @@ def power_normal_distribution(nb_proba, type_proba, power_types) :
     # Made it using AI assistance needs to be checked
     return normal(combined_mean, combined_deviation**0.5)
 
+
+def dicotomie_search(l, val) : 
+    # l is a list of increasing values, val is a value. We want to find the index i such that l[i] <= val < l[i+1]
+    if val < l[0] : return 0
+    if val >= l[-1] : return len(l)-1
+    left = 0
+    right = len(l)-1
+    while left <= right : 
+        mid = (left + right) // 2
+        if l[mid] <= val < l[mid+1] : 
+            return mid
+        elif val < l[mid] : 
+            right = mid - 1
+        else : 
+            left = mid + 1
+    return None # Should not happen if the input is correct
+
 def markov_states(transitions, current_state, starting_step=0, step_number=-1) : 
     n = transitions.shape[0]
     if step_number == -1 : 
@@ -137,13 +172,17 @@ def markov_states(transitions, current_state, starting_step=0, step_number=-1) :
     states = []
     for k in range(starting_step, step_number) :
         rd = rand()
-        i = 0
         j = current_state
         # print(k, rd, j, i, transitions.shape[1])
-        while i < transitions.shape[1] and rd > transitions[k%n, j, i]  : 
-            i += 1
-        if i == transitions.shape[1] : 
+        i = dicotomie_search(transitions[k%n, j, :], rd)
+        if i == None : 
             return {"Error" : "Probability does not sum to 1", "results" : states}
         current_state = i
         states.append(current_state)
     return {"results" : states}
+
+def possible_starts(time_interval, indices, deltat, cycle_length, finish_before_end=True) :
+    if finish_before_end : 
+        return [i for i in indices if i*deltat + cycle_length <= time_interval]
+    else :
+        return [i for i in indices if i*deltat <= time_interval]
