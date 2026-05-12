@@ -21,6 +21,56 @@ deviation is parameter to force the relative deviation of the power distribution
 
 
 Heating system, climatisation and water heater are modelled in a separate way 
+
+Possible fields : 
+'C_proba' -> heating system capacitance probability, in MJ/K
+
+'DPE_proba' -> heating system DPE probability
+
+'E_types' -> Energic reference of the different types of the device, used for calculating the power 
+
+'P_popu' -> power of the device depending on the number of people in the household
+
+'P_types' -> power of the different types of the device, used for calculating the power
+
+'R_DPE' -> heating system thermal resistance depending on the DPE, in m2.K/W
+
+'T_activation' -> Temperature of activation for the climatisation, in °C
+
+'T_minus' -> Temperature difference between the inside and the outside for the climatisation, in °C
+
+'T_needed_asleep' -> Temperature needed for the heating system when the inhabitants are asleep, in °C
+
+'T_needed_awake' -> Temperature needed for the heating system when the inhabitants are awake, in °C
+
+'V_popu' -> volume of the device depending on the number of people in the household
+
+'cap_popu' -> capacity of the device depending on the number of people in the household
+
+'coef_R' -> coefficient for the thermal resistance R1 and R2 of the heating system
+
+'cycle_length' -> duration of the cycle of the device, in h
+
+'deviation' -> deviation for the power of the device, in proportion
+
+'energy_needed' -> energy needed for the device, in Wh
+
+'increase_power' -> increase of the power of the device in case of a variation of the temperature, in proportion per m2
+
+'nb_proba' -> probability of having a certain number of devices, depending on the number of people in the household
+
+'net_deviation' -> deviation for the net power of the device, in °C for the heating system and climatisation
+
+'power' -> power of the device, in W
+
+'proba' -> probability of using the device during the day
+
+'time_between_cycles' -> time between 2 cycles of the device, in h
+
+'types_proba'-> probability of having a certain type of device, used for calculating the power when E_types or P_types is given 
+
+'when' -> gives the conditions for using the device as mentionned above
+
 """
 
 list_devices = {
@@ -41,8 +91,8 @@ list_devices = {
         "proba" : 0.92,
         # "types" : {"LCD_LED", "LCD", "OLED", "Plasma", "Cathodique"},
         "nb_proba" : {1 : 0.57, 2 : 0.25, 3: 0.07, 4: 0.02, 5 : 0.01, 0: 0.08},
-        "type_proba" : {"LCD_LED" : 0.43, "LCD" : 0.35, "OLED" : 0.12, "Plasma" : 0.08, "Cathodique" : 0.025},
-        # "type_proba_autres" : {"LCD_LED" : 0.37, "LCD" : 0.44, "OLED" : 0.05, "Plasma" : 0.07, "Cathodique" : 0.04},
+        "types_proba" : {"LCD_LED" : 0.43, "LCD" : 0.35, "OLED" : 0.12, "Plasma" : 0.08, "Cathodique" : 0.025},
+        # "types_proba_autres" : {"LCD_LED" : 0.37, "LCD" : 0.44, "OLED" : 0.05, "Plasma" : 0.07, "Cathodique" : 0.04},
         "P_types" : {"OLED" : 100, "LCD_LED" : 90, "LCD" : 120, "Plasma" : 400, "Cathodique" : 100}, #W
         # Source https://www.kelwatt.fr/guide/conso/television
         "when" : {"presence_state" : ["awake"], "proba_t" : 0.7}
@@ -119,7 +169,7 @@ list_devices = {
         "proba" : 0.87, 
         "cap_popu" : {1 : 6.8, 2: 7.25, 3 : 7.7, 4 : 8.2, 5 : 8.75}, # kg
         # "types" : {"A+++", "A++", "A+", "A", "B", "C", "D"}, 
-        "E_types" : {"A+++" : 60, "A++" : 80, "A+" : 90, "B" : 100, "C" : 110, "D" : 120}, # IEE %
+        "E_types" : {"A+++" : 60, "A++" : 80, "A+" : 90, "A" : 95, "B" : 100, "C" : 110, "D" : 120}, # IEE %
         "types_proba" : {"A+++" : 0.075, "A++" : 0.15, "A+" : 0.15, "A" : 0.075, "B" : 0.06, "C" :0.02, "D":0.02}, 
         "cycle_length" : 3, # h
         "when" : {"presence_state" : ["awake"], "spec" : ["at start"], "proba" : 2/7}
@@ -129,7 +179,7 @@ list_devices = {
         # "types" : {"A+++", "A++", "A+", "A", "B", "C", "D"},
         "types_proba" : {"A+++" : 0.09, "A++" : 0.16, "A+" : 0.14, "A" : 0.08, "B" : 0.075, "C" :0.04, "D":0.02},
         "cap_popu" : {1 : 6.8, 2: 7.25, 3 : 7.7, 4 : 8.2, 5 : 8.75}, # kg
-        "E_types" : {"A+++" : 24, "A++" : 32, "A+" : 42, "A" : 65, "B" : 76, "C" : 85, "D" : 100}, 
+        "E_types" : {"A+++" : 24, "A++" : 32, "A+" : 42, "A" : 65, "B" : 76, "C" : 85, "D" : 100}, # IEE %
         "cycle_length" : 2, # h
         "when" : {"presence_state" : ["awake"], "spec" : ["at start"], "proba" : 2/7}
     }, 
@@ -159,8 +209,9 @@ list_devices = {
     }, 
     "heating_system" : {
         "proba" : 0.37, 
-        "T_needed_awake" : 20, # °C
-        "T_needed_asleep" : 18, # °C
+        "T_wanted_awake" : 20, # °C
+        "T_wanted_asleep" : 18, # °C
+        "T_wanted_away" : 15, # °C
         "net_deviation" : 3, # °C
         "DPE_proba" : {"A" : 0.05, "B" : 0.06, "C" : 0.37, "D" : 0.29, "E" : 0.15, "F" : 0.06, "G" : 0.03}, # Ademe
         "R_DPE" : {"A" : 2.5, "B" : 1.7, "C" : 1.3, "D" : 1, "E" : 0.7, "F" : 0.55, "G" : 0.35}, # m2.K/W
@@ -179,8 +230,8 @@ list_devices = {
     }, 
     "water_heater" : {
         "proba" : 0.44, # Ademe ballon électrique
-        "E" : 2190, # Wh average per day and per person, source Ademe
-        "P_popu" : {2 : 1500, 4 : 2500, 6 : 3000}, # W asumption
+        "energy_needed" : 2190, # Wh average per day and per person, source Ademe
+        "P_popu" : {1: 1500, 2 : 1500, 3 : 2000, 4 : 2500, 5 : 2750, 6 : 3000}, # W asumption
         "deviation" : 0.5, # proportion
         "when" : {"presence_state" : ["awake", "asleep", "away"]},
     }

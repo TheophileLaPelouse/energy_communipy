@@ -583,6 +583,21 @@ profile = generate_profile(nb_people, False, 1)
 plt.figure("profile")
 plt.plot([states[profile[k]] for k in range(len(profile))])
 
+#%% Test generation data V2 : one_device_allocation
+from commu_opti.data.generate_data_V2 import one_device_allocation#, list_devices
+from commu_opti.data.devices_jsonpy import list_devices
+equipments = {}
 
-
-
+print("\nFor 3 people")
+nb_people = 3
+for device in list_devices : 
+    print(device)
+    equipments[device] = one_device_allocation(list_devices[device], nb_people)
+    
+print("\nFor 2 people")
+nb_people = 2
+for device in list_devices : 
+    print(device)
+    equipments[device] = one_device_allocation(list_devices[device], nb_people)
+    
+    

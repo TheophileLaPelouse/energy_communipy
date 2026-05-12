@@ -22,27 +22,27 @@ def SAEC_dishwasher(C, d) :
     # d in hour, C in couverts
     return (7*C + 378) / 365 * 24/d # kWh/cycle https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32010R1059#anx_VI
 
-def frigo_power(V, deltat_active, deltat_inactive) : 
+def frigo_power(IEE, V, deltat_active, deltat_inactive) : 
     time_active_day = 24/(deltat_active + deltat_inactive) * deltat_active
     time_active_year = time_active_day * 365
-    return SAE_frigo(V) / time_active_year
+    return IEE/100 * SAE_frigo(V) / time_active_year
 
-def congelateur_power(V, deltat_active, deltat_inactive) :
+def congelateur_power(IEE, V, deltat_active, deltat_inactive) :
     time_active_day = 24/(deltat_active + deltat_inactive) * deltat_active
     time_active_year = time_active_day * 365
-    return SAE_congelateur(V) / time_active_year
+    return IEE/100 * SAE_congelateur(V) / time_active_year
 
-def four_power(V, cook_time) :
-    return SEC_four(V) / cook_time
+def four_power(IEE, V, cook_time) :
+    return IEE/100 * SEC_four(V) / cook_time
 
-def washing_machine_power(C, cycle_time) :
-    return SCE_washing_machine(C) / cycle_time
+def washing_machine_power(IEE, C, cycle_time) :
+    return IEE /100 * SCE_washing_machine(C) / cycle_time
 
-def dryer_power(C, d) :
-    return SEC_dryer(C, d) / d
+def dryer_power(IEE, C, d) :
+    return IEE/100 * SEC_dryer(C, d) / d
 
-def dishwasher_power(C, d) :
-    return SAEC_dishwasher(C, d) / d
+def dishwasher_power(IEE, C, d) :
+    return IEE/100 * SAEC_dishwasher(C, d) / d
 
 
 # Data
@@ -109,7 +109,7 @@ def compute_average_number(nb_proba) :
         coef = 1/total
         for k in nb_proba :
             nb_proba[k] *= coef
-    print(nb_proba)
+    # print(nb_proba)
     return sum([int(k)*nb_proba[k] for k in nb_proba])
 
 def compute_deviation_number(nb_proba, average) : 
@@ -126,15 +126,23 @@ def compute_average_type(type_proba, power_types) :
 def compute_deviation_type(type_proba, power_types, average) : 
     return sum([type_proba[t]*(power_types[t]-average)**2 for t in type_proba])**0.5
 
+def normal_positive(mu, sigma) :
+    x = normal(mu, sigma)
+    c = 0
+    while x < 0 and c < 10 : 
+        x = normal(mu, sigma)
+        c += 1
+    return max(x, 0)
+
 def normal_distribution_number(nb_proba) : 
     mu = compute_average_number(nb_proba)
     sigma = compute_deviation_number(nb_proba, mu)
-    return normal(mu, sigma)
+    return normal_positive(mu, sigma)
 
 def normal_distribution_type(type_proba, power_types) : 
     mu = compute_average_type(type_proba, power_types)
     sigma = compute_deviation_type(type_proba, power_types, mu)
-    return normal(mu, sigma)
+    return normal_positive(mu, sigma)
 
 def power_normal_distribution(nb_proba, type_proba, power_types) :
     # P = sum over N of Xi where Xi are random variables and N is a random variable independent of the Xi (approximation). 
@@ -145,8 +153,27 @@ def power_normal_distribution(nb_proba, type_proba, power_types) :
     combined_mean = mu_N * mu_type 
     combined_deviation = mu_N * sigma_type**2 + mu_type**2 * sigma_N**2 
     # Made it using AI assistance needs to be checked
-    return normal(combined_mean, combined_deviation**0.5)
+    return normal_positive(combined_mean, combined_deviation**0.5)
 
+
+# Utilities in general 
+
+def _parse_key(key):
+    # Try int first, then float, otherwise keep string
+    try:
+        return int(key)
+    except (ValueError, TypeError):
+        try:
+            return float(key)
+        except (ValueError, TypeError):
+            return key
+
+def convert_numeric_keys(obj):
+    if isinstance(obj, dict):
+        return { _parse_key(k): convert_numeric_keys(v) for k, v in obj.items() }
+    if isinstance(obj, list):
+        return [convert_numeric_keys(v) for v in obj]
+    return obj
 
 def dicotomie_search(l, val) : 
     # l is a list of increasing values, val is a value. We want to find the index i such that l[i] <= val < l[i+1]
@@ -163,6 +190,8 @@ def dicotomie_search(l, val) :
         else : 
             left = mid + 1
     return None # Should not happen if the input is correct
+
+# Markov chain functions
 
 def markov_states(transitions, current_state, starting_step=0, step_number=-1) : 
     n = transitions.shape[0]
@@ -186,3 +215,27 @@ def possible_starts(time_interval, indices, deltat, cycle_length, finish_before_
         return [i for i in indices if i*deltat + cycle_length <= time_interval]
     else :
         return [i for i in indices if i*deltat <= time_interval]
+    
+    
+# Thermal model functions 
+
+def thermal_model_flux(T_out_t1, T_b_t, T_in_t1, R1, R2, C, deltat) : 
+    T_b_t1 = ((T_b_t + deltat/C * (T_out_t1/R1 + T_in_t1/R2)) 
+            / 
+            (1 + deltat/C * (1/R1 + 1/R2))
+            )
+    flux_t1 = (T_b_t1 - T_in_t1) / R2
+    return T_b_t1, flux_t1
+
+def thermal_model_Tin(T_out_t1, T_b_t, flux_t1, R1, R2, C, deltat) : 
+    # Voir feuille de note de calcul
+    B = 1 + deltat/C * (1/R1 + 1/R2)
+    A = (
+        (T_b_t + deltat/C*(T_out_t1/R1 + flux_t1))
+        / 
+        B
+    )
+    T_b_t1 = A / (1 - deltat/C * 1/R2 / B)
+    T_in_t1 = T_b_t1 - flux_t1 * R2
+    return T_b_t1, T_in_t1
+    
