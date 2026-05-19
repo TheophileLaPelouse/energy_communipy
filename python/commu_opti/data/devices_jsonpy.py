@@ -81,7 +81,7 @@ list_devices = {
         "types_proba" : {"A" : 0.4, "B" : 0.04, "C" : 0.04, "D" : 0.05, "E" : 0.02, "F": 0.02, "G" : 0.03},
         "E_types" : {"A" : 40, "B" : 50, "C" : 63, "D" : 79, "E" : 100, "F" : 125, "G" : 160}, # IEE %
         
-        "V_popu" : {1 : 200, 2 : 240, 3 : 242, 4 : 265, 5 : 280}, # L
+        "V_popu" : {1 : 200, 2 : 240, 3 : 242, 4 : 265, 5 : 280, 6 : 300}, # L
         "cycle_length" : 22/60, # h
         "time_between_cycles" : 1.5, # h
         "increase_power" : 1/(18-6), # /°C to multiply by power (linear model but should be fine for small variations)
@@ -103,7 +103,7 @@ list_devices = {
         # "types" : {"A", "B", "C", "D", "E", "F", "G"},
         "types_proba" : {"A" : 0.4, "B" : 0.05, "C" : 0.05, "D" : 0.06, "E" : 0.04},
         "E_types" : {"A" : 40, "B" : 50, "C" : 63, "D" : 79, "E" : 100, "F" : 125, "G" : 160}, # EEI % 
-        "V_popu" : {1 : 160, 2 : 220, 3 : 220, 4 : 220, 5 : 230}, # L
+        "V_popu" : {1 : 160, 2 : 220, 3 : 220, 4 : 220, 5 : 230, 6 : 230}, # L
         "cycle_length" : 22/60, # h arbitrairement choisi comme pour le frigo
         "time_between_cycles" : 3, # h arbitrairerement choisi 2 fois plus grand que le frigo.
         "when" : {"presence_state" : ["awake", "asleep", "away"]},
@@ -167,7 +167,7 @@ list_devices = {
     }, 
     "washing_machine" : {
         "proba" : 0.87, 
-        "cap_popu" : {1 : 6.8, 2: 7.25, 3 : 7.7, 4 : 8.2, 5 : 8.75}, # kg
+        "cap_popu" : {1 : 6.8, 2: 7.25, 3 : 7.7, 4 : 8.2, 5 : 8.75, 6 : 9.25}, # kg
         # "types" : {"A+++", "A++", "A+", "A", "B", "C", "D"}, 
         "E_types" : {"A+++" : 60, "A++" : 80, "A+" : 90, "A" : 95, "B" : 100, "C" : 110, "D" : 120}, # IEE %
         "types_proba" : {"A+++" : 0.075, "A++" : 0.15, "A+" : 0.15, "A" : 0.075, "B" : 0.06, "C" :0.02, "D":0.02}, 
@@ -178,14 +178,14 @@ list_devices = {
         "proba" : 0.25, # Quasiment que des lave-linge sèchants
         # "types" : {"A+++", "A++", "A+", "A", "B", "C", "D"},
         "types_proba" : {"A+++" : 0.09, "A++" : 0.16, "A+" : 0.14, "A" : 0.08, "B" : 0.075, "C" :0.04, "D":0.02},
-        "cap_popu" : {1 : 6.8, 2: 7.25, 3 : 7.7, 4 : 8.2, 5 : 8.75}, # kg
+        "cap_popu" : {1 : 6.8, 2: 7.25, 3 : 7.7, 4 : 8.2, 5 : 8.75, 6 : 8.75}, # kg
         "E_types" : {"A+++" : 24, "A++" : 32, "A+" : 42, "A" : 65, "B" : 76, "C" : 85, "D" : 100}, # IEE %
         "cycle_length" : 2, # h
         "when" : {"presence_state" : ["awake"], "spec" : ["at start"], "proba" : 2/7}
     }, 
     "dishwasher" : {
         "proba" : 0.51, 
-        "cap_popu" : {1 : 12.5, 2 : 12.7, 3 : 13, 4 : 13.1, 5 : 13.4}, # couverts
+        "cap_popu" : {1 : 12.5, 2 : 12.7, 3 : 13, 4 : 13.1, 5 : 13.4, 6 : 13.4}, # couverts
         # "types" : {"A+++", "A++", "A+", "A", "B", "C", "D"},
         "types_proba" : {"A+++" : 0.075, "A++" : 0.16, "A+" : 0.15, "A" : 0.08, "B" : 0.03, "C" :0.025, "D":0.02},
         "E_types" : {"A+++" : 50, "A++" : 56, "A+" : 63, "A" : 71, "B" : 80, "C" : 90, "D" : 100}, # IEE %

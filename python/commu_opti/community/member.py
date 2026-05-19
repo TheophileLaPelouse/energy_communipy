@@ -29,6 +29,7 @@ class member :
         self.bat_present = False
         self.bat_cap = None        
         self.devices = devices 
+        self.devices_name = [device.name for device in devices]
         # print("START BUILDING")
         
         self.def_irradiance = kwargs.get("def_irradiance", False)

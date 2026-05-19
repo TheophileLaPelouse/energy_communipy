@@ -1,5 +1,6 @@
 import math
 from functools import reduce
+from . import pyo
 
 def calc_enviro(Pgrid, Pex, Pself, **kwargs) : 
     # Peut être ajouter test pour si viens d'un modèle pyomo ou pas 
@@ -65,6 +66,35 @@ def calc_eco_total(Pgrid_plus, Pgrid_minus, Pex, PV_cap, PV_present, bat_cap, ba
     
 def invest_cost(initial_cost, discount, lifetime) : 
     return initial_cost*discount/(1-(1+discount)**(-lifetime))
+
+def extract_values(m, dico) :
+    for k in range(len(m.devices)) :
+        dev = m.devices[k]
+        if not dico.get(dev.name) : 
+            dico[dev.name] = {
+                "Pcons_max" : [], 
+                "Pcons_min" : [],
+                "Econs" : [], 
+            }
+        if len(dev.mod.t_set) : 
+            dico[dev.name]["Pcons_max"].append(max(pyo.value(dev.mod.Pcons[t]) for t in dev.mod.t_set))
+            dico[dev.name]["Pcons_min"].append(min(pyo.value(dev.mod.Pcons[t]) for t in dev.mod.t_set))
+            dico[dev.name]["Econs"].append(sum(pyo.value(dev.mod.Pcons[t]) for t in dev.mod.t_set)*m.deltat)
+    if not dico.get("Econs") : dico["Econs"] = []
+    if not dico.get("Pcons_max") : dico["Pcons_max"] = []
+    if not dico.get("Pcons_min") : dico["Pcons_min"] = []
+    if not dico.get("Pgrid_max") : dico["Pgrid_max"] = []
+    if not dico.get("Pgrid_min") : dico["Pgrid_min"] = []
+    if not dico.get("Egrid_plus") : dico["Egrid_plus"] = []
+    if not dico.get("Egrid_minus") : dico["Egrid_minus"] = []
+    dico["Econs"].append(sum(pyo.value(m.P_cons[t]) for t in m.time_index)*m.deltat)
+    dico["Pcons_max"].append(max(pyo.value(m.P_cons[t]) for t in m.time_index))
+    dico["Pcons_min"].append(min(pyo.value(m.P_cons[t]) for t in m.time_index))
+    dico["Pgrid_max"].append(max(pyo.value(m.P_grid_plus[t]) for t in m.time_index))
+    dico["Pgrid_min"].append(min(pyo.value(m.P_grid_minus[t]) for t in m.time_index))
+    dico["Egrid_plus"].append(sum(pyo.value(m.P_grid_plus[t]) for t in m.time_index)*m.deltat)
+    dico["Egrid_minus"].append(sum(pyo.value(m.P_grid_minus[t]) for t in m.time_index)*m.deltat)
+    return dico
 
 
     

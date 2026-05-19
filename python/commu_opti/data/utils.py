@@ -229,14 +229,27 @@ def thermal_model_flux(T_out_t1, T_b_t, T_in_t1, R1, R2, C, deltat) :
     return T_b_t1, flux_t1
 
 def thermal_model_Tin(T_out_t1, T_b_t, flux_t1, R1, R2, C, deltat) : 
-    # Voir feuille de note de calcul
-    B = 1 + deltat/C * (1/R1 + 1/R2)
-    A = (
-        (T_b_t + deltat/C*(T_out_t1/R1 + flux_t1))
-        / 
-        B
-    )
-    T_b_t1 = A / (1 - deltat/C * 1/R2 / B)
-    T_in_t1 = T_b_t1 - flux_t1 * R2
-    return T_b_t1, T_in_t1
     
+    B = 1 + deltat/C * (1/R1 + 1/R2)
+
+    numerator = T_b_t + deltat/C * (T_out_t1/R1 - flux_t1)
+    denominator = B - deltat/(C*R2)
+
+    T_b_t1 = numerator / denominator
+    T_in_t1 = T_b_t1 - flux_t1 * R2
+
+    return T_b_t1, T_in_t1
+
+    
+    
+if __name__ == "__main__" : 
+    R1 = 6
+    R2 = 14
+    C = 28
+    
+    deltat = 1
+    T_out_t1 = 5
+    T_b_t = 5
+    T_in_t1 = 19
+    T_b_t1, flux_t1 = thermal_model_flux(T_out_t1, T_b_t, T_in_t1, R1, R2, C, deltat)
+    print("T_b_t1", T_b_t1, "flux_t1", flux_t1)

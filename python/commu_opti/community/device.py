@@ -205,6 +205,8 @@ class white_good(device) :
             cycle_length (int): length of each cycle
             time_range (list): list of time ranges
             power_needed (list): list of power needed at each time step
+            
+        To do : add another list for forbidden zone to allow discountinuous time range 
         """
         power_range = [[power_needed[k], power_needed[k]] for k in range(len(start_pref))]
         cycle_length = [int(cycle_length[k]/kwargs.get("deltat", 1)) + 1 
@@ -237,13 +239,14 @@ class white_good(device) :
         starting_time_minus >= start_pref - sum bin_t0[t]*t for t in set_t0)
 
         """
-        
+        set_P0 = pyo.RangeSet(0, self.total_time - 1)
         for instant in self.mod.t_set : 
             # print("\n INSTANT %d" % instant)
             t_min = max(0, self.t_use[instant][0] + self.t_range[instant][0])
             t_max = min(self.t_use[instant][1] + self.t_range[instant][1], self.total_time-1)
             cycle_length = self.t_use[instant][1] - self.t_use[instant][0] - 1
             set_t0 = pyo.RangeSet(t_min,t_max-cycle_length)
+            set_P0 = set_P0.difference(set_t0)
             bin_t0 = pyo.Var(set_t0, within=pyo.Boolean)
             starting_time_plus = pyo.Var(within=pyo.NonNegativeReals)
             starting_time_minus = pyo.Var(within=pyo.NonNegativeReals)
@@ -274,7 +277,7 @@ class white_good(device) :
                     # cycle_length - c with c the number of time in the loop would work.
                     # (Can be proven by induction)
                 return mod.Pcons[t] == S
-            pow_con = pyo.Constraint(self.time_total_set, rule=rule)
+            pow_con = pyo.Constraint(set_t0, rule=rule)
             setattr(self.mod, f"bin_p_con_{instant}", pow_con)
             
             def rule_confort(mod) : 
@@ -282,11 +285,10 @@ class white_good(device) :
             confort_con = pyo.Expression(rule=rule_confort)
             setattr(self.mod, f"confort_con_{instant}", confort_con)
             
-        if not self.mod.t_set : 
-            def rule(mod, t) : 
-                return mod.Pcons[t] == 0
-            pow_con = pyo.Constraint(self.time_total_set, rule=rule)
-            self.mod.pow_con = pow_con
+        def rule(mod, t) : 
+            return mod.Pcons[t] == 0
+        pow_con = pyo.Constraint(set_P0, rule=rule)
+        self.mod.pow_con = pow_con
         
         self.mod.t_confort_lvl = pyo.Expression(expr = sum(getattr(self.mod, f"confort_con_{instant}") for instant in self.mod.t_set))
             
