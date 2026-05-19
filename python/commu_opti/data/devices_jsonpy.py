@@ -120,7 +120,7 @@ list_devices = {
     },
     "plaque_electrique" : {
         "proba" : 0.91*0.52, # 0.5 because not everyone has an electric stove
-        "energy_needed" : 2.4*1000/2, # Wh
+        "power" : 2.4*1000, # W assumption taking 1200 Wh/cooking
         "cycle_length" : 0.5, # h
         "when" : {"presence_state" : ["awake"], "where" : "kitchen", "time" : [[12, 14, 0.5], [18, 22, 0.5]]}
     },
@@ -213,10 +213,6 @@ list_devices = {
         "T_wanted_asleep" : 18, # °C
         "T_wanted_away" : 15, # °C
         "net_deviation" : 3, # °C
-        "DPE_proba" : {"A" : 0.05, "B" : 0.06, "C" : 0.37, "D" : 0.29, "E" : 0.15, "F" : 0.06, "G" : 0.03}, # Ademe
-        "R_DPE" : {"A" : 2.5, "B" : 1.7, "C" : 1.3, "D" : 1, "E" : 0.7, "F" : 0.55, "G" : 0.35}, # m2.K/W
-        "coef_R" : [0.3, 0.7],        
-        "C_proba" : {25 : 0.2, 20 : 0.3, 15 : 0.3, 10 : 0.2}, # MJ/K un peu aléatoire ici
         # "types" : {"resistor", "heat_pump"},
         "types_proba" : {"resistor" : 32/37, "heat_pump" : 5/37},
         "when" : {"presence_state" : ["awake", "asleep"]},
@@ -242,6 +238,10 @@ list_devices = {
 building = {    
     "types_proba" : {"house" : 0.3, "apartment" : 0.68, "building" : 0.02},
     "nb_popu_proba" : {1 : 0.27, 2 : 0.23, 3 : 0.18, 4 : 0.15, 5 : 0.1, 6 : 0.07},
+    "DPE_proba" : {"A" : 0.05, "B" : 0.06, "C" : 0.37, "D" : 0.29, "E" : 0.15, "F" : 0.06, "G" : 0.03}, # Ademe
+    "R_DPE" : {"A" : 2.5, "B" : 1.7, "C" : 1.3, "D" : 1, "E" : 0.7, "F" : 0.55, "G" : 0.35}, # m2.K/W
+    "coef_R" : [0.3, 0.7],        
+    "C_proba" : {25 : 0.2, 20 : 0.3, 15 : 0.3, 10 : 0.2}, # MJ/K un peu aléatoire ici
     "surface_probability" : {
         1: {20: 0.0800213063461695,
         35: 0.11076324996521954,

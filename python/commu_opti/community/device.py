@@ -281,6 +281,12 @@ class white_good(device) :
                 return starting_time_plus + starting_time_minus
             confort_con = pyo.Expression(rule=rule_confort)
             setattr(self.mod, f"confort_con_{instant}", confort_con)
+            
+        if not self.mod.t_set : 
+            def rule(mod, t) : 
+                return mod.Pcons[t] == 0
+            pow_con = pyo.Constraint(self.time_total_set, rule=rule)
+            self.mod.pow_con = pow_con
         
         self.mod.t_confort_lvl = pyo.Expression(expr = sum(getattr(self.mod, f"confort_con_{instant}") for instant in self.mod.t_set))
             
@@ -376,19 +382,17 @@ class flex(device) :
         self.mod.p_confort_lvl = pyo.Expression(self.t_set, rule=confort_rule)
         
 class AoN(device) : 
-    def __init__(self, power_needed, time_use_param, **kwargs) :
-        """Not used yet neither tested yet.
-
-        Args:
-            power_needed (_type_): _description_
-            time_use_param (_type_): _description_
+    def __init__(self, power_needed, energy_needed, **kwargs) :
+        """
+        On or off activation with constraint on total energy consumption.For the water heater for example.
         """
         total_time = kwargs.get("total_time", 24)
         self.total_time = total_time
         time_use = [[k, k+1] for k in range(total_time)]
         time_range = [[0, total_time] for k in range(total_time)]
         power_range = [[power_needed, power_needed] for k in range(total_time)]
-        self.on_off_param = time_use_param # [[t0, tend] list]
+        self.energy_needed = energy_needed
+        self.power_needed = power_needed
         super().__init__(power_range, time_use, time_range, **kwargs)
         self.generate_spec_constraint()
         
@@ -396,17 +400,11 @@ class AoN(device) :
         """
         Ici on a un vecteur de binaires pour quand ça s'active ou pas.
         """
-        self.mod.on_off = pyo.Var(self.mod.t_set, within=pyo.Boolean)
-        if not self.variable : 
-            for t0, tend in self.on_off_param : 
-                for k in range(t0, tend) : 
-                    self.mod.on_off[k].fix(1)
-            for t in self.mod.t_set : 
-                if not self.mod.on_off[t].fixed:
-                    self.mod.on_off[k].fix(0)
+        self.mod.on_off = pyo.Var(self.mod.t_set, within=pyo.Boolean, initialize=[0 for k in self.mod.t_set])
+        self.mod.sum_on_off_con = pyo.Constraint(expr=(sum(self.mod.on_off[k] for k in self.mod.t_set)*self.power_needed*self.deltat >= self.energy_needed))
 
         def rule(mod, t) : 
-            return mod.Pcons(t) == sum(mod.on_off[k] for k in mod.t_set)*self.p_range[0]
+            return mod.Pcons[t] == mod.on_off[t]*self.power_needed
         self.mod.pow_con = pyo.Constraint(self.mod.t_set, rule=rule)
         
         self.mod.p_con_l.deactivate()
@@ -523,6 +521,7 @@ class EV(device) :
         self.mod.P_plus = self.P_plus
         self.mod.P_minus = self.P_minus
         self.generate_bat_constraint(E_end=E_end)
+        
         
 if __name__ == '__main__' :
     # Test device initialization

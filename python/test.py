@@ -42,6 +42,7 @@ wash_mach = {'cycle_length': [3],
   'start_pref': [22],
   'time_range': [[0, 0]]
   }
+
 # wash_mach = {'cycle_length' : [0.5], 
 #              'power_needed' : [3], 
 #              "start_pref" : [18], 
@@ -51,6 +52,15 @@ wash_mach = {'cycle_length': [3],
 device_wash_mach = d.white_good(**wash_mach, **options)
 
 print("\nWASHING MACHINE DEFINED\n")
+
+# plaque_electrique
+
+# {'parameters': {'cycle_length': [0.5, 0.5],
+#   'power_needed': [0.0, 0.0],
+#   'start_pref': [13, 18],
+#   'time_range': [(12, 14), (18, 22)],
+#   'name': 'plaque_electrique'},
+#  'type': 'white_good'}
 
 # réfrigérateur
 
@@ -568,7 +578,7 @@ for i, name in to_save :
 
 
 #%% test generation data V2 : Markov states
-from commu_opti.data.generate_data_V2 import generate_profile, generate_building, average_surface, initial_state_probabilities
+from commu_opti.data.generate_data_V2 import generate_profile, generate_building, average_surface, initial_state_probabilities, get_weather_data
 from commu_opti.data.utils import compute_average_number
 
 
@@ -580,8 +590,8 @@ states = [f"{k}{j}" for k in range(nb_people+1) for j in range(nb_people+1)]
 states = {states[i] : i for i in range(len(states))}
 profile = generate_profile(nb_people, False, 1)
 
-plt.figure("profile")
-plt.plot([states[profile[k]] for k in range(len(profile))])
+# plt.figure("profile")
+# plt.plot([states[profile[k]] for k in range(len(profile))])
 
 #%% Test generation data V2 : one_device_allocation
 from commu_opti.data.generate_data_V2 import one_device_allocation#, list_devices
@@ -590,14 +600,77 @@ equipments = {}
 
 print("\nFor 3 people")
 nb_people = 3
+profile = generate_profile(nb_people, False, 1)
 for device in list_devices : 
     print(device)
     equipments[device] = one_device_allocation(list_devices[device], nb_people)
     
-print("\nFor 2 people")
-nb_people = 2
-for device in list_devices : 
-    print(device)
-    equipments[device] = one_device_allocation(list_devices[device], nb_people)
+# print("\nFor 2 people")
+# nb_people = 2
+# profile = generate_profile(nb_people, False, 1)
+# for device in list_devices : 
+#     print(device)
+#     equipments[device] = one_device_allocation(list_devices[device], nb_people)
     
     
+#%% Test generation data V2 : profiles
+from commu_opti.data.generate_data_V2 import profile_to_presence, device_activation_profile, when_to_profile, device_power_profile
+import datetime as dt
+print("Compute presence profile")
+
+# presence_profile = profile_to_presence(profile, nb_people)
+date_start = dt.datetime(2020, 12, 8)
+date_end = dt.datetime(2020, 12, 9)
+weather_forecast, irradiance_profile = get_weather_data(date_start, date_end)
+weather_history, irradiance_history = get_weather_data(date_start, date_end, forecast=False)
+weather = {"forecast" : {
+    "temperature" : weather_forecast, 
+    "irradiance" : irradiance_profile
+    },
+    "history" : {
+        "temperature" : weather_history,
+        "irradiance" : irradiance_history
+    }
+}
+
+deltat = 1
+final_result = {}
+for device in equipments : 
+    if equipments[device]["Number"] != 0 and equipments[device].get("P") != 0 : 
+        print(f"\nDevice {device} \n")
+        activation_profile, when_profile, presence_profile = device_activation_profile(profile, equipments[device], deltat, nb_people)
+        print("Activation profile copmuted")
+        args = {
+            "activation_profile" : activation_profile,
+            "when_profile" : when_profile,
+            "presence_profile" : presence_profile,
+            "device_name" : device,
+            "allocated" : equipments[device],
+            "building" : build,
+            "nb_people" : nb_people,
+            "deltat" : deltat,
+            "weather" : weather
+            }
+        pow_profile = device_power_profile(**args)
+        pow_profile["parameters"]["name"] = device
+        print("Power profile computed")
+        
+        final_result[device] = {"power_profile" : pow_profile, "args" : args}
+    
+#%% define member using these profiles
+from commu_opti.commu_builder import define_members
+
+
+devices = {device : final_result[device]["power_profile"] for device in list(final_result.keys())[:]}
+
+member_param = {
+    'socio': [1, 1, 0, 1],
+    'id_': 0,
+}
+param = {"devices" : devices, "device_options" : {"total_time" : 24, "deltat" : 1}, 
+                    "parameters" : member_param}
+list_members_params = [param]
+members = define_members(list_members_params)
+m = members[0]
+m.self_optimize('gurobi')
+# Need to verify at the end if we come to a coherent average value when generating a lot of profiles.

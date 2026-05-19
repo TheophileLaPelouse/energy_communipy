@@ -334,6 +334,16 @@ class member :
                     getattr(d.mod, "Pcons")[t].fix(0)
                 for c in d.mod.component_objects(pyo.Constraint, active=True) :
                     c.deactivate()
+            elif d.__class__.__name__ == "AoN" : 
+                nb_activation_needed = int(d.energy_needed/d.power_needed) + int(d.energy_needed%d.power_needed != 0)
+                spread_indices = set()
+                for i in range(nb_activation_needed) : 
+                    spread_indices.add(round(i*(self.total_time-1)/(nb_activation_needed-1)))
+                for t in range(self.total_time) : 
+                    if t in spread_indices : 
+                        d.mod.on_off[t].fix(1)
+                    else : 
+                        d.mod.on_off[t].fix(0)
             else : 
                 for t in d.mod.t_set : 
                     getattr(d.mod, "allocated_power")[t].fix((d.p_range[t][1] + d.p_range[t][0])/2)

@@ -47,17 +47,17 @@ def dishwasher_power(IEE, C, d) :
 
 # Data
 
-def get_irradiance_data(lat, lon, t0, tend) : 
-    df = pd.read_csv(f"irradiance_{lat}_{lon}.csv")
-    return df[(df["time"] >= t0) & (df["time"] <= tend)]
+# def get_irradiance_data(lat, lon, t0, tend) : 
+#     df = pd.read_csv(f"irradiance_{lat}_{lon}.csv")
+#     return df[(df["time"] >= t0) & (df["time"] <= tend)]
 
-def get_weather_forecast_data(lat, lon, t0, tend) : 
-    df = pd.read_csv(f"weather_forecast_{lat}_{lon}.csv", parse_dates=["time"])
-    return df[(df["time"] >= t0) & (df["time"] <= tend)]
+# def get_weather_forecast_data(lat, lon, t0, tend) : 
+#     df = pd.read_csv(f"weather_forecast_{lat}_{lon}.csv", parse_dates=["time"])
+#     return df[(df["time"] >= t0) & (df["time"] <= tend)]
 
-def get_weather_history_data(lat, lon, t0, tend) : 
-    df = pd.read_csv(f"weather_history_{lat}_{lon}.csv", parse_dates=["time"])
-    return df[(df["time"] >= t0) & (df["time"] <= tend)]
+# def get_weather_history_data(lat, lon, t0, tend) : 
+#     df = pd.read_csv(f"weather_history_{lat}_{lon}.csv", parse_dates=["time"])
+#     return df[(df["time"] >= t0) & (df["time"] <= tend)]
 
 # Thermal models for the heating system and water heater
 def thermal_model_heating(T_i_w, T_o_f, T_b_c, R1, R2, C, deltat) :
@@ -211,10 +211,11 @@ def markov_states(transitions, current_state, starting_step=0, step_number=-1) :
     return {"results" : states}
 
 def possible_starts(time_interval, indices, deltat, cycle_length, finish_before_end=True) :
+    # print("args possible starts", time_interval, indices, deltat, cycle_length, finish_before_end)
     if finish_before_end : 
-        return [i for i in indices if i*deltat + cycle_length <= time_interval]
+        return [i for i in indices if (i - indices[0])*deltat + cycle_length <= time_interval]
     else :
-        return [i for i in indices if i*deltat <= time_interval]
+        return [i for i in indices if (i - indices[0])*deltat <= time_interval]
     
     
 # Thermal model functions 

@@ -37,6 +37,17 @@ average_surface = {int(k): compute_average_number(v) for k, v in building["surfa
 deviation_surface = {int(k): compute_deviation_number(v, average_surface[int(k)]) for k, v in building["surface_probability"].items()}    
 
 
+def get_weather_data(date_start, date_end, lat=45, lon=8, forecast=True) :
+    year = date_start.year 
+    file = f"weather_{'forecast' if forecast else 'history'}_{year}_{lat}_{lon}.csv"
+    if not os.path.exists(os.path.join(os.path.dirname(__file__), file)) :
+        raise ValueError(f"Weather data for the year {year} and location ({lat}, {lon}) not found. Should be generated using weather_data.py")
+    df = pd.read_csv(os.path.join(os.path.dirname(__file__), file), parse_dates=["time"])
+    df = df[(df["time"] >= date_start) & (df["time"] <= date_end)]
+    weather = df["temperature_2m"].to_numpy()
+    irradiance = df["shortwave_radiation"].to_numpy()
+    return weather, irradiance
+
 def generate_building() : 
     
     nb_people = round(normal(average_people, deviation_people))
@@ -46,7 +57,15 @@ def generate_building() :
     surface = round(normal(average_surface[nb_people], deviation_surface[nb_people]))
     if surface < 10 : surface = 10
     
-    return {"nb_people" : nb_people, "surface" : surface}
+    R_DPE = power_normal_distribution({1: 1}, 
+                                        building["DPE_proba"], 
+                                        building["R_DPE"])
+    C = normal_distribution_number(building["C_proba"])
+    R1 = R_DPE * surface * building['coef_R'][0]
+    R2 = R_DPE * surface * building['coef_R'][1]
+    
+    
+    return {"nb_people" : nb_people, "surface" : surface, "R1" : R1, "R2" : R2, "C" : C}
 
 def generate_profile(nb_people, weekend, deltat, profile_0 = None) : 
     """Generate a 24 hours profile. The states are in the shape "ij" 
@@ -198,13 +217,14 @@ def when_to_profile(deltat, device) :
         return [union for _ in range(int(24/deltat))]
     
     if when.get("time") : 
+        # print("Bonjour", when["time"])
         for time_interval in when["time"] : 
             start, end, proba = time_interval
-            start_index = int(round(start/deltat))
-            end_index = int(round(end/deltat))
-            if when.get("spec") : 
-                finish_before_end = when["spec"] == "before leave"
-            indices = possible_starts(end-start, range(start, end+1), deltat, device.get("cycle_length", 0), finish_before_end=finish_before_end)
+            start_index = int(start/deltat)
+            end_index = int(end/deltat)
+            finish_before_end = when.get("spec") == "before leave"
+            indices = possible_starts(end-start, range(start, end), deltat, device.get("cycle_length", 0), finish_before_end=finish_before_end)
+            # print("indices", indices, start_index, end_index)
             for i in indices :
                 intervals[i]  = {}
                 for key in when["presence_state"] : 
@@ -215,10 +235,12 @@ def when_to_profile(deltat, device) :
         
         for moment in when["moment"] :
             start, end = translation[moment]
-            start, end = round(normal(moment[0], 0.3*moment[0])), round(normal(moment[1], 0.3*moment[1]))
+            start, end = round(normal(start, 0.3*start)), round(normal(end, 0.3*end))
             if end < start : start, end = end, start
             start_index = int(round(start/deltat))
             end_index = int(round(end/deltat))
+            if start_index < 0 : start_index = 0
+            if end_index > len(intervals) : end_index = len(intervals) - 1
             for i in range(start_index, end_index) :
                 intervals[i]  = {}
                 for key in when["presence_state"] : 
@@ -229,9 +251,10 @@ def when_to_profile(deltat, device) :
         start, end = 0, 24
         start_index = int(round(start/deltat))
         end_index = int(round(end/deltat))
-        indices = possible_starts(end-start, range(start, end+1), deltat, device.get("cycle_length", 0))
+        indices = possible_starts(end-start, range(start, end), deltat, device.get("cycle_length", 0))
         proba = when.get("proba")
         probat = when.get("probat")
+        # print("Bonjour", indices, len(intervals))
         for i in indices : 
             intervals[i]  = {}
             for key in when["presence_state"] : 
@@ -252,37 +275,52 @@ def device_activation_profile(profile, device, deltat, nb_people) :
     when_profile = when_to_profile(deltat, device)
     activation_profile = [0 for _ in range(int(24/deltat))]
     i = 0
-    set_proba = {}
+    set_proba = set()
     while i < len(when_profile) : 
         presence_state = profile_presence[i]
         when = when_profile[i]
-        if presence_state in when : 
-            if "probat" in when[presence_state] : 
+        # print(presence_state, when)
+        flag = False
+        for state in presence_state : 
+            if presence_state[state] > 0 and state in when : 
+                flag = True
+                break
+        if flag : 
+            
+            if isinstance(when[state], (int, float)) or "probat" in when[state] : 
                 # Has a probability of probat to be activated at each time step during the time interval
-                if rand() < when[presence_state]["probat"] : 
+                if isinstance(when[state], (int, float)) : 
+                    if rand() < when[state] :
+                        activation_profile[i] = 1
+                elif rand() < when[state]["probat"] : 
                     activation_profile[i] = 1
                 i += 1
                     
-            elif "proba" in when[presence_state] and not "time" in when[presence_state] :
+            elif "proba" in when[state] and not "time" in when[state] :
                 # Will be activated once a day with a certain probability 
                 set_proba.add(i)
                 i += 1
                 
-            elif "proba" in when[presence_state] and "time" in when[presence_state] :
+            elif "proba" in when[state] and "time" in when[state] :
                 # Will be activated once during the time interval with a certain probability
-                proba = when[presence_state]["proba"]
-                time_interval = when[presence_state]["time"]
+                proba = when[state]["proba"]
+                time_interval = when[state]["time"]
                 indices = possible_starts(time_interval[1]-time_interval[0], range(i, len(when_profile)), deltat, device.get("cycle_length", 0), finish_before_end=True)
                 rd_indice = np.random.choice(indices)
                 if rand() < proba : 
                     activation_profile[rd_indice] = 1
                 i = indices[-1] + 1
+        else : 
+            i += 1
                 
+        # print("bonjour", list(set_proba))
+    if set_proba : 
         rd_indice = np.random.choice(list(set_proba))
-        if rand() < when_profile[rd_indice][presence_state]["proba"] : 
+        print("bonjour", rd_indice, when_profile[rd_indice])
+        if rand() < when_profile[rd_indice]['awake']["proba"] : 
             activation_profile[rd_indice] = 1
                 
-    return activation_profile    
+    return activation_profile, when_profile, profile_presence
 
 
 
@@ -300,41 +338,74 @@ def fridge_profile(device_name, allocated, deltat, total_time) :
                             else 0 for k in range(total_time)]
     
     confort_diff = allocated.get("confort_temp", 0) # For now this key does not exist
-    power_profile_confort = [power + power*allocated['increase_power']*confort_diff 
+    increased_pow = allocated.get("increase_power", 0)
+    power_profile_confort = [power + power*increased_pow*confort_diff 
                                 if k/deltat % total_cycle < time_active 
                                 else 0 for k in range(total_time)]
     p_range = [(power_profile_needed[i], power_profile_confort[i]) for i in range(total_time)]
-    param = {"parameters" : {"p_range" : p_range}, "type" : "flex"}
+    param = {"parameters" : {"power_range" : p_range}, "type" : "flex"}
+    return param
     
 def white_goods_profile(device_name, allocated, deltat, when_profile, activation_profile) :
     cycle_length = allocated.get("cycle_length", 0)
     if device_name == "washing_machine" :
         E, cycle_length, popu = allocated["E"], allocated["cycle_length"], allocated["popu"]
+        finish_before_end = False
         power = washing_machine_power(E, popu, cycle_length)
     elif device_name == "dishwasher" :
         E, cycle_length, popu = allocated["E"], allocated["cycle_length"], allocated["popu"]
+        finish_before_end = False
         power = dishwasher_power(E, popu, cycle_length)
     elif device_name == "dryer" :
         E, cycle_length, popu = allocated["E"], allocated["cycle_length"], allocated["popu"]
+        finish_before_end = False
         power = dryer_power(E, popu, cycle_length)
     elif device_name == "hoven" :
         E, cycle_length, popu = allocated["E"], allocated["cycle_length"], 60 # Not exact but does not change much (5%)
+        finish_before_end = True
         power = four_power(E, popu, cycle_length)
+        print("power", power, E, popu, cycle_length)
+
+    else : 
+        power, cycle_length = allocated["P"], allocated["cycle_length"]
+        finish_before_end = True
 
     start_pref = []
     time_range = []
-    for interval in when_profile['time'] : 
-        start, end, proba = interval
-        indices = possible_starts(end-start, range(int(start/deltat), int(end/deltat)+1), deltat, cycle_length, finish_before_end=True)
-        for i in indices : 
-            if activation_profile[i] == 1 :
-                # Slow but I don't see how to accelerate it  
-                start_pref.append(i)
-                time_range.append((start, end))
+    # print(when_profile)
+    if allocated['when'].get('time') :
+        for interval in allocated['when']['time'] : 
+            start, end, proba = interval
+            indices = possible_starts(end-start, range(int(start/deltat), int(end/deltat)+1), deltat, cycle_length, finish_before_end=finish_before_end)
+            for i in indices : 
+                if activation_profile[i] == 1 :
+                    # Slow but I don't see how to accelerate it  
+                    start_pref.append(i)
+                    time_range.append((start-i, end-i))
+                    break
+                
+    else :
+        # We'll see later, for now no time range for these devices 
+        # flag = True
+        # t0 = 0
+        # c = 
+        # while flag : 
+        #     while not when_profile[t0] :
+        #         t0 += 1
+        #     tend = t0
+        #     while when_profile[tend] : 
+        #         if activation_profile[t0]
+        #         tend += 1
+        for k in range(len(activation_profile)) :
+            if activation_profile[k] == 1 : 
+                start_pref.append(k) # To verify if needs to be multiplied by deltat
+                time_range.append([0, 0])
                 break
+                
             
-    white_good = {'cycle_length' : [cycle_length], # For now no variation on the cycle length, but it could be done. 
-                    'power_needed' : power, 
+            
+    white_good = {'cycle_length' : [cycle_length for k in range(len(start_pref))], # For now no variation on the cycle length, but it could be done. 
+                    'power_needed' : [power for k in range(len(start_pref))], 
                     "start_pref" : start_pref, 
                     "time_range" : time_range, 
                     }
@@ -364,8 +435,9 @@ def small_white_goods_profile(allocated, deltat, total_time, activation_profile)
     return params
     
 
-def lighting_profile(allocated, deltat, total_time, activation_profile, surface, presence_profile, nb_people) : 
+def lighting_profile(allocated, total_time, activation_profile, building, presence_profile, nb_people) : 
     # The lighting power is cvonsidered proportional to the number of people at home and to the surface of the house.  
+    surface = building["surface"]
     power_profile = []
     for i in range(total_time) : 
         if activation_profile[i] == 1 : 
@@ -377,11 +449,11 @@ def lighting_profile(allocated, deltat, total_time, activation_profile, surface,
     params = {"parameters" : {"power_profile" : power_profile}, "type" : "fixed"}
     return params
 
-def water_heater_profile(allocated, deltat, total_time, activation_profile, nb_people) :
+def water_heater_profile(allocated, nb_people) :
     # The water heater needs to provide a certain amount of energy
     energy_needed = allocated["E"] * nb_people
     P = allocated['P']
-    params = {"parameters" : {"energy_needed" : energy_needed, "power" : P}, "type" : "water_heater"}
+    params = {"parameters" : {"energy_needed" : energy_needed, "power_needed" : P}, "type" : "water_heater"}
     return params
 
 def heating_power_model(T, presence_profile, weather, R1, R2, C, total_time, deltat, typ, **options) : 
@@ -398,7 +470,7 @@ def heating_power_model(T, presence_profile, weather, R1, R2, C, total_time, del
     power_profile = [0]
     for t in range(total_time-1) :
         T_b, flux = thermal_model_flux(T_b, T_out[t+1], T_in[t+1], R1, R2, C, deltat)
-        power_profile.append(flux)
+        power_profile.append(max(0, flux))
         
     if typ == "resistor" :
         carnot = [1 for k in range(total_time)]
@@ -411,7 +483,7 @@ def heating_power_model(T, presence_profile, weather, R1, R2, C, total_time, del
     return power_profile, carnot
     
     
-def heating_system_profile(allocated, deltat, total_time, surface, presence_profile, weather, **options) :
+def heating_system_profile(allocated, deltat, total_time, building, presence_profile, weather, **options) :
     # 2R1C model, we compute first the power range for a certain temperature
     T_wanted = {"awake" : normal_positive(allocated["T_wanted_awake"], 1), 
                 "asleep" : normal_positive(allocated["T_wanted_asleep"], 1), 
@@ -421,14 +493,8 @@ def heating_system_profile(allocated, deltat, total_time, surface, presence_prof
         "asleep" : 14,
         "away" : 10
     }
-    
-    R_DPE = power_normal_distribution({0: 1-allocated['Number'], 1: allocated['Number']}, 
-                                        allocated["DPE_proba"], 
-                                        allocated["R_DPE"])
-    C = normal_distribution_number(allocated["C_proba"])
-    R1 = R_DPE * surface * allocated['coef_R']
-    R2 = R_DPE * surface * (1-allocated['coef_R'])
-    T0 = options.get("T0", T_wanted["asleep"])
+    R1, R2, C = building["R1"], building["R2"], building["C"]
+    # T0 = options.get("T0", T_wanted["asleep"])
     
     typ = allocated.get("type", "resistor")
     power_confort_forecast, carnot = heating_power_model(T_wanted, presence_profile, weather, R1, R2, C, total_time, deltat, typ, **options)
@@ -439,7 +505,7 @@ def heating_system_profile(allocated, deltat, total_time, surface, presence_prof
     p_range_forecast = [(power_min_forecast[i]*efficiency*carnot[i], 
                          power_confort_forecast[i]*efficiency*carnot[i]) 
                         for i in range(total_time)]
-    params = {"parameters" : {"p_range" : p_range_forecast}, "type" : "flex"}
+    params = {"parameters" : {"power_range" : p_range_forecast}, "type" : "flex"}
     
     if weather.get("history") : 
         presence_profile_history  = options.get("presence_profile_history", presence_profile)
@@ -452,45 +518,76 @@ def heating_system_profile(allocated, deltat, total_time, surface, presence_prof
         
     return params
     
-def clim_profile(allocated, deltat, total_time, surface, presence_profile, weather, **options)  :
+def clim_profile(allocated, deltat, total_time, presence_profile, weather, building, **options)  :
     T_out_forecast = weather["forecast"]["temperature"]
     T_in_forecast = []
     flux_forecast = []
+    if weather.get("history") : 
+        T_out_history = weather["history"]["temperature"]
+        T_in_history = []
+        flux_history = []
+        
     T_activation = normal_positive(allocated.get("T_activation", 25), 2)
     T_minus = normal_positive(allocated.get("T_minus", -7), 2)
     T_b = options.get("T_b", T_out_forecast[0]) # Initial temperature of the inertia of the building, we will update it at each time step
     
-    R1, R2, C = options["R1"], options["R2"], options["C"]
-    for t in range(total_time) :
-        if presence_profile[t].get("awake", 0) > 0 or presence_profile[t].get("asleep", 0) > 0 : 
-            if T_out_forecast[t] > T_activation - T_minus : 
-                T_in_forecast.append(T_activation + T_minus)
-                T_b, flux = thermal_model_flux(T_b, T_out_forecast[t], T_in_forecast[-1], R1, R2, C, deltat)
-                flux_forecast.append(flux)
-            elif T_out_forecast[t] > T_activation : 
-                T_in_forecast.append(T_activation)
-                T_b, flux = thermal_model_flux(T_b, T_out_forecast[t], T_in_forecast[-1], R1, R2, C, deltat)
-                flux_forecast.append(flux)
-            else : 
-                flux_forecast.append(0)
-                T_b, T_in = thermal_model_Tin(T_b, T_out_forecast[t], flux_forecast[-1], R1, R2, C, deltat)
-                T_in_forecast.append(T_in)
-                
-        else : 
-            flux_forecast.append(0)
-            T_b, T_in = thermal_model_Tin(T_b, T_out_forecast[t], flux_forecast[-1], R1, R2, C, deltat)
-            T_in_forecast.append(T_in)
-            
-            
-            
+    R1, R2, C = building["R1"], building["R2"], building["C"]
     
+    def iterate_clim(presence_profile, T_b, T_out, R1, R2, C, deltat) :
+        if presence_profile[t].get("awake", 0) > 0 or presence_profile[t].get("asleep", 0) > 0 : 
+            if T_out > T_activation - T_minus : 
+                T_in = T_activation + T_minus
+                T_b, flux = thermal_model_flux(T_b, T_out, T_in, R1, R2, C, deltat)
+            elif T_out > T_activation : 
+                T_in = T_activation
+                T_b, flux = thermal_model_flux(T_b, T_out, T_in, R1, R2, C, deltat)
+            else : 
+                flux = 0
+                T_b, T_in = thermal_model_Tin(T_b, T_out, flux, R1, R2, C, deltat)
+
+        else : 
+            flux = 0
+            T_b, T_in = thermal_model_Tin(T_b, T_out, flux, R1, R2, C, deltat)
+        
+        return T_b, T_in, flux
+
+
+        
+    for t in range(total_time) :
+        T_b, T_in, flux = iterate_clim(presence_profile, T_b, T_out_forecast[t], R1, R2, C, deltat)
+        flux_forecast.append(flux)
+        T_in_forecast.append(T_in)
+        
+        if weather.get('history') : 
+            presence_history = options.get("presence_profile_history", presence_profile)
+            T_b, T_in, flux = iterate_clim(presence_history, T_b, T_out_history[t], R1, R2, C, deltat)
+            flux_history.append(flux)
+            T_in_history.append(T_in)
+                
+        
+        # Faire en sorte que R1, R2 et C soient accessibles pour le chauffage et la clim directe, peut être faire une autre fonction à intégrer avant ?
+            
+    p_range = [(0, -flux_forecast[i]) for i in range(total_time)]
+    params = {"parameters" : {"power_range" : p_range}, "type" : "flex"}
+    if weather.get("history") :
+        p_range_history = [(0, -flux_history[i]) for i in range(total_time)]
+        params["parameters"]["p_range_history"] = p_range_history
+        
+    return params
 
     
-def device_power_profile(activation_profile, when_profile, presence_profile, device_name, allocated, surface, nb_people, deltat, **options) : 
+def device_power_profile(activation_profile, when_profile, presence_profile, device_name, allocated, building, nb_people, deltat, weather, **options) : 
     """
     Generate the power profile of the device depending on the activation profile and the device characteristics.
-    """
     
+    - activation_profile, when_profile computed using the function device_activation_profile
+    - presence_profile computed using the function profile_to_presence
+    - allocated computed using the function one_device_allocation
+    - building generated using the function generate_building
+    - Possible options for now : presence_profile_history, T_b (initial value of the temperature of the inertia of the building)
+    """
+    if allocated['Number'] == 0 : 
+        return None
     total_time = len(activation_profile)
     if device_name in ['refrigerator', 'congelateur'] : 
         # E, cycle_lenght, time_between_cycles 
@@ -508,16 +605,16 @@ def device_power_profile(activation_profile, when_profile, presence_profile, dev
         params = small_white_goods_profile(allocated, deltat, total_time, activation_profile)
         
     if device_name == 'lighting' : 
-        params = lighting_profile(allocated, deltat, total_time, activation_profile, surface, presence_profile, nb_people)
+        params = lighting_profile(allocated, total_time, activation_profile, building, presence_profile, nb_people)
         
     if device_name == 'water_heater' : 
-        params = water_heater_profile(allocated, deltat, total_time, activation_profile, nb_people)
+        params = water_heater_profile(allocated, nb_people)
         
     if device_name == 'heating_system' : 
-        params = heating_system_profile(allocated, deltat, total_time, activation_profile, surface, presence_profile, nb_people, **options)
+        params = heating_system_profile(allocated, deltat, total_time, building, presence_profile, weather, **options)
     
     if device_name == 'climatisation' : 
-        params = clim_profile(allocated, deltat, total_time, surface, presence_profile, nb_people, **options)
+        params = clim_profile(allocated, deltat, total_time, presence_profile, weather, building, **options)
     
     return params
     
