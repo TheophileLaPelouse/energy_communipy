@@ -1,0 +1,4 @@
+,refrigerator,TV,lighting,plaque_electrique,microwave,boiler,washing_machine,small_object_charge,fix_computer,fixed_load_parameters,congelateur,toaster,dryer,dishwasher,water_heater,heating_system,hoven,climatisation
+Econs,0.32,2350.32,0.0,0.0,522.07,562.5,0.0,226.01,1087.8,718.48,0.19,545.71,0.0,0.13,46976.99,12543.42,0.0,0.69
+Pcons_max,0.05,143.11,0.0,0.0,376.19,484.69,0.0,14.76,73.8,29.94,0.06,439.42,0.0,0.13,1957.37,2581.77,0.0,0.3
+Pcons_min,0.0,19.2,0.0,0.0,0.0,0.0,0.0,1.94,8.35,29.94,0.0,0.0,0.0,0.13,1957.37,48.8,0.0,0.0

@@ -4,20 +4,22 @@ sys.path.append("/home/theophile/Desktop/git/projet_g3/python")
 import pyomo.environ as pyo
 from pyomo.opt import SolverFactory
 import matplotlib.pyplot as plt
+import pandas as pd 
+import os 
 
 from commu_opti.generate_device_infos import generate_member_data_random
 from commu_opti.commu_builder import define_community, define_members
 from commu_opti.community.utils import extract_values
+#%%
 
-
-n_iter_max = 500
+n_iter_max = 1000
 averages = []
 variances = []
-eps_average = 10
-eps_variance = 10
+eps_average = 0.001
+eps_variance = 0.001
 c = 0
 results = {}
-while c<2 or ((abs(averages[-1] - averages[-2]) > eps_average or abs(variances[-1] - variances[-2]) > eps_variance) and c < n_iter_max):
+while c<2 or ((abs(averages[-1] - averages[-2])/averages[-1] > eps_average or abs(variances[-1] - variances[-2])/variances[-1] > eps_variance) and c < n_iter_max):
     print(f"Iteration {c}")
     param, final_result = generate_member_data_random()
     param["parameters"]["socio"] = [0, 0, 0, 1] # maximize confort should represent the current situation for people
@@ -57,6 +59,40 @@ plt.title("Variance of Econs")
 plt.xlabel("Iteration")
 plt.ylabel("Variance of Econs")
 
+
+#%% look at each device values
+
+non_equip = ['Econs', 'Pcons_max', 'Pcons_min', 'Pgrid_max', 'Pgrid_min', 'Egrid_plus', 'Egrid_minus']
+tableau = {}
+for equipment in results : 
+    if equipment not in non_equip : 
+        average_Econs = sum(results[equipment]["Econs"])/len(results[equipment]["Econs"])
+        average_P_max = max(results[equipment]["Pcons_max"])
+        average_P_min = min(results[equipment]["Pcons_min"])
+        tableau[equipment] = {"Econs" : average_Econs, "Pcons_max" : average_P_max, "Pcons_min" : average_P_min}
+
+df = pd.DataFrame(tableau, index=["Econs", "Pcons_max", "Pcons_min"], columns=tableau.keys())
+df = df.round(2)
+# df.to_csv(os.path.join(os.path.dirname(__file__), "results_generation_data.csv"))
+
+png_path = os.path.join(os.path.dirname(__file__), "results_generation_data.png")
+fig, ax = plt.subplots(figsize=(0.6 + 1 * len(df.columns), 5))
+ax.axis("off")
+table = ax.table(
+    cellText=df.values,
+    rowLabels=df.index,
+    colLabels=df.columns,
+    cellLoc="center",
+    loc="center",
+)
+table.auto_set_font_size(False)
+table.set_fontsize(8)
+# table.scale(1, 1.2)
+fig.tight_layout()
+# fig.savefig(png_path, dpi=300, bbox_inches="tight")
+# plt.close(fig)
+
+# On va pouvoir vérifier éléments par éléments ce qui ne va pas 
 
 #%% Test heating power model
 
