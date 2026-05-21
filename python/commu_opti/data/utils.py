@@ -177,14 +177,19 @@ def convert_numeric_keys(obj):
 
 def dicotomie_search(l, val) : 
     # l is a list of increasing values, val is a value. We want to find the index i such that l[i] <= val < l[i+1]
-    if val < l[0] : return 0
-    if val >= l[-1] : return len(l)-1
+    if val <= l[0] : return 0
+    if val > l[-1] : return len(l)-1
     left = 0
     right = len(l)-1
     while left <= right : 
         mid = (left + right) // 2
-        if l[mid] <= val < l[mid+1] : 
-            return mid
+        # print("dicotomie_search", "left", left, "right", right, "mid", mid, "val", val, "l[mid]", l[mid], "l[mid+1]", l[mid+1])
+
+        if mid < len(l) - 1 and l[mid] < val <= l[mid+1] : 
+            if mid != 0 and l[mid] == l[mid+1] : 
+                while mid > 0 and l[mid] == l[mid+1] : 
+                    mid -= 1
+            return mid+1
         elif val < l[mid] : 
             right = mid - 1
         else : 
@@ -202,8 +207,8 @@ def markov_states(transitions, current_state, starting_step=0, step_number=-1) :
     for k in range(starting_step, step_number) :
         rd = rand()
         j = current_state
-        # print(k, rd, j, i, transitions.shape[1])
         i = dicotomie_search(transitions[k%n, j, :], rd)
+        print('k', k, 'rd', rd, 'current_state', j, 'new_state', i)
         if i == None : 
             return {"Error" : "Probability does not sum to 1", "results" : states}
         current_state = i

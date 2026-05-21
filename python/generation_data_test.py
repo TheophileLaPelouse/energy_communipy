@@ -87,7 +87,6 @@ table = ax.table(
 )
 table.auto_set_font_size(False)
 table.set_fontsize(8)
-# table.scale(1, 1.2)
 fig.tight_layout()
 # fig.savefig(png_path, dpi=300, bbox_inches="tight")
 # plt.close(fig)

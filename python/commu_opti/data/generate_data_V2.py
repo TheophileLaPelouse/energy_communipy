@@ -94,22 +94,32 @@ def generate_profile(nb_people, weekend, deltat, profile_0 = None) :
     rd = np.random.rand()
     profile0 = dicotomie_search(initial_state_probabilities[name], rd) if profile_0 is None else profile_0
     profile = markov_states(transitions, profile0)
+    print("testrd", rd)
+    print("testprofile0", profile0)
+    print("testprofile", profile)
     if profile.get("Error") : 
         print(profile["Error"])
         print("\n, Attention ! \n")
         print(profile["results"])
     profile_states = [states_inverse[s] for s in profile["results"]]
+    print("testprofile_states", profile_states)
+    
+    
     
     data_deltat = 10/60 # 10 minutes in hours
+    n_states = len(profile_states)
+    profile_states0_24 = [profile_states[(i - int(4/data_deltat)) % n_states] for i in range(n_states)] # Initially from 4am to 4am, we want from 0 to 24
+    print("testprofile_states0_24", profile_states0_24)
     if deltat != data_deltat :
         # There can be a deltat difference, so we need to adapt the profile. 
         # We will do it by taking the state of the profile at the closest time step to the one we want.
         factor = deltat/data_deltat
-        profile_states = [profile_states[int(i*factor)] for i in range(int(len(profile_states)/factor))]    
-    if len(profile_states) < int(24/deltat) : 
-        profile_states.append(profile_states[-1])
+        profile_states0_24 = [profile_states0_24[int(i*factor)] for i in range(int(len(profile_states0_24)/factor))]    
+    if len(profile_states0_24) < int(24/deltat) : 
+        profile_states0_24.append(profile_states0_24[-1])
 
-    return profile_states
+
+    return profile_states0_24
         
         
 def one_device_allocation(device, nb_people) :
@@ -190,16 +200,35 @@ def state_to_presence(nb_people, state) :
     Translate the state of the profile into a presence state. 
     The presence state is in the form of a dictionary with the keys "awake", "asleep" and "away" 
     and the values are the number of people in each state.
-    """
-    # state is in the form "ij" where i is the number of people at home and j the number of active people. 
+    
+    
+    State is in the form "ij" where i is the number of people at home and j the number of active people and N is the total number of people.
+    But there can be several possibilities for the same state. So we need to choose between every possibilities.
+    For this we will assume that each combination has the same probability.
+    In the end we want to know the number of 10 people, 11 people and 0x people.
+    
+    We consider coordinate (x_k, y_k) with x = 0 or 1 and y = 1 or 0 for member k.
+    So let's consider Pr = {k in [1, i]} (set of people present at home) and and A = {k in [1, N] | y_k = 1}, 
+    we want to know the size of NS = {k in [1, i] | y_k = 1} the number of people awake at home.
+    We have |Pr| = i, |A| = j and we want to know the probability of having |NS| = s for s in [0, j] knowing that every combination have the same probability.
+    This is then an hypergeometric distribution with parameters j, N-j and i.
+    """ 
+    
     i, j = int(state[0]), int(state[1])
-    if i > j : 
-        return {"awake" : j, "asleep" : i-j, "away" : nb_people-i}
-    else : 
-        return {"awake" : i, "asleep" : 0, "away" : nb_people-i} # Choice need to be verified in article about occupancy
+    if i > 0 :
+        awake = np.random.hypergeometric(
+                ngood=j,          # actifs
+                nbad=nb_people - j, # Non actifs
+                nsample=i         # présents
+            )
+    else :
+        awake = 0
+
+    return {"awake" : awake, "asleep" : i-awake, "away" : nb_people - i}
 
 def profile_to_presence(profile, nb_people) :
     # Iterate over the profile and translate it into a presence profile.
+    
     return [state_to_presence(nb_people, state) for state in profile]
 
 def when_to_profile(deltat, device) :

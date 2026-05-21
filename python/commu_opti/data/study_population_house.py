@@ -143,9 +143,10 @@ df_we.columns = cols
 
 
 probas = {}
-for nb_people in range(6) : 
-    file_we = f"tpm{nb_people+1}_we.npy"
-    file_wd = f"tpm{nb_people+1}_wd.npy"
+for nb_people in range(1,7) : 
+    print("\n Number of people", nb_people)
+    file_we = f"tpm{nb_people}_we.npy"
+    file_wd = f"tpm{nb_people}_wd.npy"
     states = [f"{k}{j}" for k in range(nb_people+1) for j in range(nb_people+1)]
     states = {states[i] : i for i in range(len(states))}
     
@@ -157,15 +158,17 @@ for nb_people in range(6) :
         if len(occ) == 1 : 
             occ = "0" + occ
         if occ in states :
-            proba += df_we[1][i]
+            proba += df_we[nb_people][i]
             probas[file_we][states[occ]] = float(proba)
     proba = 0
     for i in df_wd.index : 
         occ = str(df_wd["occ"][i])
         if len(occ) == 1 : 
             occ = "0" + occ
+        if occ not in states : 
+            print(occ)
         if occ in states :
-            proba += df_wd[1][i]
+            proba += df_wd[nb_people][i]
             probas[file_wd][states[occ]] = float(proba)
     
 

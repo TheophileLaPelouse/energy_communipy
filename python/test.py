@@ -578,7 +578,7 @@ for i, name in to_save :
 
 
 #%% test generation data V2 : Markov states
-from commu_opti.data.generate_data_V2 import generate_profile, generate_building, average_surface, initial_state_probabilities, get_weather_data
+from commu_opti.data.generate_data_V2 import generate_profile, generate_building, average_surface, initial_state_probabilities, get_weather_data, profile_to_presence
 from commu_opti.data.utils import compute_average_number
 
 
@@ -590,8 +590,13 @@ states = [f"{k}{j}" for k in range(nb_people+1) for j in range(nb_people+1)]
 states = {states[i] : i for i in range(len(states))}
 profile = generate_profile(nb_people, False, 1)
 
-# plt.figure("profile")
-# plt.plot([states[profile[k]] for k in range(len(profile))])
+presence_profile = profile_to_presence(profile, nb_people)
+
+# plt.figure()
+# plt.plot([presence_profile[k]['awake'] for k in range(len(profile))], '+', label='awake')
+# plt.plot([presence_profile[k]['asleep'] for k in range(len(profile))], 'o', label='asleep')
+# plt.plot([presence_profile[k]['away'] for k in range(len(profile))], '_', label='away')
+# plt.legend()
 
 #%% Test generation data V2 : one_device_allocation
 from commu_opti.data.generate_data_V2 import one_device_allocation#, list_devices
