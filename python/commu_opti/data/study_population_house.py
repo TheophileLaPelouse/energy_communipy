@@ -194,4 +194,3 @@ for key in probas :
 with open(os.path.join(os.path.dirname(__file__),"initial_state_probabilities.json"), "w") as f: 
     json.dump(probas, f, indent = 4)
 
-

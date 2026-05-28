@@ -71,7 +71,7 @@
             "presence_state": [
                 "awake"
             ],
-            "proba_t": 0.7
+            "proba_t": 0.125
         }
     },
     "congelateur": {
@@ -106,7 +106,7 @@
             "6": 230
         },
         "cycle_length": 0.36666666666666664,
-        "time_between_cycles": 3,
+        "time_between_cycles": 1.5,
         "when": {
             "presence_state": [
                 "awake",
@@ -118,10 +118,8 @@
     "lighting": {
         "proba": 1,
         "types_proba": {
-            "LED": 0.5,
-            "Fluo": 0.14,
-            "Incandescence": 0.13,
-            "halogene": 0.23
+            "LED": 0.7,
+            "Fluo": 0.3
         },
         "P_types": {
             "LED": 2.142857142857143,
@@ -142,7 +140,7 @@
     "plaque_electrique": {
         "proba": 0.4732,
         "power": 2400.0,
-        "cycle_length": 0.5,
+        "cycle_length": 0.25,
         "when": {
             "presence_state": [
                 "awake"
@@ -414,7 +412,8 @@
             ],
             "spec": [
                 "before leave"
-            ]
+            ],
+            "probat": 0.08333333333333333
         }
     },
     "fix_computer": {
@@ -424,7 +423,7 @@
             "presence_state": [
                 "awake"
             ],
-            "proba_t": 0.5
+            "probat": 0.3
         }
     },
     "fixed_load_parameters": {
@@ -461,7 +460,7 @@
     },
     "water_heater": {
         "proba": 0.44,
-        "energy_needed": 2190,
+        "energy_needed": 800,
         "P_popu": {
             "1": 1500,
             "2": 1500,

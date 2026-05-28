@@ -592,11 +592,11 @@ profile = generate_profile(nb_people, False, 1)
 
 presence_profile = profile_to_presence(profile, nb_people)
 
-# plt.figure()
-# plt.plot([presence_profile[k]['awake'] for k in range(len(profile))], '+', label='awake')
-# plt.plot([presence_profile[k]['asleep'] for k in range(len(profile))], 'o', label='asleep')
-# plt.plot([presence_profile[k]['away'] for k in range(len(profile))], '_', label='away')
-# plt.legend()
+plt.figure()
+plt.plot([presence_profile[k]['awake'] for k in range(len(profile))], '+', label='awake')
+plt.plot([presence_profile[k]['asleep'] for k in range(len(profile))], 'o', label='asleep')
+plt.plot([presence_profile[k]['away'] for k in range(len(profile))], '_', label='away')
+plt.legend()
 
 #%% Test generation data V2 : one_device_allocation
 from commu_opti.data.generate_data_V2 import one_device_allocation#, list_devices

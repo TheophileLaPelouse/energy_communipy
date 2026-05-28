@@ -12,16 +12,20 @@ from commu_opti.commu_builder import define_community, define_members
 from commu_opti.community.utils import extract_values
 #%%
 
-n_iter_max = 1000
+n_iter_max = 100
 averages = []
 variances = []
 eps_average = 0.001
 eps_variance = 0.001
 c = 0
-results = {}
+results = {"surface" : []}
+
+created = []
 while c<2 or ((abs(averages[-1] - averages[-2])/averages[-1] > eps_average or abs(variances[-1] - variances[-2])/variances[-1] > eps_variance) and c < n_iter_max):
     print(f"Iteration {c}")
     param, final_result = generate_member_data_random()
+    # if param['devices'].get("heating_system") : 
+    #     del param['devices']["heating_system"]
     param["parameters"]["socio"] = [0, 0, 0, 1] # maximize confort should represent the current situation for people
     param["parameters"]["calc_ref"] = False
     list_members_params = [param]
@@ -29,9 +33,12 @@ while c<2 or ((abs(averages[-1] - averages[-2])/averages[-1] > eps_average or ab
     m = members[0]
     m.build_model()
     state = m.self_optimize('gurobi')
+    created.append(m)
     if str(state['Solver'][0]['Status']) == 'warning' :
         break
     extract_values(m, results)
+    key0 = list(final_result.keys())[0]
+    results["surface"].append(final_result[key0]['args']['building']['surface'])
     if not averages : 
         averages.append(results["Econs"][0])
         variances.append(0)
@@ -62,16 +69,20 @@ plt.ylabel("Variance of Econs")
 
 #%% look at each device values
 
-non_equip = ['Econs', 'Pcons_max', 'Pcons_min', 'Pgrid_max', 'Pgrid_min', 'Egrid_plus', 'Egrid_minus']
+non_equip = ['Econs', 'Pcons_max', 'Pcons_min', 'Pgrid_max', 'Pgrid_min', 'Egrid_plus', 'Egrid_minus', "surface"]
 tableau = {}
 for equipment in results : 
     if equipment not in non_equip : 
         average_Econs = sum(results[equipment]["Econs"])/len(results[equipment]["Econs"])
-        average_P_max = max(results[equipment]["Pcons_max"])
-        average_P_min = min(results[equipment]["Pcons_min"])
-        tableau[equipment] = {"Econs" : average_Econs, "Pcons_max" : average_P_max, "Pcons_min" : average_P_min}
+        max_P_max = max(results[equipment]["Pcons_max"])
+        min_P_min = min(results[equipment]["Pcons_min"])
+        average_P_max = sum(results[equipment]["Pcons_max"])/len(results[equipment]["Pcons_max"])
+        average_P_min = sum(results[equipment]["Pcons_min"])/len(results[equipment]["Pcons_min"])
 
-df = pd.DataFrame(tableau, index=["Econs", "Pcons_max", "Pcons_min"], columns=tableau.keys())
+        tableau[equipment] = {"Econs" : average_Econs, "Pcons_max" : average_P_max, "Pcons_min" : average_P_min, 
+                              "P_cons_min_min" : min_P_min, "P_cons_max_max" : max_P_max}
+
+df = pd.DataFrame(tableau, index=["Econs", "Pcons_max", "Pcons_min", "P_cons_min_min", "P_cons_max_max"], columns=tableau.keys())
 df = df.round(2)
 # df.to_csv(os.path.join(os.path.dirname(__file__), "results_generation_data.csv"))
 

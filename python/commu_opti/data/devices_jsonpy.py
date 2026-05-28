@@ -95,7 +95,7 @@ list_devices = {
         # "types_proba_autres" : {"LCD_LED" : 0.37, "LCD" : 0.44, "OLED" : 0.05, "Plasma" : 0.07, "Cathodique" : 0.04},
         "P_types" : {"OLED" : 100, "LCD_LED" : 90, "LCD" : 120, "Plasma" : 400, "Cathodique" : 100}, #W
         # Source https://www.kelwatt.fr/guide/conso/television
-        "when" : {"presence_state" : ["awake"], "proba_t" : 0.7}
+        "when" : {"presence_state" : ["awake"], "probat" : 6/24} # Adjusted to fit real data in France
     },
     "congelateur" : {
         "proba" : 0.445,
@@ -105,14 +105,15 @@ list_devices = {
         "E_types" : {"A" : 40, "B" : 50, "C" : 63, "D" : 79, "E" : 100, "F" : 125, "G" : 160}, # EEI % 
         "V_popu" : {1 : 160, 2 : 220, 3 : 220, 4 : 220, 5 : 230, 6 : 230}, # L
         "cycle_length" : 22/60, # h arbitrairement choisi comme pour le frigo
-        "time_between_cycles" : 3, # h arbitrairerement choisi 2 fois plus grand que le frigo.
+        "time_between_cycles" : 1.5, # h arbitrairerement choisi comme pour le frigo
         "when" : {"presence_state" : ["awake", "asleep", "away"]},
     },
     "lighting" : {
         "proba" : 1, 
         # "nb" : 0.12, #/m2
         # "types" : {"LED", "Fluo", "Incandescence", "halogene"},
-        "types_proba" : {"LED" : 0.5, "Fluo" : 0.14, "Incandescence" : 0.13, "halogene" : 0.23}, 
+        # "types_proba" : {"LED" : 0.5, "Fluo" : 0.14, "Incandescence" : 0.13, "halogene" : 0.23},
+        "types_proba" : {"LED" : 0.7, "Fluo" : 0.3}, # Inventé mais plus réaliste pour aujourd'hui et correspond sur valeur de puissance moyenne
         # Hypothèse : 300 lux moyen dans chaque pièce, lumen = lux * surface
         "P_types" : {"LED" : 1/140*300, "Fluo" : 1/70*300, "Incandescence" : 1/12*300, "halogene" : 1/22*300}, # W/surface 
         # source : https://fr.wikipedia.org/wiki/Efficacit%C3%A9_lumineuse_d'une_source
@@ -120,7 +121,7 @@ list_devices = {
     },
     "plaque_electrique" : {
         "proba" : 0.91*0.52, # 0.5 because not everyone has an electric stove
-        "power" : 2.4*1000, # W assumption taking 1200 Wh/cooking
+        "power" : 2.4*1000, # W assumption 
         "cycle_length" : 0.5, # h
         "when" : {"presence_state" : ["awake"], "where" : "kitchen", "time" : [[12, 14, 0.5], [18, 22, 0.5]]}
     },
@@ -197,15 +198,15 @@ list_devices = {
         "power" : 20, # W
         "cycle_length" : 1, # h
         "deviation" : 1, 
-        "when" : {"presence_state" : ["awake"], "spec" : ["before leave"]}, 
+        "when" : {"presence_state" : ["awake"], "spec" : ["before leave"], "probat" : 1/12}, 
     }, 
     "fix_computer" : {
         "proba" : 0.54, 
         "power" : 100, # W
-        "when" : {"presence_state" : ["awake"], "proba_t" : 0.5}
+        "when" : {"presence_state" : ["awake"], "probat" : 0.3}
     }, 
     "fixed_load_parameters" : {
-        "power" : 30, # W 
+        "power" : 70, # W 
     }, 
     "heating_system" : {
         "proba" : 0.37, 
@@ -226,7 +227,7 @@ list_devices = {
     }, 
     "water_heater" : {
         "proba" : 0.44, # Ademe ballon électrique
-        "energy_needed" : 2190, # Wh average per day and per person, source Ademe
+        "energy_needed" : 1000, # Wh average per day and per person, source Ademe by Selectra -> 800 
         "P_popu" : {1: 1500, 2 : 1500, 3 : 2000, 4 : 2500, 5 : 2750, 6 : 3000}, # W asumption
         "deviation" : 0.5, # proportion
         "when" : {"presence_state" : ["awake", "asleep", "away"]},
@@ -242,6 +243,7 @@ building = {
     "R_DPE" : {"A" : 2.5, "B" : 1.7, "C" : 1.3, "D" : 1, "E" : 0.7, "F" : 0.55, "G" : 0.35}, # m2.K/W
     "coef_R" : [0.3, 0.7],        
     "C_proba" : {25 : 0.2, 20 : 0.3, 15 : 0.3, 10 : 0.2}, # MJ/K un peu aléatoire ici
+    # "C_proba" : {0 : 1}, 
     "surface_probability" : {
         1: {20: 0.0800213063461695,
         35: 0.11076324996521954,

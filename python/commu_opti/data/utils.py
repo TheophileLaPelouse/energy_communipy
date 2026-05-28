@@ -1,4 +1,4 @@
-from numpy.random import normal, rand
+from numpy.random import normal, rand, randint
 import pandas as pd
 
 # Reference functions for the power of the devices
@@ -14,35 +14,37 @@ def SEC_four(V) :
 def SCE_washing_machine(C) : 
     return -0.0025*C**2 + 0.0846*C + 0.3920 # kWh/cycle https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:02019R2014-20210501#anx_IV
 
-def SEC_dryer(C, d) :
+def SEC_dryer(C) :
     # d in hour, C in kg 
-    return 140*C**0.8 / 365 * 24/d # kWh/cycle https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:32012R0392
+    # We consider 160 cycle per year
+    return 140*C**0.8 / 160 # kWh/cycle https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:32012R0392
 
-def SAEC_dishwasher(C, d) :
-    # d in hour, C in couverts
-    return (7*C + 378) / 365 * 24/d # kWh/cycle https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32010R1059#anx_VI
+def SAEC_dishwasher(C) :
+    # C in couverts
+    # 166 cycles per year and divided by 2 in order to correspond to ADEME data
+    return (7*C + 378) / 2 / 166 # kWh/cycle https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:32010R1059#anx_VI
 
 def frigo_power(IEE, V, deltat_active, deltat_inactive) : 
     time_active_day = 24/(deltat_active + deltat_inactive) * deltat_active
     time_active_year = time_active_day * 365
-    return IEE/100 * SAE_frigo(V) / time_active_year
+    return (IEE/100 * SAE_frigo(V) / time_active_year)*1000 * 3 # W time 3 for rectifying the results with real data
 
 def congelateur_power(IEE, V, deltat_active, deltat_inactive) :
     time_active_day = 24/(deltat_active + deltat_inactive) * deltat_active
     time_active_year = time_active_day * 365
-    return IEE/100 * SAE_congelateur(V) / time_active_year
+    return (IEE/100 * SAE_congelateur(V) / time_active_year) * 1000 * 3 # W time 3 for rectifying the results with real data
 
 def four_power(IEE, V, cook_time) :
-    return IEE/100 * SEC_four(V) / cook_time
+    return (IEE/100 * SEC_four(V) / cook_time) * 1000 # W
 
 def washing_machine_power(IEE, C, cycle_time) :
-    return IEE /100 * SCE_washing_machine(C) / cycle_time
+    return (IEE /100 * SCE_washing_machine(C) / cycle_time) * 1000 # W
 
 def dryer_power(IEE, C, d) :
-    return IEE/100 * SEC_dryer(C, d) / d
+    return (IEE/100 * SEC_dryer(C) / d) * 1000 # W
 
 def dishwasher_power(IEE, C, d) :
-    return IEE/100 * SAEC_dishwasher(C, d) / d
+    return (IEE/100 * SAEC_dishwasher(C) / d) * 1000 # W
 
 
 # Data
@@ -208,7 +210,7 @@ def markov_states(transitions, current_state, starting_step=0, step_number=-1) :
         rd = rand()
         j = current_state
         i = dicotomie_search(transitions[k%n, j, :], rd)
-        print('k', k, 'rd', rd, 'current_state', j, 'new_state', i)
+        # print('k', k, 'rd', rd, 'current_state', j, 'new_state', i)
         if i == None : 
             return {"Error" : "Probability does not sum to 1", "results" : states}
         current_state = i
@@ -225,7 +227,8 @@ def possible_starts(time_interval, indices, deltat, cycle_length, finish_before_
     
 # Thermal model functions 
 
-def thermal_model_flux(T_out_t1, T_b_t, T_in_t1, R1, R2, C, deltat) : 
+def thermal_model_flux(T_out_t1, T_b_t, T_in_t1, R1, R2, C, deltat) :
+    deltat = deltat*60*60 
     T_b_t1 = ((T_b_t + deltat/C * (T_out_t1/R1 + T_in_t1/R2)) 
             / 
             (1 + deltat/C * (1/R1 + 1/R2))
@@ -234,7 +237,7 @@ def thermal_model_flux(T_out_t1, T_b_t, T_in_t1, R1, R2, C, deltat) :
     return T_b_t1, flux_t1
 
 def thermal_model_Tin(T_out_t1, T_b_t, flux_t1, R1, R2, C, deltat) : 
-    
+    deltat = deltat*60*60
     B = 1 + deltat/C * (1/R1 + 1/R2)
 
     numerator = T_b_t + deltat/C * (T_out_t1/R1 - flux_t1)

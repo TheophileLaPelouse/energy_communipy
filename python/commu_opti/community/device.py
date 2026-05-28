@@ -403,7 +403,12 @@ class AoN(device) :
         Ici on a un vecteur de binaires pour quand ça s'active ou pas.
         """
         self.mod.on_off = pyo.Var(self.mod.t_set, within=pyo.Boolean, initialize=[0 for k in self.mod.t_set])
-        self.mod.sum_on_off_con = pyo.Constraint(expr=(sum(self.mod.on_off[k] for k in self.mod.t_set)*self.power_needed*self.deltat >= self.energy_needed))
+        self.mod.sum_on_off_con_min = pyo.Constraint(expr=(sum(self.mod.on_off[k] for k in self.mod.t_set)*self.power_needed*self.deltat 
+                                                       >= 
+                                                       self.energy_needed))
+        self.mod.sum_on_off_con_max = pyo.Constraint(expr=(sum(self.mod.on_off[k] for k in self.mod.t_set)*self.power_needed*self.deltat 
+                                                       <= 
+                                                       max(1.5*self.energy_needed, self.power_needed*self.deltat + self.energy_needed)))
 
         def rule(mod, t) : 
             return mod.Pcons[t] == mod.on_off[t]*self.power_needed

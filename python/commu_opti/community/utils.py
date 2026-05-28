@@ -77,9 +77,9 @@ def extract_values(m, dico) :
                 "Econs" : [], 
             }
         if len(dev.mod.t_set) : 
-            dico[dev.name]["Pcons_max"].append(max(pyo.value(dev.mod.Pcons[t]) for t in dev.mod.t_set))
-            dico[dev.name]["Pcons_min"].append(min(pyo.value(dev.mod.Pcons[t]) for t in dev.mod.t_set))
-            dico[dev.name]["Econs"].append(sum(pyo.value(dev.mod.Pcons[t]) for t in dev.mod.t_set)*m.deltat)
+            dico[dev.name]["Pcons_max"].append(max(pyo.value(dev.mod.Pcons[t]) for t in dev.time_total_set))
+            dico[dev.name]["Pcons_min"].append(min(pyo.value(dev.mod.Pcons[t]) for t in dev.time_total_set))
+            dico[dev.name]["Econs"].append(sum(pyo.value(dev.mod.Pcons[t]) for t in dev.time_total_set)*m.deltat)
     if not dico.get("Econs") : dico["Econs"] = []
     if not dico.get("Pcons_max") : dico["Pcons_max"] = []
     if not dico.get("Pcons_min") : dico["Pcons_min"] = []

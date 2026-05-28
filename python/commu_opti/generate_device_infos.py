@@ -1,8 +1,9 @@
 from .data.generate_data_V2 import (
     generate_profile, generate_building, get_weather_data, 
-    device_activation_profile, device_power_profile, one_device_allocation,
-    list_devices, 
+    device_activation_profile, device_power_profile, one_device_allocation, 
+    list_devices
 )
+
 import datetime as dt
 from random import randint
 

@@ -6,27 +6,33 @@ import json
 
 # Define all the data variables (they are small so we can load them all)
 
-if not os.path.exists(os.path.join(os.path.dirname(__file__), "devices.json")): 
-    from .devices_jsonpy import list_devices
-    with open(os.path.join(os.path.dirname(__file__), "devices.json"), "w") as f: 
-        json.dump(list_devices, f, indent = 4)
-else:
-    with open(os.path.join(os.path.dirname(__file__), "devices.json"), "r") as f: 
-        list_devices = json.load(f)
-        list_devices = convert_numeric_keys(list_devices)
+from .devices_jsonpy import list_devices
+# if not os.path.exists(os.path.join(os.path.dirname(__file__), "devices.json")): 
+#     from .devices_jsonpy import list_devices
+#     with open(os.path.join(os.path.dirname(__file__), "devices.json"), "w") as f: 
+#         json.dump(list_devices, f, indent = 4)
+# else:
+#     with open(os.path.join(os.path.dirname(__file__), "devices.json"), "r") as f: 
+#         list_devices = json.load(f)
+#         list_devices = convert_numeric_keys(list_devices)
         
-        
-if not os.path.exists(os.path.join(os.path.dirname(__file__), "building.json")): 
-    from .devices_jsonpy import building
-    with open(os.path.join(os.path.dirname(__file__), "building.json"), "w") as f: 
-        json.dump(building, f, indent = 4)
-else:
-    with open(os.path.join(os.path.dirname(__file__), "building.json"), "r") as f: 
-        building = json.load(f)
-        building = convert_numeric_keys(building)
+   
+from .devices_jsonpy import building     
+# if not os.path.exists(os.path.join(os.path.dirname(__file__), "building.json")): 
+#     from .devices_jsonpy import building
+#     with open(os.path.join(os.path.dirname(__file__), "building.json"), "w") as f: 
+#         json.dump(building, f, indent = 4)
+# else:
+#     with open(os.path.join(os.path.dirname(__file__), "building.json"), "r") as f: 
+#         building = json.load(f)
+#         building = convert_numeric_keys(building)
         
 with open(os.path.join(os.path.dirname(__file__), "initial_state_probabilities.json"), "r") as f:
     initial_state_probabilities = json.load(f)
+    
+with open(os.path.join(os.path.dirname(__file__), "ev_travel_statistics.json"), "r") as f:
+    ev_stat = json.load(f)
+    ev_stat = convert_numeric_keys(ev_stat)
 
 average_people = compute_average_number(building["nb_popu_proba"])
 deviation_people = compute_deviation_number(building["nb_popu_proba"], average_people)   
@@ -60,7 +66,7 @@ def generate_building() :
     R_DPE = power_normal_distribution({1: 1}, 
                                         building["DPE_proba"], 
                                         building["R_DPE"])
-    C = normal_distribution_number(building["C_proba"])
+    C = normal_distribution_number(building["C_proba"])*10e6
     R1 = R_DPE / surface * building['coef_R'][0]
     R2 = R_DPE / surface * building['coef_R'][1]
     
@@ -94,22 +100,22 @@ def generate_profile(nb_people, weekend, deltat, profile_0 = None) :
     rd = np.random.rand()
     profile0 = dicotomie_search(initial_state_probabilities[name], rd) if profile_0 is None else profile_0
     profile = markov_states(transitions, profile0)
-    print("testrd", rd)
-    print("testprofile0", profile0)
-    print("testprofile", profile)
+    # print("testrd", rd)
+    # print("testprofile0", profile0)
+    # print("testprofile", profile)
     if profile.get("Error") : 
         print(profile["Error"])
         print("\n, Attention ! \n")
         print(profile["results"])
     profile_states = [states_inverse[s] for s in profile["results"]]
-    print("testprofile_states", profile_states)
+    # print("testprofile_states", profile_states)
     
     
     
     data_deltat = 10/60 # 10 minutes in hours
     n_states = len(profile_states)
     profile_states0_24 = [profile_states[(i - int(4/data_deltat)) % n_states] for i in range(n_states)] # Initially from 4am to 4am, we want from 0 to 24
-    print("testprofile_states0_24", profile_states0_24)
+    # print("testprofile_states0_24", profile_states0_24)
     if deltat != data_deltat :
         # There can be a deltat difference, so we need to adapt the profile. 
         # We will do it by taking the state of the profile at the closest time step to the one we want.
@@ -351,9 +357,49 @@ def device_activation_profile(profile, device, deltat, nb_people) :
                 
     return activation_profile, when_profile, profile_presence
 
+def possible_travels(presence_profile) :
+    """"
+    We want to determine each time there is a travel outside the home.
+    For this we consider that there is a travel if their is a start and an end.
+    Start define as away + 1, end defined as away - 1.
+    So this does not consider that there can be exchange in a same time step between people.
+    
+    When there is several possibilties, we choose at random between them.
+    """
 
+    start = 0
+    start_stack = []
+    end = 0
+    possible_travels = []
+    
+    for i in range(len(presence_profile)) :
+        if i == 0 : 
+            if presence_profile[i]['away'] > 0 : 
+                start += 1
+                start_stack.append(-1)
+        else : 
+            if presence_profile[i]['away'] > presence_profile[i-1]['away'] : 
+                start += presence_profile[i]['away'] - presence_profile[i-1]['away']
+                start_stack.append([i, presence_profile[i]['away'] - presence_profile[i-1]['away']])
+            elif presence_profile[i]['away'] < presence_profile[i-1]['away'] : 
+                end = randint(0, len(start_stack))
+                time_start, nb_people = start_stack[end]
+                possible_travels.append((time_start, i))
+                if nb_people > 1 : 
+                    start_stack[end][1] -= 1
+                if nb_people == 1 : 
+                    start_stack.pop(end)
+                start -= 1
+                
+    return possible_travels
+    
+    
 
 ### Device power profile generation (final steps)
+
+def EV_profile(allocated, presence_profile) : 
+    # power in kW in the data
+    return
 
 def fridge_profile(device_name, allocated, deltat, total_time) : 
     E, time_active, time_inactive, V = allocated["E"], allocated["cycle_length"], allocated["time_between_cycles"], allocated["popu"]
@@ -392,8 +438,8 @@ def white_goods_profile(device_name, allocated, deltat, when_profile, activation
     elif device_name == "hoven" :
         E, cycle_length, popu = allocated["E"], allocated["cycle_length"], 60 # Not exact but does not change much (5%)
         finish_before_end = True
-        power = four_power(E, popu, cycle_length)
-        print("power", power, E, popu, cycle_length)
+        power = E/cycle_length
+        # print("power", power, E, popu, cycle_length)
 
     else : 
         power, cycle_length = allocated["P"], allocated["cycle_length"]
@@ -431,7 +477,9 @@ def white_goods_profile(device_name, allocated, deltat, when_profile, activation
                 time_range.append([0, 0])
                 break
                 
-            
+    if int(cycle_length/deltat) != cycle_length/deltat :
+        energy = power * cycle_length 
+        power = energy / (deltat * (int(cycle_length/deltat)+1)) # Adapt the power to the cycle length
             
     white_good = {'cycle_length' : [cycle_length for k in range(len(start_pref))], # For now no variation on the cycle length, but it could be done. 
                     'power_needed' : [power for k in range(len(start_pref))], 
@@ -443,8 +491,10 @@ def white_goods_profile(device_name, allocated, deltat, when_profile, activation
 def small_white_goods_profile(allocated, deltat, total_time, activation_profile) :
     power = allocated.get("P", 0)
     cycle_length = allocated.get("cycle_length", 0)
-    if cycle_length > deltat : 
-        power = power * deltat/cycle_length # Adapt the power to the cycle length
+
+    if int(cycle_length/deltat) != cycle_length/deltat :
+        energy = power * cycle_length 
+        power = energy / (deltat * (int(cycle_length/deltat)+1)) # Adapt the power to the cycle length
     power_profile = []
     active_time = 0
     flag = False
@@ -470,7 +520,7 @@ def lighting_profile(allocated, total_time, activation_profile, building, presen
     power_profile = []
     for i in range(total_time) : 
         if activation_profile[i] == 1 : 
-            power = allocated.get("power", 0) * surface * (presence_profile[i]['awake'] / nb_people)
+            power = allocated.get("P", 0) * surface * (presence_profile[i]['awake'] / nb_people)
         else : 
             power = 0
         power_profile.append(power)
