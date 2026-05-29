@@ -158,7 +158,7 @@ class device :
         mod.pow_con_not_home = pyo.Constraint(self.mod.not_home_set, rule=Pcons_0_constraint)
         
         if E_end is None : 
-            E_end = self.E0
+            E_end = self.E0[0]
         
         def soc_end(mod) :
             return mod.E[self.t_set.at(-1)] == E_end

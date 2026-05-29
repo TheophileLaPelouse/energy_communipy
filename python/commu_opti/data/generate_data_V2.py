@@ -355,51 +355,10 @@ def device_activation_profile(profile, device, deltat, nb_people) :
         if rand() < when_profile[rd_indice]['awake']["proba"] : 
             activation_profile[rd_indice] = 1
                 
-    return activation_profile, when_profile, profile_presence
-
-def possible_travels(presence_profile) :
-    """"
-    We want to determine each time there is a travel outside the home.
-    For this we consider that there is a travel if their is a start and an end.
-    Start define as away + 1, end defined as away - 1.
-    So this does not consider that there can be exchange in a same time step between people.
-    
-    When there is several possibilties, we choose at random between them.
-    """
-
-    start = 0
-    start_stack = []
-    end = 0
-    possible_travels = []
-    
-    for i in range(len(presence_profile)) :
-        if i == 0 : 
-            if presence_profile[i]['away'] > 0 : 
-                start += 1
-                start_stack.append(-1)
-        else : 
-            if presence_profile[i]['away'] > presence_profile[i-1]['away'] : 
-                start += presence_profile[i]['away'] - presence_profile[i-1]['away']
-                start_stack.append([i, presence_profile[i]['away'] - presence_profile[i-1]['away']])
-            elif presence_profile[i]['away'] < presence_profile[i-1]['away'] : 
-                end = randint(0, len(start_stack))
-                time_start, nb_people = start_stack[end]
-                possible_travels.append((time_start, i))
-                if nb_people > 1 : 
-                    start_stack[end][1] -= 1
-                if nb_people == 1 : 
-                    start_stack.pop(end)
-                start -= 1
-                
-    return possible_travels
+    return activation_profile, when_profile, profile_presence     
     
     
-
 ### Device power profile generation (final steps)
-
-def EV_profile(allocated, presence_profile) : 
-    # power in kW in the data
-    return
 
 def fridge_profile(device_name, allocated, deltat, total_time) : 
     E, time_active, time_inactive, V = allocated["E"], allocated["cycle_length"], allocated["time_between_cycles"], allocated["popu"]

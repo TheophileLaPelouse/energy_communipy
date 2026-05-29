@@ -286,9 +286,9 @@ power_by_length = (
 
 # Checking number of day used 
 
-dates = travels.groupby(['user', 'capacity_class'])['start'].agg(first='first', last='last', count='count')
+dates = travels.groupby(['user', 'capacity_class'])['start'].agg(first='first', last='last', days_with_travel=lambda x: x.dt.date.nunique())
 dates["duration"] = (dates['last'] - dates['first']).dt.days + 1
-dates["prop_days_used"] = dates['count']/dates['duration']
+dates["prop_days_used"] = dates['days_with_travel']/dates['duration']
 dates.reset_index()
 cap_used = dates.groupby('capacity_class')['prop_days_used'].agg(avg='mean', var='var').reset_index()
 
@@ -349,14 +349,17 @@ with open(stats_path, 'w') as f:
     
 #%% Plot energy not at home for each user
 plt.figure()
+c = 0
 for user in dico_users : 
+    c += 1
     energy_per_session = sum(dico_users[user]['energy_not_home'])/sum(dico_users[user]['time_not_home']) # Energy stored per hour in kwh
     print(user)
     print("E", sum(dico_users[user]['energy_not_home']) >= 0, sum(dico_users[user]['energy_not_home']))
     print("T", sum(dico_users[user]['time_not_home']) >= 0)
-    plt.bar(user, energy_per_session, label=user)
+    plt.bar(c, energy_per_session, label=user)
     # plt.bar(user, sum(dico_users[user]['energy_not_home']), label=user)
-plt.legend()
+# plt.legend()
+plt.grid(axis='y')
 plt.xlabel('User')
 plt.ylabel('Energy not at home (kWh)')
 plt.title('Energy not at home for each user')

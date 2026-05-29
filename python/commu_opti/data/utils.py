@@ -1,4 +1,5 @@
-from numpy.random import normal, rand, randint
+from numpy.random import normal, rand, choice
+from numpy import isnan
 import pandas as pd
 
 # Reference functions for the power of the devices
@@ -249,6 +250,7 @@ def thermal_model_Tin(T_out_t1, T_b_t, flux_t1, R1, R2, C, deltat) :
     return T_b_t1, T_in_t1
 
     
+
     
 if __name__ == "__main__" : 
     R1 = 6
