@@ -194,3 +194,16 @@ for key in probas :
 with open(os.path.join(os.path.dirname(__file__),"initial_state_probabilities.json"), "w") as f: 
     json.dump(probas, f, indent = 4)
 
+#%% Bizarre les données (Genre Rhone alpe en 2022 -> 300 TWH pour le résidentiel...)
+
+csvpath = "/Users/theophilemounier/Documents/Stage_these/Data/region_elec_gaz_data/ORE-consommation-electrique-par-secteur-dactivite-region_20251203_171113.csv"
+df = pd.read_csv(csvpath)
+
+df_res = df[(df['CODE GRAND SECTEUR']=="RESIDENTIEL") & (df['FILIERE']=="Electricité")]
+
+average_energy = df_res['Conso totale (MWh)']/df_res['Nb sites']
+group = df_res.groupby(['Nom Région'])
+
+group_mean = group['Conso moyenne (MWh)'].mean()
+group_thermo = group['Part thermosensible (%)'].mean()
+

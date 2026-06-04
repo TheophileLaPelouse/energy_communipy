@@ -1,4 +1,4 @@
-from utils import normal, rand, choice, convert_numeric_keys, dicotomie_search, isnan
+from .utils import normal, rand, choice, convert_numeric_keys, dicotomie_search, isnan
 import json
 import os
 
@@ -46,13 +46,12 @@ def possible_travels(presence_profile) :
     
     sorted_end = sorted(possible_travels, key=lambda x: x[1])
     sorted_start = sorted(possible_travels, key=lambda x: x[0])
+
     i, j = 0, 0
-    nb_travels_max=1
     while i < len(sorted_start) and j < len(sorted_end) :
         if sorted_end[j][1] > sorted_start[i][0] : 
             i += 1
         elif sorted_end[j][1] <= sorted_start[i][0] : 
-            nb_travels_max += 1
             j += 1
         
     travellers = [{} for k in range(100)]
@@ -60,11 +59,20 @@ def possible_travels(presence_profile) :
     max_id = 0
     i, j = 0, 0
     while i < len(sorted_start) and j < len(sorted_end) :
-        if sorted_start[i][0] < sorted_end[j][1] : 
+        if sorted_start[i] == sorted_end[j] and i==j :
+            if not travellers[traveller_id] : 
+                traveller = {"start" : [sorted_start[i][0]], "end" : [sorted_end[j][1]]}
+                travellers[traveller_id] = traveller
+            else : 
+                travellers[traveller_id]["start"].append(sorted_start[i][0])
+                travellers[traveller_id]["end"].append(sorted_end[j][1])
+            i += 1
+            j += 1
+        elif sorted_start[i][0] < sorted_end[j][1] : 
             if not travellers[traveller_id] : 
                 traveller = {"start" : [sorted_start[i][0]], "end" : []}
                 travellers[traveller_id] = traveller
-                traveller_id += 1
+                # traveller_id += 1
             else :
                 travellers[traveller_id]["start"].append(sorted_start[i][0])
             traveller_id += 1
@@ -88,11 +96,11 @@ def possible_travels(presence_profile) :
     # possible_travels_bis = set()
     for k in range(len(travellers[0]["start"])) :
         js[0] = k
-        nb_travels_possible[0] += 1
+        # nb_travels_possible[0] += 1
         nb_travels_parts[k] = 1
         i = 1
         # possible_travels_bis.add((travellers[0]["start"][k], travellers[0]["end"][js[0]]))
-        while i < len(travellers) :  
+        while i < len(travellers) :
             previous_value = nb_travels_possible[i]
             while js[i] < len(travellers[i]["start"]) and travellers[i]["start"][js[i]] < travellers[i-1]["end"][js[i-1]] :
                 nb_travels_possible[i] += 1
@@ -100,12 +108,14 @@ def possible_travels(presence_profile) :
             if nb_travels_possible[i] == previous_value : 
                 depths[k] = i
                 break
+            if nb_travels_possible[i] != previous_value : 
+                nb_travels_possible[0] += nb_travels_possible[i] - previous_value - 1
+                nb_travels_parts[k] += nb_travels_possible[i] - previous_value - 1
             i += 1
-        if nb_travels_possible[i] != previous_value : 
-            nb_travels_possible[0] += nb_travels_possible[i] - previous_value - 1
-            nb_travels_parts[k] = nb_travels_possible[i] - previous_value - 1
+        if i == len(travellers) :
+            depths[k] = i
         
-        
+    nb_travels_max = sum(nb_travels_parts)
     return travellers, nb_travels_max, nb_travels_parts, depths    
 
 def possible_travels_with_nb_travels(nb_travels, nb_travels_max, nb_travels_parts) : 
@@ -150,26 +160,29 @@ def choose_travels_per_group(travellers, group, nb_wanted, depth) :
     i = 0
     js = [[0, 0] for k in range(depth)]
     
-    def get_travel_depth(travellers, depth, start_min, end_max) :
+    def get_travel_depth(travellers, depth, start_min, end_max, no_append=False) :
         while js[depth][0] < len(travellers[depth]["start"]) and travellers[depth]["start"][js[depth][0]] < start_min :
             js[depth][0] += 1
         js[depth][1] = js[depth][0]
         while js[depth][1] < len(travellers[depth]["end"]) and travellers[depth]["end"][js[depth][1]] < end_max :
             js[depth][1] += 1
-        js[depth][1] -= 1
+        if js[depth][1] > js[depth][0] :
+            js[depth][1] -= 1
+           
+        if not no_append : 
+            start_mins.append(travellers[depth]["start"][js[depth][0]])
+            end_maxs.append(travellers[depth]["end"][js[depth][1]])
             
-        start_mins.append(travellers[depth]["start"][js[depth][0]])
-        end_maxs.append(travellers[depth]["end"][js[depth][1]])
-            
+    get_travel_depth(travellers, 0, start_mins[0], end_maxs[0], no_append=True)
     for i in range(1, depth) :
         get_travel_depth(travellers, i, start_mins[i-1], end_maxs[i-1])
         
+    i = 0
     while i < depth and js[i][1] - js[i][0] + 1 < nb_wanted : 
         i += 1
         
-    travels_to_choose = [k for k in range(js[i][0], js[i][1])]
+    travels_to_choose = [k for k in range(js[i][0], js[i][1]+1)]
     chosen = choice(travels_to_choose, nb_wanted, replace=False)
-    
     travels = []
     for k in chosen :
         if k == js[i][0] == js[i][1] : 
@@ -248,15 +261,15 @@ def EV_profile(allocated, presence_profile, deltat) :
             energy_travels.append(power*length)
             
         Emin = [min(energy_travels[k] + E_min_min, E_range[1]) for k in range(len(energy_travels))] # fill with the energy needed for the travels with a minimum of 20% of the capa
-        E0s = [0.5*E*1000] + [-energy_travels[k] for k in range(len(energy_travels)-1)] 
+        E0s = [0.5*E*1000] + [-energy_travels[k] for k in range(len(energy_travels))] 
         E_end = [E0s[0]] # Look at the definitions
         
         time_home = []
         for k in range(len(travels)) :
             if k==0 and travels[k][0] > 0 : 
-                time_home.append(0, travels[k][0])
+                time_home.append([0, travels[k][0]])
             else : 
-                time_home.append(travels[k-1][1], travels[k][0])
+                time_home.append([travels[k-1][1], travels[k][0]])
         
         return ({
             "parameters" : {
@@ -270,4 +283,16 @@ def EV_profile(allocated, presence_profile, deltat) :
             "type" : "EV"
         })
         
+        
+def ev_device_allocation(E_avg, E_var, P_avg, P_var, v2g=True) : 
+    allocated = {}
+    allocated["E"] = normal(E_avg, E_var**0.5)
+    P = normal(P_avg, P_var**0.5)
+    if not v2g :
+        power_neg = 0
+    else :
+        power_neg = P
+    allocated["power_neg"] = power_neg
+    allocated["power_pos"] = P
+    return allocated
         

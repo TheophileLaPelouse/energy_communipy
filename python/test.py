@@ -679,3 +679,45 @@ members = define_members(list_members_params)
 m = members[0]
 m.self_optimize('gurobi')
 # Need to verify at the end if we come to a coherent average value when generating a lot of profiles.
+
+#%% Test ev_profile
+
+from commu_opti.data.ev_profile import possible_travels, choose_travels_per_group, possible_travels_with_nb_travels, EV_profile
+
+allocated = {"power_neg" : 10, "power_pos" : 10, "E" : 50}
+
+presence_profile = [{'awake': 0, 'asleep': 3, 'away': 0},
+    {'awake': 3, 'asleep': 0, 'away': 0},
+    {'awake': 2, 'asleep': 0, 'away': 1},
+    {'awake': 2, 'asleep': 0, 'away': 1},
+    {'awake': 1, 'asleep': 0, 'away': 2},
+    {'awake': 2, 'asleep': 0, 'away': 1},
+    {'awake': 1, 'asleep': 0, 'away': 2},
+    {'awake': 2, 'asleep': 0, 'away': 1},
+    {'awake': 3, 'asleep': 0, 'away': 0},
+    {'awake': 2, 'asleep': 0, 'away': 1},
+    {'awake': 3, 'asleep': 0, 'away': 0},
+    ]
+
+travellers, nb_travels_max, nb_travels_parts, depths = possible_travels(presence_profile)
+# nb_trravles_max = 4, depths : 2, 1, nb_travels_parts = [3, 1]
+# travellers = [{'start': [2, 9], 'end': [8, 10]}, {'start': [4, 6], 'end': [5, 7]}]
+
+assert travellers == [{'start': [2, 9], 'end': [8, 10]}, {'start': [4, 6], 'end': [5, 7]}]
+assert nb_travels_max == 3
+assert nb_travels_parts == [2, 1]
+assert depths == [2, 1]
+
+travel_per_group = possible_travels_with_nb_travels(2, nb_travels_max, nb_travels_parts)
+
+travels0 = choose_travels_per_group(travellers, 0, 2, depths[0])
+for k in range(50) : 
+    travels0 = choose_travels_per_group(travellers, 0, 2, depths[0])
+    assert ((travels0[0][0] < travels0[1][0] and travels0[0][1] < travels0[1][1]) or 
+            (travels0[0][0] > travels0[1][0] and travels0[0][1] > travels0[1][1]))
+travels1 = choose_travels_per_group(travellers, 1, 1, depths[1])
+
+
+param = EV_profile(allocated, presence_profile, 1)
+while param is None : 
+    param = EV_profile(allocated, presence_profile, 1)

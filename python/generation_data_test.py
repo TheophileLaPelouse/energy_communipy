@@ -12,7 +12,7 @@ from commu_opti.commu_builder import define_community, define_members
 from commu_opti.community.utils import extract_values
 #%%
 
-n_iter_max = 100
+n_iter_max = 1000
 averages = []
 variances = []
 eps_average = 0.001
@@ -142,3 +142,13 @@ allocated = final_result['climatisation']['args']['allocated']
 result = final_result['climatisation']['args']
 weather = result['weather']
 params_clim, debug = clim_profile(allocated, deltat, total_time, result['presence_profile'], weather, result['building'], debug=True)
+
+#%% plot member profile
+
+to_plot = {
+    "powers" : {
+        "P_grid" : [pyo.value(m.P_grid_plus[t]-m.P_grid_minus[t]) for t in range(m.total_time)],
+        }
+    }
+
+m.plot_power_curves(**to_plot)

@@ -295,7 +295,7 @@ cap_used = dates.groupby('capacity_class')['prop_days_used'].agg(avg='mean', var
 #%% Plot number of cars in each capacity range
 plt.figure()
 ranges = [f"{k-5}-{k+5}" for k in range(0, 70, 10)]
-plt.bar(ranges, capa_range)
+plt.bar(ranges[1:], capa_range[1:-3])
 plt.xlabel('Capacity range (kWh)')
 plt.ylabel('Number of cars')
 plt.title('Number of cars in each capacity range')
@@ -361,8 +361,8 @@ for user in dico_users :
 # plt.legend()
 plt.grid(axis='y')
 plt.xlabel('User')
-plt.ylabel('Energy not at home (kWh)')
-plt.title('Energy not at home for each user')
+plt.ylabel('Power not at home (kW)')
+plt.title('Power not at home for each user')
 
 
 #%% Statistic 
