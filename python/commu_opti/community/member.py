@@ -7,7 +7,7 @@ from ..plotting.plot_functions import plot_power_curves
 class member : 
     def __init__(self, devices, socio, id_, **kwargs) :
         
-        method =kwargs.get("method", "centralized")   
+        method = kwargs.get("method", "centralized")   
         self.name = kwargs.get("name", f"member_{id_}")      
         self.socio = socio 
         self.socio_commu = self.socio 
@@ -135,6 +135,52 @@ class member :
                     return s
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum)
             self.mod_member.P_exchange = self.P_exchange
+            
+        elif method=="admm" : 
+            nb_members = len(self.commu.members)
+            self.P_exchange_repr = [[None for k in range(len(nb_members))] for i in range(len(nb_members))]
+            already_done = set()
+            for i in self.members_id :
+                for j in self.members_id : 
+                    if i not in self.commu.member_set or j not in self.commu.member_set :
+                        self.P_exchange_repr[i][j]  = 0
+                    elif i==j : 
+                        if not (i, j) in already_done : 
+                            self.P_exchange_repr[i][j] = pyo.Var(self.time_set, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_set])
+                            self.mod.add_component(f"P_exchange_{i}_{j}", self.P_exchange_repr[i][j])
+                            already_done.add((i, j))
+                    else : 
+                        self.P_exchange_repr[i][j] = pyo.Var(self.time_set, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_set])
+                        self.mod.add_component(f"P_exchange_{i}_{j}", self.P_exchange_repr[i][j])
+            
+            def simple_power_exchange_sum(m, t) : 
+                if self.commu is None : 
+                    return 0
+                else : 
+                    s = sum(self.P_exchange_repr[k][self.id][t] for k in self.commu.current_members_id)
+                if s is None : 
+                    return 0
+                else : 
+                    return s            
+            
+            self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum)
+            self.mod_member.P_exchange = self.P_exchange
+            
+    def build_objective(self, **kwargs) :
+        method = kwargs.get("method", "centralized")
+        if method == "centralized" :
+            self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr, sense=pyo.minimize)
+            
+        elif method == "admm" :
+            nb_members = len(self.commu.members)
+            rho = kwargs.get("rho", 1)
+            z_k = kwargs.get("z_k", [[[0 for t in self.time_index] for k in range(len(nb_members))] for i in range(len(nb_members))])
+            u_k = kwargs.get("u_k", [[[0 for t in self.time_index] for k in range(len(nb_members))] for i in range(len(nb_members))])
+            sqr_pena_expr = pyo.Expression(expr=sum((self.P_exchange_repr[i][j][t] - z_k[i][j][t] + u_k[i][j][t])**2 
+                                                    for t in self.time_index 
+                                                    for i in range(nb_members) 
+                                                    for j in range(nb_members)))
+            self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr + rho/2*sqr_pena_expr, sense=pyo.minimize)
 
     def build_model(self, **kwargs) :
         """
@@ -247,7 +293,10 @@ class member :
                                      + sum(f(self.P_cons, self.P_bat, self.P_exchange, self.P_grid_plus, self.P_grid_minus) for f in functions)/self.ref_values[-1]
                                     #  + calc_pena_pow(self.mod_member.p_excess_l, self.mod_member.p_excess_u, **pena_args)
                                      )
-        self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr, sense=pyo.minimize)
+        
+        self.build_objective(**kwargs)
+        
+        # self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr, sense=pyo.minimize)
         
         self.price = pyo.Expression(expr=calc_eco_total(self.P_grid_plus, self.P_grid_minus, self.P_exchange, self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, **eco_args))
         self.price_operation = pyo.Expression(expr=calc_eco(self.P_grid_plus, self.P_grid_minus, self.P_exchange, **eco_args))

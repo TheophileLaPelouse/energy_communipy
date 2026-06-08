@@ -1,9 +1,10 @@
-from . import pyo
+from . import pyo, np
 from .utils import calc_auto, calc_eco, calc_eco_total, calc_enviro, calc_invest_cost, calc_pena_pow, calc_confort
 from ..opti.solving import solve_model
 from ..plotting.plot_functions import plot_power_curves, plot_hexagon_objective
 import itertools
 import math
+import time
 
 import os
 import json
@@ -16,6 +17,7 @@ class community :
         self.agent = None
         self.mod = pyo.ConcreteModel()
         self.P_exchange = [[None for k in range(len(members))] for i in range(len(members))]
+        self.U_exchange = None # For ADMM
         self.members = members
         self.members_id = [k for k in range(len(members))]
         self.current_members_id = [k for k in range(len(members))]
@@ -35,6 +37,8 @@ class community :
         self.money_gains = 0
         
         self.combinations = None
+        
+        self.results = None
         
         nb_member = len(self.members_id)
         for i in self.members_id : 
@@ -68,7 +72,6 @@ class community :
                             self.mod.add_component(f"P_exchange_{i}_{j}", self.P_exchange[i][j])
                             already_done.add((i, j))
                     else : 
-                        # print("On est bien passés par là ? ", i, j)
                         self.P_exchange[i][j] = pyo.Var(self.time_set, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_set])
                         self.mod.add_component(f"P_exchange_{i}_{j}", self.P_exchange[i][j])
                    
@@ -87,6 +90,19 @@ class community :
                     member.mod_member.obj.deactivate()
             # print("MEMBER MODELS BUILT")
             self.build_centralized(**kwargs)
+            
+        if method == "admm" :
+            for k in self.members_id :
+                if k not in self.member_set : 
+                    if hasattr(self.mod, f"member_{k}") : 
+                        delattr(self.mod, f"member_{k}")
+                else : 
+                    member = self.members[k]
+                    member.add_to_community(self, k)
+                    member.ref_values = self.ref_values
+                    member.build_model(**kwargs)
+            # print("MEMBER MODELS BUILT")
+            self.build_admm(**kwargs)
     
     def clear_model(self):
         # Remove all variables from the model while keeping other components like devices
@@ -305,6 +321,91 @@ class community :
         
         
         return 
+    
+    def build_admm(self, **kwargs) : 
+        # Z is the power exchange so we already have it.
+        if not self.U_exchange : 
+            self.U_exchange = np.array([[[0. for t in self.time_index] for k in range(len(self.members_id))] for i in range(len(self.members_id))])
+        rho = kwargs.get("rho", 1)
+        x_k_1 = kwargs.get("x_k_1", np.array([[[0. for t in self.time_index] for k in range(len(self.members_id))] for i in range(len(self.members_id))]))
+        Surplus = kwargs.get("Surplus", np.array([[0. for t in self.time_index] for i in range(len(self.members_id))]))
+
+        members_id = self.current_members_id
+        
+        def surplus_only(m, t, i) :
+            S = sum(self.P_exchange[i][j][t] for j in members_id)
+            # S = what i send to others 
+            return S == Surplus[i][t]
+        self.mod.surplus_only = pyo.Constraint(self.time_set, self.member_set, rule=surplus_only)
+        
+        def ii_rule(m, t, i) : 
+            return self.P_exchange[i][i][t] == 0
+        self.mod.ii_rule = pyo.Constraint(self.time_set, self.member_set, rule=ii_rule)
+        
+        sqr_pena_expr = pyo.Expression(expr=sum((x_k_1[i][j][t] - self.P_exchange[i][j][t] + self.U_exchange[i][j][t])**2 
+                                                    for t in self.time_index 
+                                                    for i in members_id 
+                                                    for j in members_id))
+        
+        self.mod.obj = pyo.Objective(expr=sum(self.members[i].mod_member.obj_expr for i in members_id) + rho/2*sqr_pena_expr, sense=pyo.minimize)
+        
+    def optimize_admm(self, solver, **kwargs) :
+        rho = kwargs.get("rho", 1)
+        x_k = kwargs.get("x_k", np.array([[[0. for t in self.time_index] for k in range(len(self.members_id))] for i in range(len(self.members_id))]))
+        Surplus = kwargs.get("Surplus", np.array([[0. for t in self.time_index] for i in range(len(self.members_id))]))
+        z_k = np.array([[[0. for t in self.time_index] for k in range(len(self.members_id))] for i in range(len(self.members_id))])
+        r_k = 1000
+        s_k = 1000
+        eps_r = kwargs.get("eps_r", 1e-3)
+        eps_s = kwargs.get("eps_s", 1e-3)
+        max_iter = kwargs.get("max_iter", 100)
+        iter = 0
+        
+        t_python = 0
+        t_optimizer = 0
+        
+        t_start = time.time()
+        while (r_k > eps_r or s_k > eps_s) and iter < max_iter :
+            # Save argmin local 
+            for i in self.current_members_id :
+                member = self.members[i]
+                member.build_model(**kwargs)
+                
+                t_opti_start = time.time()
+                member.self_optimize(solver, **kwargs)
+                t_optimizer += time.time() - t_opti_start
+                
+                # self.P_exchange_repr[k][self.id][t]
+                for t in self.time_index :
+                    for j in self.current_members_id : 
+                        x_k[i, j, t] = pyo.value(member.P_exchange_repr[j][i][t])
+                    Surplus[i, t] = pyo.value(member.P_surplus[t])
+            args = {"rho" : rho, "x_k_1" : x_k, "Surplus" : Surplus, "method" : "admm"}
+            self.build_admm(**args)
+            
+            t_opti_start = time.time()
+            self.optimize(solver, **kwargs)
+            t_optimizer += time.time() - t_opti_start
+            
+            r_k = 0
+            s_k = 0
+            for i in self.current_members_id :
+                for j in self.current_members_id : 
+                    for t in self.time_index : 
+                        new_z = pyo.value(self.P_exchange[i][j][t])
+                        r_k += (x_k[i][j][t] - new_z)**2
+                        s_k += (new_z - z_k[i][j][t])**2
+                        self.U_exchange[i][j][t]  += x_k[i][j][t] - new_z
+                        z_k[i][j][t] = new_z
+            r_k = math.sqrt(r_k)
+            s_k = math.sqrt(s_k)*rho
+            
+            iter += 1
+        t_end = time.time()
+        t_python = t_end - t_start - t_optimizer
+        t_total = t_end - t_start
+                
+        self.results = {"r_k" : r_k, "s_k" : s_k, "iterations" : iter, "final_z_k" : z_k, "final_U_k" : self.U_exchange, "Times" : {"python" : t_python, "optimizer" : t_optimizer, "total" : t_total}}
     
     def optimize_selves(self, solver, **options) :
         
