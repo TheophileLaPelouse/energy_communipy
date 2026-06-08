@@ -288,7 +288,7 @@ import commu_opti.community.device as d
 import commu_opti.community.community as comm
 import commu_opti.community.member as memb
 
-options = {"total_time" : 5, "deltat" : 1, "def_irradiance" : False}
+options = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 'method' : 'admm', "nb_commu" : 2, "calc_ref" : False, "max_iter" : 10}
 
 members_dico = {
     "member1" : {
@@ -302,7 +302,7 @@ members_dico = {
             {
                 "type" : "PV", 
                 "parameters" : {
-                    "irradiance_profile" : [20 for t in range(5)],
+                    "irradiance_profile" : [20 for t in range(options["total_time"])],
                     "surface" : 5,
                     }
                 }
@@ -340,7 +340,7 @@ members_dico = {
 coef_options = {
     "eco" : {
         "cost_grid_buy" : 10, 
-        "cost_grid_sell" : -2.5,
+        "cost_grid_sell" : 2.5,
         "cost_ex" : 0, 
     },
     "enviro" : {
@@ -364,13 +364,14 @@ for key in members_dico :
     devices = []
     for device in m["devices"] : 
         devices.append(getattr(d, device["type"])(**device["parameters"], **options))
-    member = memb.member(devices, m["socio"], m["id"], calc_ref = False, **options)
+    member = memb.member(devices, m["socio"], m["id"], **options)
     members.append(member)
     c += 1
 co = comm.community(members, **options, **coef_options)
 # co.build_model()
-co.optimize("gurobi")
-co.mod.write('commu.lp', io_options={'symbolic_solver_labels': True})
+co.optimize_admm("gurobi", **co.kwargs)
+# co.optimize("gurobi")
+# co.mod.write('commu.lp', io_options={'symbolic_solver_labels': True})
 
 print("Optimization done \n")
 
@@ -387,16 +388,16 @@ print("Optimization done \n")
 # print("Gains distributed with Shapley \n")
 
 
-to_plot = {
-    "powers" : {
-        "P_grid" : [pyo.value(co.mod.P_grid_plus[t]+co.mod.P_grid_minus[t]) for t in range(co.total_time)],
-        "P_bat" : [pyo.value(co.mod.P_bat[t]) for t in range(co.total_time)],
-        "P_cons" : [pyo.value(co.mod.P_cons[t]) for t in range(co.total_time)], 
-        "P_exchange" : [pyo.value(co.mod.P_commu_exchange[t]) for t in range(co.total_time)],
-    }
-}
+# to_plot = {
+#     "powers" : {
+#         "P_grid" : [pyo.value(co.mod.P_grid_plus[t]+co.mod.P_grid_minus[t]) for t in range(co.total_time)],
+#         "P_bat" : [pyo.value(co.mod.P_bat[t]) for t in range(co.total_time)],
+#         "P_cons" : [pyo.value(co.mod.P_cons[t]) for t in range(co.total_time)], 
+#         "P_exchange" : [pyo.value(co.mod.P_commu_exchange[t]) for t in range(co.total_time)],
+#     }
+# }
     
-co.plot_power_curves(**to_plot)
+# co.plot_power_curves(**to_plot)
         
 # to_plot_hex = {
 #     "values" : {
@@ -408,7 +409,6 @@ co.plot_power_curves(**to_plot)
 #     "title" : "Gains distribution comparison"
 # }
 # co.plot_hexagon(**to_plot_hex)
-
 #%% Test de generate_data.py
 from commu_opti.data.generate_data import generate_n_profile
 import matplotlib.pyplot as plt

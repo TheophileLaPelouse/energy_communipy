@@ -50,6 +50,8 @@ class community :
         calc_ref = kwargs.get("calc_ref", True)
         if calc_ref :
             self.calc_ref_values(**kwargs)
+            
+            
         self.build_model(**kwargs)
         
     def build_model(self, **kwargs) : 
@@ -92,7 +94,9 @@ class community :
             self.build_centralized(**kwargs)
             
         if method == "admm" :
+            print("BONJOUR")
             for k in self.members_id :
+                print(k)
                 if k not in self.member_set : 
                     if hasattr(self.mod, f"member_{k}") : 
                         delattr(self.mod, f"member_{k}")
@@ -100,8 +104,9 @@ class community :
                     member = self.members[k]
                     member.add_to_community(self, k)
                     member.ref_values = self.ref_values
+                    print("model kwargs : ", kwargs)
                     member.build_model(**kwargs)
-            # print("MEMBER MODELS BUILT")
+            print("MEMBER MODELS BUILT")
             self.build_admm(**kwargs)
     
     def clear_model(self):
@@ -324,11 +329,11 @@ class community :
     
     def build_admm(self, **kwargs) : 
         # Z is the power exchange so we already have it.
-        if not self.U_exchange : 
-            self.U_exchange = np.array([[[0. for t in self.time_index] for k in range(len(self.members_id))] for i in range(len(self.members_id))])
+        if self.U_exchange is None : 
+            self.U_exchange = np.array([[[0. for t in self.time_set] for k in range(len(self.members_id))] for i in range(len(self.members_id))])
         rho = kwargs.get("rho", 1)
-        x_k_1 = kwargs.get("x_k_1", np.array([[[0. for t in self.time_index] for k in range(len(self.members_id))] for i in range(len(self.members_id))]))
-        Surplus = kwargs.get("Surplus", np.array([[0. for t in self.time_index] for i in range(len(self.members_id))]))
+        x_k_1 = kwargs.get("x_k_1", np.array([[[0. for t in self.time_set] for k in range(len(self.members_id))] for i in range(len(self.members_id))]))
+        Surplus = kwargs.get("Surplus", np.array([[0. for t in self.time_set] for i in range(len(self.members_id))]))
 
         members_id = self.current_members_id
         
@@ -340,20 +345,20 @@ class community :
         
         def ii_rule(m, t, i) : 
             return self.P_exchange[i][i][t] == 0
-        self.mod.ii_rule = pyo.Constraint(self.time_set, self.member_set, rule=ii_rule)
-        
-        sqr_pena_expr = pyo.Expression(expr=sum((x_k_1[i][j][t] - self.P_exchange[i][j][t] + self.U_exchange[i][j][t])**2 
-                                                    for t in self.time_index 
+        self.mod.ii_rule = pyo.Constraint(self.time_set, self.member_set, rule=ii_rule)        
+
+        self.mod.sqr_pena_expr = pyo.Expression(expr=sum((x_k_1[i][j][t] - self.P_exchange[i][j][t] + self.U_exchange[i][j][t])**2 
+                                                    for t in self.time_set 
                                                     for i in members_id 
                                                     for j in members_id))
         
-        self.mod.obj = pyo.Objective(expr=sum(self.members[i].mod_member.obj_expr for i in members_id) + rho/2*sqr_pena_expr, sense=pyo.minimize)
+        self.mod.obj = pyo.Objective(expr=rho/2*self.mod.sqr_pena_expr, sense=pyo.minimize)
         
     def optimize_admm(self, solver, **kwargs) :
         rho = kwargs.get("rho", 1)
-        x_k = kwargs.get("x_k", np.array([[[0. for t in self.time_index] for k in range(len(self.members_id))] for i in range(len(self.members_id))]))
-        Surplus = kwargs.get("Surplus", np.array([[0. for t in self.time_index] for i in range(len(self.members_id))]))
-        z_k = np.array([[[0. for t in self.time_index] for k in range(len(self.members_id))] for i in range(len(self.members_id))])
+        x_k = kwargs.get("x_k", np.array([[[0. for t in self.time_set] for k in range(len(self.members_id))] for i in range(len(self.members_id))]))
+        Surplus = kwargs.get("Surplus", np.array([[0. for t in self.time_set] for i in range(len(self.members_id))]))
+        z_k = np.array([[[0. for t in self.time_set] for k in range(len(self.members_id))] for i in range(len(self.members_id))])
         r_k = 1000
         s_k = 1000
         eps_r = kwargs.get("eps_r", 1e-3)
@@ -361,38 +366,51 @@ class community :
         max_iter = kwargs.get("max_iter", 100)
         iter = 0
         
+        solver_options = kwargs.get("solver_options", {})
+        
         t_python = 0
         t_optimizer = 0
+        
+        member_args = {}
+        member_args.update(kwargs)
+        commu_args = {}
+        commu_args.update(kwargs)
         
         t_start = time.time()
         while (r_k > eps_r or s_k > eps_s) and iter < max_iter :
             # Save argmin local 
+            
+            args = {"rho" : rho, "z_k" : z_k, "u_k" : self.U_exchange}
+            member_args.update(args)
+            
             for i in self.current_members_id :
                 member = self.members[i]
-                member.build_model(**kwargs)
+                member.build_model(**member_args)
                 
                 t_opti_start = time.time()
-                member.self_optimize(solver, **kwargs)
+                member.self_optimize(solver, **solver_options)
                 t_optimizer += time.time() - t_opti_start
                 
                 # self.P_exchange_repr[k][self.id][t]
-                for t in self.time_index :
+                for t in self.time_set :
                     for j in self.current_members_id : 
-                        x_k[i, j, t] = pyo.value(member.P_exchange_repr[j][i][t])
+                        x_k[j, i, t] = pyo.value(member.P_exchange_repr[j][i][t])
                     Surplus[i, t] = pyo.value(member.P_surplus[t])
-            args = {"rho" : rho, "x_k_1" : x_k, "Surplus" : Surplus, "method" : "admm"}
-            self.build_admm(**args)
+            args = {"rho" : rho, "x_k_1" : x_k, "Surplus" : Surplus}
+            commu_args.update(args)
+            self.build_admm(**commu_args)
             
             t_opti_start = time.time()
-            self.optimize(solver, **kwargs)
+            self.optimize(solver, **solver_options)
             t_optimizer += time.time() - t_opti_start
             
             r_k = 0
             s_k = 0
             for i in self.current_members_id :
                 for j in self.current_members_id : 
-                    for t in self.time_index : 
+                    for t in self.time_set : 
                         new_z = pyo.value(self.P_exchange[i][j][t])
+                        print(f"i {i} j {j} t {t} : x_k {x_k[i][j][t]}, z_k {z_k[i][j][t]}, new_z {new_z}, u_k {self.U_exchange[i][j][t]}")
                         r_k += (x_k[i][j][t] - new_z)**2
                         s_k += (new_z - z_k[i][j][t])**2
                         self.U_exchange[i][j][t]  += x_k[i][j][t] - new_z
@@ -401,6 +419,11 @@ class community :
             s_k = math.sqrt(s_k)*rho
             
             iter += 1
+            print("Surplus : ", Surplus)
+            print("\niter, r_k, s_k : ", iter, r_k, s_k)
+            
+            
+            
         t_end = time.time()
         t_python = t_end - t_start - t_optimizer
         t_total = t_end - t_start

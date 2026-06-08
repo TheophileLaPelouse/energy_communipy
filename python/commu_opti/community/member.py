@@ -14,11 +14,15 @@ class member :
         self.ref_values = kwargs.get("ref_values", [1 for k in range(len(socio)+1)])
         self.id = id_
         self.commu = None
-        self.mod_member = pyo.ConcreteModel()
         self.agent = None
         self.kwargs = kwargs
         self.deltat = kwargs.get("deltat", 1)
         self.total_time = kwargs.get("total_time", 24)
+        
+        self.mod_member = pyo.ConcreteModel()
+        self.time_index = pyo.RangeSet(0, self.total_time - 1)
+        self.mod_member.time_index = self.time_index
+        
         self.P_disponible = kwargs.get("irradiance_profile", [0 for t in range(self.total_time)])
         self.P_prod = None
         self.P_cons = None 
@@ -30,6 +34,8 @@ class member :
         self.bat_cap = None        
         self.devices = devices 
         self.devices_name = [device.name for device in devices]
+        
+        self.P_exchange_repr = None # Only used for admm
         # print("START BUILDING")
         
         self.def_irradiance = kwargs.get("def_irradiance", False)
@@ -137,21 +143,25 @@ class member :
             self.mod_member.P_exchange = self.P_exchange
             
         elif method=="admm" : 
-            nb_members = len(self.commu.members)
-            self.P_exchange_repr = [[None for k in range(len(nb_members))] for i in range(len(nb_members))]
-            already_done = set()
-            for i in self.members_id :
-                for j in self.members_id : 
-                    if i not in self.commu.member_set or j not in self.commu.member_set :
-                        self.P_exchange_repr[i][j]  = 0
-                    elif i==j : 
-                        if not (i, j) in already_done : 
-                            self.P_exchange_repr[i][j] = pyo.Var(self.time_set, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_set])
-                            self.mod.add_component(f"P_exchange_{i}_{j}", self.P_exchange_repr[i][j])
-                            already_done.add((i, j))
-                    else : 
-                        self.P_exchange_repr[i][j] = pyo.Var(self.time_set, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_set])
-                        self.mod.add_component(f"P_exchange_{i}_{j}", self.P_exchange_repr[i][j])
+            if self.commu is None : 
+                nb_members = kwargs.get("nb_members", 1)
+                self.P_exchange_repr = [[[0 for t in self.time_index] for k in range(nb_members)] for i in range(nb_members)]
+            else : 
+                nb_members = len(self.commu.members)
+                self.P_exchange_repr = [[None for k in range(nb_members)] for i in range(nb_members)]
+                already_done = set()
+                for i in self.commu.members_id :
+                    for j in self.commu.members_id : 
+                        if i not in self.commu.member_set or j not in self.commu.member_set :
+                            self.P_exchange_repr[i][j]  = 0
+                        elif i==j : 
+                            if not (i, j) in already_done : 
+                                self.P_exchange_repr[i][j] = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
+                                self.mod_member.add_component(f"P_exchange_{i}_{j}", self.P_exchange_repr[i][j])
+                                already_done.add((i, j))
+                        else : 
+                            self.P_exchange_repr[i][j] = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
+                            self.mod_member.add_component(f"P_exchange_{i}_{j}", self.P_exchange_repr[i][j])
             
             def simple_power_exchange_sum(m, t) : 
                 if self.commu is None : 
@@ -161,7 +171,7 @@ class member :
                 if s is None : 
                     return 0
                 else : 
-                    return s            
+                    return s   
             
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum)
             self.mod_member.P_exchange = self.P_exchange
@@ -172,15 +182,18 @@ class member :
             self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr, sense=pyo.minimize)
             
         elif method == "admm" :
-            nb_members = len(self.commu.members)
+            if self.commu is None : 
+                nb_members = kwargs.get("nb_members", 1)
+            else : 
+                nb_members = len(self.commu.members)
             rho = kwargs.get("rho", 1)
-            z_k = kwargs.get("z_k", [[[0 for t in self.time_index] for k in range(len(nb_members))] for i in range(len(nb_members))])
-            u_k = kwargs.get("u_k", [[[0 for t in self.time_index] for k in range(len(nb_members))] for i in range(len(nb_members))])
-            sqr_pena_expr = pyo.Expression(expr=sum((self.P_exchange_repr[i][j][t] - z_k[i][j][t] + u_k[i][j][t])**2 
+            z_k = kwargs.get("z_k", [[[0 for t in self.time_index] for k in range(nb_members)] for i in range(nb_members)])
+            u_k = kwargs.get("u_k", [[[0 for t in self.time_index] for k in range(nb_members)] for i in range(nb_members)])
+            self.mod_member.sqr_pena_expr = pyo.Expression(expr=sum((self.P_exchange_repr[i][j][t] - z_k[i][j][t] + u_k[i][j][t])**2 
                                                     for t in self.time_index 
                                                     for i in range(nb_members) 
                                                     for j in range(nb_members)))
-            self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr + rho/2*sqr_pena_expr, sense=pyo.minimize)
+            self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr + rho/2*self.mod_member.sqr_pena_expr, sense=pyo.minimize)
 
     def build_model(self, **kwargs) :
         """
@@ -190,9 +203,6 @@ class member :
         """ 
         
         self.clear_model()
-        
-        self.time_index = pyo.RangeSet(0, self.total_time - 1)
-        self.mod_member.time_index = self.time_index
         
         for k in range(len(self.devices)) : 
             if self.devices[k].__class__.__name__ == "PV" and self.def_irradiance : 
@@ -206,8 +216,8 @@ class member :
         
         # print("ADDING DEVICES DONE")
         
-        self.fetch_P_exchange()
-        
+        self.fetch_P_exchange(**kwargs)
+                
         # print("FETCH EXCHANGES DONE")
         
         self.calc_profile()
