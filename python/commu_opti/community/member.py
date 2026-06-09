@@ -14,6 +14,7 @@ class member :
         self.ref_values = kwargs.get("ref_values", [1 for k in range(len(socio)+1)])
         self.id = id_
         self.commu = None
+        self.full_commu = None
         self.agent = None
         self.kwargs = kwargs
         self.deltat = kwargs.get("deltat", 1)
@@ -53,6 +54,7 @@ class member :
     
     def add_to_community(self, commu, id_) :
         self.commu = commu  
+        self.full_commu = commu
         self.socio_commu = commu.socio  
         self.id=id_
     
@@ -184,15 +186,23 @@ class member :
         elif method == "admm" :
             if self.commu is None : 
                 nb_members = kwargs.get("nb_members", 1)
+                id_ = 0
             else : 
                 nb_members = len(self.commu.members)
+                id_ = self.id
             rho = kwargs.get("rho", 1)
             z_k = kwargs.get("z_k", [[[0 for t in self.time_index] for k in range(nb_members)] for i in range(nb_members)])
             u_k = kwargs.get("u_k", [[[0 for t in self.time_index] for k in range(nb_members)] for i in range(nb_members)])
+            z2_k = kwargs.get("z2_k", [[0 for t in self.time_index] for i in range(nb_members)])
+            u2_k = kwargs.get("u2_k", [[0 for t in self.time_index] for i in range(nb_members)])
+            
             self.mod_member.sqr_pena_expr = pyo.Expression(expr=sum((self.P_exchange_repr[i][j][t] - z_k[i][j][t] + u_k[i][j][t])**2 
                                                     for t in self.time_index 
                                                     for i in range(nb_members) 
-                                                    for j in range(nb_members)))
+                                                    for j in range(nb_members))
+                                                    + sum((self.P_surplus[t] - z2_k[id_][t] + u2_k[id_][t])**2 
+                                                          for t in self.time_index)
+                                                    )
             self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr + rho/2*self.mod_member.sqr_pena_expr, sense=pyo.minimize)
 
     def build_model(self, **kwargs) :
@@ -364,6 +374,7 @@ class member :
                     
     def fix_device_values(self) : 
         # Fix the variables 
+        self.commu = None # Fix power exchange and surplus to 0
         for d in self.devices : 
             # if white goods
             if hasattr(d.mod, "t_confort_lvl") : 
@@ -410,6 +421,7 @@ class member :
                     
     def unfix_device_values(self) :
         # Unfix the variables
+        self.commu = self.full_commu
         for d in self.devices : 
             # if white goods
             if hasattr(d.mod, "t_confort_lvl") : 
@@ -436,6 +448,37 @@ class member :
             else : 
                 for t in d.mod.t_set : 
                     getattr(d.mod, "allocated_power")[t].unfix()
+                    
+    def send_power_information(self, privacy=0) : 
+        """
+        Send the power information to the community. Privacy is a parameter varying between 0 and some integers.
+        The higher the number, the less information is shared. For now only 0 is implemented
+        """
+        powers = {
+            "P_cons": [pyo.value(self.P_cons[t]) for t in self.time_index],
+            "P_prod": [pyo.value(self.P_prod[t]) for t in self.time_index],
+            "P_bat": [pyo.value(self.P_bat[t]) for t in self.time_index],
+            "P_exchange": [pyo.value(self.P_exchange[t]) for t in self.time_index],
+            "P_surplus": [pyo.value(self.P_surplus[t]) for t in self.time_index],
+            "P_self": [pyo.value(self.P_self[t]) for t in self.time_index], 
+            "P_grid": [pyo.value(self.P_grid_plus[t] - self.P_grid_minus[t]) for t in self.time_index],
+        }
+        # In the future could send a json for working as an agent.
+        return powers
+    
+    def send_obj_information(self, keys_not_to_send=None) : 
+        objs = {
+            "price" : pyo.value(self.price),
+            "price_operation" : pyo.value(self.price_operation),
+            "price_invest" : pyo.value(self.price_invest),
+            "enviro" : pyo.value(self.enviro),
+            "auto" : pyo.value(self.auto),
+            "confort" : pyo.value(self.confort)
+        }
+        if keys_not_to_send is not None :
+            for key in keys_not_to_send :
+                objs.pop(key, None)
+        return objs
                     
     def drop_device(self, k) :
         if k < 0 : 

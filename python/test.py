@@ -288,7 +288,7 @@ import commu_opti.community.device as d
 import commu_opti.community.community as comm
 import commu_opti.community.member as memb
 
-options = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 'method' : 'admm', "nb_commu" : 2, "calc_ref" : False, "max_iter" : 10}
+options = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 'method' : 'admm', "nb_commu" : 2, "calc_ref" : True, "max_iter" : 10, "power_max_random" : 0}
 
 members_dico = {
     "member1" : {
@@ -308,7 +308,7 @@ members_dico = {
                 }
         ],
         "socio" : [1, 1, 1, 1],
-        "id" : 1
+        "id" : 0
     }, 
     "member2" : {
         "devices" : [
@@ -320,7 +320,7 @@ members_dico = {
             }
         ],
         "socio" : [1, 1, 1, 1],
-        "id" : 2
+        "id" : 1
     },
     # "member3" : {
     #     "power_profile" : [0 for t in range(5)], 
@@ -340,7 +340,7 @@ members_dico = {
 coef_options = {
     "eco" : {
         "cost_grid_buy" : 10, 
-        "cost_grid_sell" : 2.5,
+        "cost_grid_sell" : -2.5,
         "cost_ex" : 0, 
     },
     "enviro" : {
@@ -373,6 +373,8 @@ co.optimize_admm("gurobi", **co.kwargs)
 # co.optimize("gurobi")
 # co.mod.write('commu.lp', io_options={'symbolic_solver_labels': True})
 
+co.aggregate_distributed_information()
+
 print("Optimization done \n")
 
 # co.calc_gains("gurobi")
@@ -396,8 +398,17 @@ print("Optimization done \n")
 #         "P_exchange" : [pyo.value(co.mod.P_commu_exchange[t]) for t in range(co.total_time)],
 #     }
 # }
+
+to_plot = {
+    "powers" : {
+        "P_grid" : co.results['aggregated_powers']['P_grid'],
+        "P_bat" : co.results['aggregated_powers']['P_bat'],
+        "P_cons" : co.results['aggregated_powers']['P_cons'], 
+        "P_exchange" : co.results['aggregated_powers']['P_exchange'],
+    }
+}
     
-# co.plot_power_curves(**to_plot)
+co.plot_power_curves(**to_plot)
         
 # to_plot_hex = {
 #     "values" : {
