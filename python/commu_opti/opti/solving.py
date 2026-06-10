@@ -11,3 +11,9 @@ def solve_model(model, solver="gurobi", options={}) :
         solver.options[key] = options[key]
     results = solver.solve(model)
     return results
+
+def treat_members_admm(self, params) :
+    member, solver, solver_options = params
+    member.self_optimize(solver, options=solver_options)
+
+    return

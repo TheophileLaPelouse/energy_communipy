@@ -96,5 +96,4 @@ def extract_values(m, dico) :
     dico["Egrid_minus"].append(sum(pyo.value(m.P_grid_minus[t]) for t in m.time_index)*m.deltat)
     return dico
 
-
     

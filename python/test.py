@@ -288,7 +288,9 @@ import commu_opti.community.device as d
 import commu_opti.community.community as comm
 import commu_opti.community.member as memb
 
-options = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 'method' : 'admm', "nb_commu" : 2, "calc_ref" : True, "max_iter" : 10, "power_max_random" : 0}
+options = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 
+           'method' : 'admm', "nb_commu" : 2, "calc_ref" : True, "max_iter" : 100, "power_max_random" : 10, 
+           "eps_r":1e-4, "eps_s":1e-4}
 
 members_dico = {
     "member1" : {
@@ -369,6 +371,8 @@ for key in members_dico :
     c += 1
 co = comm.community(members, **options, **coef_options)
 # co.build_model()
+co.socio = [1, 0, 0, 0]
+# co.ref_values[0] = 1
 co.optimize_admm("gurobi", **co.kwargs)
 # co.optimize("gurobi")
 # co.mod.write('commu.lp', io_options={'symbolic_solver_labels': True})

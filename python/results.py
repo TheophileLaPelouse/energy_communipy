@@ -523,13 +523,15 @@ from commu_opti.data.generate_data import generate_n_profile, create_random_agen
 from commu_opti.commu_builder import define_members, define_community
 
 
-def test_complexity(n, test_calc_ref=False, calc_ref=True, calc_ref_commu=True) :
+def test_complexity(n, method, test_calc_ref=False, calc_ref=True, calc_ref_commu=True, max_iter=100) :
     
     t0 = time()
     
     print("generating data...")
     profile = [[0, 8, 1], [8, 16, 0], [16, 24, 1], [24, 32, 1], [32, 40, 0], [40, 48, 1], [48, 56, 1], [56, 64, 0], [64, 72, 1]]
     total_time = 72
+    # profile = [[0, 8, 1], [8, 16, 0]]
+    # total_time = 16
     profiles = generate_n_profile(n, profile, offset=2, lengths_rate=1.3, lengths_breaks_rate=0.3)
     t1 = time()
     print(f"data generated in {t1 - t0} seconds \n")
@@ -547,6 +549,7 @@ def test_complexity(n, test_calc_ref=False, calc_ref=True, calc_ref_commu=True) 
         param = {"devices" : agent, "device_options" : {"total_time" : total_time, "deltat" : 1}, 
                 "parameters" : {
                     "socio" : [1, 1, 0, 1],
+                    "method" : method,
                     "id_" : i+1, 
                     "bat_exchange" : False, 
                     "total_time" : total_time,
@@ -563,11 +566,14 @@ def test_complexity(n, test_calc_ref=False, calc_ref=True, calc_ref_commu=True) 
     print(f"members defined in {t3 - t2} seconds \n")
     
     param_commu = {
-        "method" : "centralized",
+        "method" : method,
         "deltat" : 1,
         "total_time" : total_time,
         "calc_ref" : calc_ref, 
         "ref_values" : [1, 1, 1, 1],
+        "max_iter" : max_iter,
+        "rho" : 0.001/n, 
+        "power_max_random" : 0,
     }
 
     price_options = {
@@ -601,16 +607,22 @@ def test_complexity(n, test_calc_ref=False, calc_ref=True, calc_ref_commu=True) 
     t5 = time()
     print(f"community defined in {t5 - t4} seconds \n")
     print("optimizing community...")
+    print(community.members)
     t6 = time()
-    state = community.optimize("gurobi")
+    if method == 'admm' : 
+        state = community.optimize_admm("gurobi", **community.kwargs)
+    else : 
+        state = community.optimize("gurobi")
     t7 = time()
     print(f"community optimized in {t7 - t6} seconds \n")
     print(f"total time for {n} members : {t7 - t0} seconds \n")
-    
+    community.aggregate_distributed_information()
     return (t7 - t6, t7-t0, community, members_params, state)
 
 
-retur = test_complexity(100, calc_ref=False, calc_ref_commu = False)
+retur = test_complexity(4, "admm", calc_ref=False, calc_ref_commu = False)
+co = retur[2]
+
 # c = 0
 # while isinstance(m, tuple) and c < 10000: 
 #     m = test_complexity(1, calc_ref=True)

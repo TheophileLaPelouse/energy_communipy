@@ -3,6 +3,7 @@ from . import pyo
 from .utils import calc_auto, calc_eco, calc_enviro, calc_pena_pow, calc_confort, calc_eco_total, calc_invest_cost
 from ..opti.solving import solve_model
 from ..plotting.plot_functions import plot_power_curves
+from .constraint_functions_members import *
 
 class member : 
     def __init__(self, devices, socio, id_, **kwargs) :
@@ -19,6 +20,8 @@ class member :
         self.kwargs = kwargs
         self.deltat = kwargs.get("deltat", 1)
         self.total_time = kwargs.get("total_time", 24)
+        
+        self.scale = kwargs.get("scale", 1)
         
         self.mod_member = pyo.ConcreteModel()
         self.time_index = pyo.RangeSet(0, self.total_time - 1)
@@ -52,9 +55,18 @@ class member :
             self.build_model(**kwargs)
         # print("BUILDING MEMBER DONE")
     
-    def add_to_community(self, commu, id_) :
-        self.commu = commu  
-        self.full_commu = commu
+    def add_to_community(self, commu, id_, method=None) :
+        if method == "admm" : 
+            self.commu = {
+                "members_id" : commu.members_id[:],
+                "member_set" : set(commu.member_set),
+                "current_members_id" : commu.current_members_id[:],
+            }
+            self.full_commu = self.commu.copy()
+        
+        else : 
+            self.commu = commu  
+            self.full_commu = commu
         self.socio_commu = commu.socio  
         self.id=id_
     
@@ -62,53 +74,6 @@ class member :
         """
         Take all the devices and compute the consumed power, the produced power, the power exchange to batteries.
         """
-                
-        def rule_pcons(m, t) : 
-            Pcons = 0
-            for d in self.devices : 
-                if not (hasattr(d, "E") or d.__class__.__name__ == "PV") : 
-                    Pcons += d.mod.Pcons[t]
-            return Pcons
-        def rule_pbat(m, t) :
-            Pbat = 0
-            for d in self.devices : 
-                if hasattr(d, "E") : 
-                    Pbat += d.mod.Pcons[t] 
-            return Pbat
-        
-        def rule_p_prod(m, t) : 
-            Pprod = 0
-            for d in self.devices : 
-                if d.__class__.__name__ == "PV": 
-                    Pprod -= d.mod.Pcons[t]
-            return Pprod
-       
-        def rule_p_confort(m, t) : 
-            confort = 0
-            for d in self.devices : 
-                if hasattr(d.mod, "p_confort_lvl") : 
-                    confort += d.mod.p_confort_lvl[t]
-            return confort
-        def rule_t_confort(m) : 
-            confort = 0
-            for d in self.devices : 
-                if hasattr(d.mod, "t_confort_lvl") : 
-                    confort += d.mod.t_confort_lvl
-            return confort
-        
-        def rule_PV_surface(m) : 
-            surface = 0
-            for d in self.devices : 
-                if d.__class__.__name__ == "PV" : 
-                    surface += d.mod.PV_surface
-            return surface
-        
-        def bat_cap_rule(m) : 
-            cap = 0
-            for d in self.devices : 
-                if d.__class__.__name__ == "battery" : 
-                    cap += d.capacity
-            return cap
        
         self.P_cons = pyo.Expression(self.time_index, rule=rule_pcons)
         self.P_bat = pyo.Expression(self.time_index, rule=rule_pbat)
@@ -131,51 +96,25 @@ class member :
         """
         method = kwargs.get("method", "centralized")
         if method == "centralized" : 
-            def simple_power_exchange_sum(m, t) : 
-                if self.commu is None : 
-                    return 0
-                else : 
-                    s = sum(self.commu.P_exchange[k][self.id][t] for k in self.commu.current_members_id)
-                
-                if s is None : 
-                    return 0
-                else : 
-                    return s
-            self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum)
+
+            self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_centralized)
             self.mod_member.P_exchange = self.P_exchange
             
         elif method=="admm" : 
             if self.commu is None : 
-                nb_members = kwargs.get("nb_members", 1)
-                self.P_exchange_repr = [[[0 for t in self.time_index] for k in range(nb_members)] for i in range(nb_members)]
+                current_members_id = kwargs.get("current_members", [0])
+                self.P_exchange_repr = pyo.Var(current_members_id, self.time_index, within=pyo.NonNegativeReals, initialize=0)
+                self.P_exchange_repr.fix(0)
+                self.mod_member.P_exchange_repr = self.P_exchange_repr
             else : 
-                nb_members = len(self.commu.members)
-                self.P_exchange_repr = [[None for k in range(nb_members)] for i in range(nb_members)]
-                already_done = set()
-                for i in self.commu.members_id :
-                    for j in self.commu.members_id : 
-                        if i not in self.commu.member_set or j not in self.commu.member_set :
-                            self.P_exchange_repr[i][j]  = 0
-                        elif i==j : 
-                            if not (i, j) in already_done : 
-                                self.P_exchange_repr[i][j] = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
-                                self.mod_member.add_component(f"P_exchange_{i}_{j}", self.P_exchange_repr[i][j])
-                                already_done.add((i, j))
-                        else : 
-                            self.P_exchange_repr[i][j] = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
-                            self.mod_member.add_component(f"P_exchange_{i}_{j}", self.P_exchange_repr[i][j])
-            
-            def simple_power_exchange_sum(m, t) : 
-                if self.commu is None : 
-                    return 0
-                else : 
-                    s = sum(self.P_exchange_repr[k][self.id][t] for k in self.commu.current_members_id)
-                if s is None : 
-                    return 0
-                else : 
-                    return s   
-            
-            self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum)
+                members_id = self.commu["members_id"]
+                self.P_exchange_repr = pyo.Var(members_id, self.time_index, within=pyo.NonNegativeReals, initialize=0)
+                for i in self.commu["members_id"] :
+                        if i not in self.commu["member_set"] :
+                            self.P_exchange_repr[i, :].fix(0)
+                self.mod_member.P_exchange_repr = self.P_exchange_repr
+
+            self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_admm)
             self.mod_member.P_exchange = self.P_exchange
             
     def build_objective(self, **kwargs) :
@@ -188,22 +127,37 @@ class member :
                 nb_members = kwargs.get("nb_members", 1)
                 id_ = 0
             else : 
-                nb_members = len(self.commu.members)
+                nb_members = len(self.commu["current_members_id"])
                 id_ = self.id
-            rho = kwargs.get("rho", 1)
-            z_k = kwargs.get("z_k", [[[0 for t in self.time_index] for k in range(nb_members)] for i in range(nb_members)])
-            u_k = kwargs.get("u_k", [[[0 for t in self.time_index] for k in range(nb_members)] for i in range(nb_members)])
-            z2_k = kwargs.get("z2_k", [[0 for t in self.time_index] for i in range(nb_members)])
-            u2_k = kwargs.get("u2_k", [[0 for t in self.time_index] for i in range(nb_members)])
             
-            self.mod_member.sqr_pena_expr = pyo.Expression(expr=sum((self.P_exchange_repr[i][j][t] - z_k[i][j][t] + u_k[i][j][t])**2 
+            if not hasattr(self.mod_member, "rho") : 
+                rho = pyo.Param(initialize=1, mutable=True)
+                z_k = pyo.Param(range(nb_members), range(nb_members), self.time_index, initialize=0, mutable=True)
+                u_k = pyo.Param(range(nb_members), range(nb_members), self.time_index, initialize=0, mutable=True)
+                z2_k = pyo.Param(range(nb_members), self.time_index, initialize=0, mutable=True)
+                u2_k = pyo.Param(range(nb_members), self.time_index, initialize=0, mutable=True)
+            
+                self.mod_member.rho = rho
+                self.mod_member.z_k = z_k
+                self.mod_member.u_k = u_k
+                self.mod_member.z2_k = z2_k
+                self.mod_member.u2_k = u2_k
+            
+            self.mod_member.sqr_pena_expr = pyo.Expression(expr=sum((self.P_exchange_repr[i, t] - self.mod_member.z_k[i, id_, t] + self.mod_member.u_k[i, id_, t])**2 
                                                     for t in self.time_index 
-                                                    for i in range(nb_members) 
-                                                    for j in range(nb_members))
-                                                    + sum((self.P_surplus[t] - z2_k[id_][t] + u2_k[id_][t])**2 
+                                                    for i in range(nb_members))
+                                                    + sum((self.P_surplus[t] - self.mod_member.z2_k[id_, t] + self.mod_member.u2_k[id_, t])**2 
                                                           for t in self.time_index)
                                                     )
-            self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr + rho/2*self.mod_member.sqr_pena_expr, sense=pyo.minimize)
+            self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr + self.mod_member.rho/2*self.mod_member.sqr_pena_expr, sense=pyo.minimize)
+
+    def update_params_admm(self, **kwargs) :
+        self.mod_member.rho.set_value(kwargs.get("rho", 1))
+        self.mod_member.z_k.store_values(kwargs.get("z_k"))
+        self.mod_member.u_k.store_values(kwargs.get("u_k"))
+        self.mod_member.z2_k.store_values(kwargs.get("z2_k"))
+        self.mod_member.u2_k.store_values(kwargs.get("u2_k"))
+        
 
     def build_model(self, **kwargs) :
         """
@@ -261,32 +215,21 @@ class member :
             self.P_bat_m = pyo.Expression(self.time_index, rule=lambda m, t : self.P_bat_minus[t]*(1 - self.charging[t]))
             self.mod_member.P_bat_p = self.P_bat_p
             self.mod_member.P_bat_m = self.P_bat_m
-         
-            def P_bat_con(mod, t) :
-                return (mod.P_bat[t] == self.P_bat_p[t] - self.P_bat_m[t])
-            self.mod_member.P_bat_con = pyo.Constraint(self.time_index, rule=P_bat_con)
             
-            def P_prod_constraint(mod, t) : 
-                return self.P_surplus[t] + self.P_self[t] == self.P_prod[t] + mod.P_bat_m[t]
+            self.mod_member.P_bat_con = pyo.Constraint(self.time_index, rule=P_bat_con_false)
+            self.mod_member.P_prod_con = pyo.Constraint(self.time_index, rule=P_prod_constraint_false)
+            self.mod_member.P_grid_con = pyo.Constraint(self.time_index, rule=P_grid_constraint_false)
 
-            def P_grid_constraint(mod, t):
-                return mod.P_grid_plus[t] - mod.P_grid_minus[t] == self.P_cons[t] + mod.P_bat_p[t] - self.P_exchange[t] - self.P_self[t]
-
-            self.P_self_prod = pyo.Expression(self.time_index, rule=lambda m, t : m.P_self[t] - m.P_bat_m[t])
+            self.P_self_prod = pyo.Expression(self.time_index, rule=P_self_prod_con_false)
             self.mod_member.P_self_prod = self.P_self_prod
             
         else : 
-            def P_prod_constraint(mod, t) : 
-                return self.P_surplus[t] + self.P_self[t] == self.P_prod[t] 
-            
-            def P_grid_constraint(mod, t):
-                return mod.P_grid_plus[t] - mod.P_grid_minus[t] == self.P_cons[t] + self.P_bat[t] - self.P_exchange[t] - self.P_self[t]
 
-            self.P_self_prod = pyo.Expression(self.time_index, rule=lambda m, t : m.P_self[t])  
+            self.P_self_prod = pyo.Expression(self.time_index, rule=P_self_prod_con_true)  
             self.mod_member.P_self_prod = self.P_self_prod
             
-        self.mod_member.P_prod_con = pyo.Constraint(self.time_index, rule=P_prod_constraint)
-        self.mod_member.P_grid_con = pyo.Constraint(self.time_index, rule=P_grid_constraint)
+            self.mod_member.P_prod_con = pyo.Constraint(self.time_index, rule=P_prod_constraint_true)
+            self.mod_member.P_grid_con = pyo.Constraint(self.time_index, rule=P_grid_constraint_true)
         # Warning : works onlly if selling price lower than buying price
         
         # print("PGRID + and - DEFINED")
@@ -337,7 +280,7 @@ class member :
     
     def clear_model(self):
         # Remove all variables from the model while keeping other components like devices
-        vars_to_remove = [attr for attr in dir(self.mod_member) if isinstance(getattr(self.mod_member, attr), (pyo.Var, pyo.Expression, pyo.Constraint, pyo.Objective, pyo.Set, pyo.RangeSet))]
+        vars_to_remove = [attr for attr in dir(self.mod_member) if isinstance(getattr(self.mod_member, attr), (pyo.Var, pyo.Expression, pyo.Constraint, pyo.Objective, pyo.Set, pyo.RangeSet, pyo.Param))]
         for var in vars_to_remove:
             delattr(self.mod_member, var)
         
@@ -346,6 +289,9 @@ class member :
         """
         Run the optimization with some default values to get reference values for normalization of the different criteria
         """
+        self.commu = None
+        self.ref_values = [1 for k in range(4)]
+        
         self.build_model(**kwargs)
         self.fix_device_values()
         
@@ -354,27 +300,29 @@ class member :
         if lp_ref :
             self.mod_member.write('member.lp', io_options={'symbolic_solver_labels': True})
         results = solve_model(self.mod_member, solver, **kwargs.get("ref_options", {}))
+        
         self.ref_values = [pyo.value(self.price), pyo.value(self.enviro), pyo.value(self.auto), pyo.value(self.confort)]
-        # print("REF VALUES CALCULATED : ", self.ref_values)
-
+        
         flag = str(results['Solver'][0]['Status']) == 'ok'
-        for k in range(len(self.ref_values)) :
-            if self.ref_values[k] == 0 and k != 3 : 
-                print("WARNING : REF VALUE IS 0, PROBLEM IN NORMALIZATION, REF VALUES : ", self.ref_values)
-                self.ref_values = [1 for val in self.ref_values]
-                print("REF VALUES SET TO 1")
-                break
-            if self.ref_values[k] == 0 and k == 3 : 
-                self.ref_values[k] = 1 # Confort is not studied in this case 
+        from_community = kwargs.get("from_community", False)
+        if not from_community :
+            for k in range(len(self.ref_values)) :
+                if self.ref_values[k] == 0 and k != 3 : 
+                    print("WARNING : REF VALUE IS 0, PROBLEM IN NORMALIZATION, REF VALUES : ", self.ref_values)
+                    self.ref_values = [1 for val in self.ref_values]
+                    print("REF VALUES SET TO 1")
+                    break
+                if self.ref_values[k] == 0 and k == 3 : 
+                    self.ref_values[k] = 1 # Confort is not studied in this case 
         
         if not kwargs.get("no_clear_ref", False) :
             self.unfix_device_values()
             self.clear_model()
+            self.commu = self.full_commu
         return flag
                     
     def fix_device_values(self) : 
         # Fix the variables 
-        self.commu = None # Fix power exchange and surplus to 0
         for d in self.devices : 
             # if white goods
             if hasattr(d.mod, "t_confort_lvl") : 
@@ -421,7 +369,6 @@ class member :
                     
     def unfix_device_values(self) :
         # Unfix the variables
-        self.commu = self.full_commu
         for d in self.devices : 
             # if white goods
             if hasattr(d.mod, "t_confort_lvl") : 
@@ -448,6 +395,17 @@ class member :
             else : 
                 for t in d.mod.t_set : 
                     getattr(d.mod, "allocated_power")[t].unfix()
+                    
+    # def scale_power_model(self, scale) : 
+    #     """
+    #     Scale the power of the model by a factor. Useful for improving the performance of the optimization.
+    #     """
+    #     Powers_to_scale = ['P_bat','P_cons','P_prod','bat_cap'] # Others are defined regarding these ones
+    #     for power in Powers_to_scale :
+    #         if hasattr(self.mod_member, power) : 
+                
+        
+        
                     
     def send_power_information(self, privacy=0) : 
         """
