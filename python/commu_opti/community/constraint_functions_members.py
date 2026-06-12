@@ -6,7 +6,7 @@ def rule_pcons(m, t) :
     for i in m.device_set : 
         d = getattr(m, f"device{i}")
         if not (hasattr(d, "p_range_bat") or hasattr(d, "PV_surface")) : 
-            Pcons += d.mod.Pcons[t]
+            Pcons += d.Pcons[t]
     return Pcons
 
 def rule_pbat(m, t) :
@@ -59,15 +59,12 @@ def bat_cap_rule(m) :
 # fetch P exchange 
 
 def simple_power_exchange_sum_centralized(m, t) : 
+    print("Dans la fonction")
     if m.commu.value == 0 : 
         return 0
     else : 
         mod_commu = m.parent_block()
-        s = sum(mod_commu.P_exchange[k, m.id, t]*m.commu*mod_commu.active_members[k] for k in mod_commu.member_set)
-    
-    if s is None : 
-        return 0
-    else : 
+        s = sum(mod_commu.P_exchange[k, m.id.value, t]*m.commu*mod_commu.active_members[k] for k in mod_commu.member_set)
         return s
     
 def simple_power_exchange_sum_admm(m, t) : 

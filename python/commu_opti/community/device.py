@@ -48,6 +48,9 @@ class device :
         self.mod = mod
         self.time_total_set = pyo.RangeSet(0, self.total_time - 1)
         self.t_set = pyo.RangeSet(0, len(self.p_range) - 1)  # set of time interval
+        mod.time_total_set = self.time_total_set
+        mod.t_set = self.t_set
+        
         self.allocated_power = pyo.Var(self.t_set, within=pyo.Reals)
         self.mod.p_range = pyo.Param(self.t_set, range(2), initialize={(k, i) : self.p_range[k][i] for k in self.t_set for i in range(2)}, mutable=True)
         
@@ -66,7 +69,7 @@ class device :
         self.time_score = 0 
 
 
-        mod.t_set = self.t_set
+        
         mod.allocated_power = self.allocated_power
         mod.p_excess_l = self.p_excess_l
         mod.p_excess_u = self.p_excess_u
@@ -106,7 +109,9 @@ class device :
         mod.dcharge_eff = pyo.Param(initialize=self.dcharge_eff, within=pyo.NonNegativeReals, mutable=True)
         mod.E_range = pyo.Param(range(2), initialize=self.E_range, within=pyo.Reals, mutable=True)
         mod.p_range_bat = pyo.Param(range(2), initialize=self.p_range_bat, within=pyo.Reals, mutable=True)
-        mod.E_min = pyo.Param(range(len(self.E_min)), initialize=self.E_min, within=pyo.Reals, mutable=True)
+        
+        if self.E_min is not None : 
+            mod.E_min = pyo.Param(range(len(self.E_min)), initialize=self.E_min, within=pyo.Reals, mutable=True)
             
         mod.soc_con = pyo.Constraint(self.mod.home_set, rule=soc)
         mod.soc_max_con = pyo.Constraint(self.mod.home_set, rule=soc_max)
@@ -159,26 +164,25 @@ class white_good(device) :
             if times[1] > self.total_time : 
                 print("Warning : cycle length too long for the total time, it will be reduced to fit the total time")
                 times[1] = self.total_time
+        self.t_min, self.t_max, self.cycle_length = [], [], []
         self.generate_spec_constraint()
         
     def generate_spec_constraint(self) :
         set_P0 = pyo.RangeSet(0, self.total_time - 1)
         
         # We make the parameters as large as possible to be able to change them in the future without changing the model.
-        t_min = pyo.Param(self.mod.time_total_set, 
-                          initialize={k : max(0, self.t_use[k][0] + self.t_range[k][0]) if k in self.mod.t_set else 0 for k in self.mod.time_total_set}, 
-                          within=pyo.NonNegativeReals, mutable=True)
-        t_max = pyo.Param(self.mod.time_total_set,
-                          initialize={k : min(self.total_time, self.t_use[k][1] + self.t_range[k][1]+1) if k in self.mod.t_set else self.total_time for k in self.mod.time_total_set},
-                            within=pyo.NonNegativeReals, mutable=True)
-        
-        cycle_length = pyo.Param(self.mod.time_total_set, initialize={k : self.t_use[k][1] - self.t_use[k][0] - 1 if k in self.mod.t_set else 0 for k in self.mod.time_total_set}, within=pyo.NonNegativeReals, mutable=True)
+        t_min = [max(0, self.t_use[k][0] + self.t_range[k][0]) if k in self.mod.t_set else 0 for k in self.mod.time_total_set]
+        t_max = [min(self.total_time, self.t_use[k][1] + self.t_range[k][1]+1) if k in self.mod.t_set else self.total_time for k in self.mod.time_total_set]
+        cycle_length = [self.t_use[k][1] - self.t_use[k][0] - 1 if k in self.mod.t_set else 0 for k in self.mod.time_total_set]
         self.mod.used_time = pyo.Param(self.mod.time_total_set, initialize={k : 1 if k in self.mod.t_set else 0 for k in self.mod.time_total_set}, within=pyo.Boolean, mutable=True)
         
         self.mod.t_wanted = pyo.Param(self.mod.time_total_set, initialize={k : self.t_use[k][0] if k in self.mod.t_set else 0 for k in self.mod.time_total_set}, within=pyo.NonNegativeReals, mutable=True)
 
         available_time = pyo.Param(self.mod.time_total_set, self.mod.time_total_set, within=pyo.Boolean, initialize=0, mutable=True)
         available_time_set = pyo.Param(self.mod.time_total_set, self.mod.time_total_set, within=pyo.Boolean, initialize=0, mutable=True)
+        
+        self.t_min, self.t_max, self.cycle_length = t_min, t_max, cycle_length
+        self.mod.available_time, self.mod.available_time_set = available_time, available_time_set
         
         for t_set in self.mod.time_total_set :
             if t_set in self.mod.t_set :
@@ -190,17 +194,24 @@ class white_good(device) :
                 for t in range(t_min[t_set], t_max[t_set]-cycle_length[t_set]+1) : 
                     available_time_set[t_set, t].set_value(1)
         
+        del self.mod.p_range
+        self.mod.p_range = pyo.Param(self.mod.time_total_set, range(2), initialize={(k, i) : self.p_range[k][i] if k in self.mod.t_set else 0 for k in self.mod.time_total_set for i in range(2)}, mutable=True)
+        
         bin_t0 = pyo.Var(self.mod.time_total_set, self.mod.time_total_set, within=pyo.Boolean, initialize=0)
         starting_time_plus = pyo.Var(self.mod.time_total_set, within=pyo.NonNegativeReals, initialize=0)
         starting_time_minus = pyo.Var(self.mod.time_total_set, within=pyo.NonNegativeReals, initialize=0)
         
         pow_con = pyo.Constraint(self.mod.time_total_set, rule=rule_pow_wg)
         
-        self.mod.t_min, self.mod.t_max, self.mod.cycle_length, self.mod.available_time = t_min, t_max, cycle_length, available_time
-        self.mod.available_time_set = available_time_set
         self.mod.bin_t0, self.mod.starting_time_plus, self.mod.starting_time_minus = bin_t0, starting_time_plus, starting_time_minus
-        self.mod.time_con, self.mod.starting_time_con_plus, self.mod.starting_time_con_minus = time_con, starting_time_con_plus, starting_time_con_minus
         self.mod.pow_con = pow_con
+        
+        time_con = pyo.Constraint(self.mod.time_total_set, rule=time_constraint)
+        starting_time_con_plus = pyo.Constraint(self.mod.time_total_set, rule=starttime_con_plus)
+        starting_time_con_minus = pyo.Constraint(self.mod.time_total_set, rule=starttime_con_minus)
+        self.mod.t_confort_lvl = pyo.Expression(expr=sum(starting_time_plus[t] + starting_time_minus[t] for t in self.mod.time_total_set))
+        
+        self.mod.time_con, self.mod.starting_time_con_plus, self.mod.starting_time_con_minus = time_con, starting_time_con_plus, starting_time_con_minus
         
         for k in self.mod.time_total_set : 
             if k not in self.mod.t_set : 
@@ -211,12 +222,6 @@ class white_good(device) :
                 time_con[k].deactivate()
                 starting_time_con_plus[k].deactivate()
                 starting_time_con_minus[k].deactivate()
-        
-        
-        time_con = pyo.Constraint(self.mod.time_total_set, rule=time_constraint)
-        starting_time_con_plus = pyo.Constraint(self.mod.time_total_set, rule=starttime_con_plus)
-        starting_time_con_minus = pyo.Constraint(self.mod.time_total_set, rule=starttime_con_minus)
-        self.mod.t_confort_lvl = pyo.Expression(expr=sum(starting_time_plus[t] + starting_time_minus[t] for t in self.mod.time_total_set))
         
     def update_time_param(self, start_pref, cycle_length, time_range, power_needed, **kwargs) : 
         """
@@ -229,20 +234,21 @@ class white_good(device) :
 
         m = self.mod
         
-        m.t_min.store_values({k : max(0, time_use[k][0] + self.t_range[k][0]) if k in m.t_set else 0 for k in m.time_total_set})
-        m.t_max.store_values({k : min(self.total_time, time_use[k][1] + self.t_range[k][1]+1) if k in m.t_set else self.total_time for k in m.time_total_set})
-        m.cycle_length.store_values({k : time_use[k][1] - time_use[k][0] - 1 if k in m.t_set else 0 for k in m.time_total_set})
+        self.t_min = [max(0, self.t_use[k][0] + self.t_range[k][0]) if k in self.mod.t_set else 0 for k in self.mod.time_total_set]
+        self.t_max = [min(self.total_time, self.t_use[k][1] + self.t_range[k][1]+1) if k in self.mod.t_set else self.total_time for k in self.mod.time_total_set]
+        self.cycle_length = [self.t_use[k][1] - self.t_use[k][0] - 1 if k in self.mod.t_set else 0 for k in self.mod.time_total_set]
+        
         m.t_wanted.store_values({k : time_use[k][0] if k in m.t_set else 0 for k in m.time_total_set})
-        m.used_time.store_values({k:1 for k in range(len(t_))}) = pyo.Param(m.time_total_set, initialize={k : 1 if k in m.t_set else 0 for k in m.time_total_set}, within=pyo.Boolean, mutable=True)
+        m.used_time.store_values({k : 1 if k in m.t_set else 0 for k in m.time_total_set})
         
         for t_set in m.time_total_set :
             if t_set in m.t_set :
                 for t in m.time_total_set : 
-                    interval_min = max(t-m.cycle_length[t_set], m.t_min[t_set])
-                    interval_max = min(t, m.t_max[t_set]-m.cycle_length[t_set])
+                    interval_min = max(t-self.cycle_length[t_set], self.t_min[t_set])
+                    interval_max = min(t, self.t_max[t_set]-self.cycle_length[t_set])
                     for t2 in range(interval_min, interval_max+1) :
                         m.available_time[t, t2].set_value(1)
-                for t in range(m.t_min[t_set], m.t_max[t_set]-m.cycle_length[t_set]+1) : 
+                for t in range(self.t_min[t_set], self.t_max[t_set]-self.cycle_length[t_set]+1) : 
                     m.available_time_set[t_set, t].set_value(1)
         return
 class fixed(device) :
@@ -339,6 +345,7 @@ class AoN(device) :
         super().__init__(power_range, time_use, time_range, **kwargs)
         self.mod.power_needed = pyo.Param(initialize=power_needed, within=pyo.NonNegativeReals, mutable=True)
         self.mod.energy_needed = pyo.Param(initialize=energy_needed, within=pyo.NonNegativeReals, mutable=True)
+        self.mod.max_factor = pyo.Param(initialize=kwargs.get('max_factor', 1), within=pyo.NonNegativeReals, mutable=True)
         self.generate_spec_constraint()
         
     def generate_spec_constraint(self) : 
@@ -351,7 +358,7 @@ class AoN(device) :
                                                        self.mod.energy_needed))
         self.mod.sum_on_off_con_max = pyo.Constraint(expr=(sum(self.mod.on_off[k] for k in self.mod.t_set)*self.mod.power_needed*self.deltat 
                                                        <= 
-                                                       max(1.5*self.mod.energy_needed, self.mod.power_needed*self.deltat + self.mod.energy_needed)))
+                                                       self.mod.max_factor*self.mod.power_needed*self.deltat + self.mod.energy_needed)) # Maybe self.mod.power_needed*self.deltat is too much
 
         self.mod.pow_con = pyo.Constraint(self.mod.t_set, rule=rule_AoN)
         

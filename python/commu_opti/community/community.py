@@ -18,8 +18,6 @@ class community :
         self.kwargs = kwargs
         self.agent = None
         self.mod = pyo.ConcreteModel()
-        self.member_set = pyo.Set(initialize=self.members_id)
-        self.mod.member_set = self.member_set
         self.P_exchange = None
         self.U_exchange = None # For ADMM
         self.U_surplus = None # For ADMM
@@ -29,6 +27,9 @@ class community :
         self.total_time = kwargs.get('total_time', 24)
         self.deltat = kwargs.get('deltat', 1)
         self.socio = [0, 0, 0, 0]
+        
+        self.member_set = pyo.Set(initialize=self.members_id)
+        self.time_set = pyo.RangeSet(0, self.total_time - 1)
         
         self.members_obj = []
         self.members_price = []
@@ -62,9 +63,8 @@ class community :
     def build_model(self, **kwargs) : 
         
         self.clear_model()
-        members_id = self.current_members_id
-        self.time_set = pyo.RangeSet(0, self.total_time - 1)
-        
+        self.mod.member_set = self.member_set
+        self.mod.time_set = self.time_set
         self.mod.active_members = pyo.Param(self.member_set, initialize={i : 1 if i in self.current_members_id else 0 for i in self.members_id}, mutable=True)
         # print("MEMBER SET DEFINED")
         already_done = set()
@@ -78,7 +78,9 @@ class community :
                 member = self.members[k]
                 member.add_to_community(self, k)
                 member.ref_values = self.ref_values
+                setattr(self.mod, f"member_{k}", member.mod_member)
                 member.build_model(**kwargs)
+                getattr(self.mod, f"member_{k}").obj.deactivate()
                 member.mod_member.obj.deactivate()
             # print("MEMBER MODELS BUILT")
             self.build_centralized(**kwargs)
@@ -183,12 +185,6 @@ class community :
             
     
     def build_centralized(self, **kwargs) :
-        
-        members_id = self.current_members_id
-        
-        for id_ in members_id : 
-            setattr(self.mod, f"member_{id_}", self.members[id_].mod_member)
-            getattr(self.mod, f"member_{id_}").obj.deactivate()
             
         self.mod.surplus_only = pyo.Constraint(self.time_set, self.member_set, rule=surplus_only_centralized)
         
@@ -227,14 +223,14 @@ class community :
         self.mod.p_confort = pyo.Expression(self.time_set, rule=p_confort_expr)
         self.mod.t_confort = pyo.Expression(rule=t_confort_expr)
         
-        self.mod.obj = pyo.Objective(expr=sum(self.members[i].mod_member.obj_expr for i in members_id))
+        self.mod.obj = pyo.Objective(expr=sum(self.members[i].mod_member.obj_expr*self.mod.active_members[i] for i in self.mod.member_set), sense=pyo.minimize)
         
-        self.price = pyo.Expression(expr=sum(self.members[i].price for i in members_id))
-        self.price_operation = pyo.Expression(expr=sum(self.members[i].price_operation for i in members_id))
-        self.price_invest = pyo.Expression(expr=sum(self.members[i].price_invest for i in members_id))
-        self.enviro = pyo.Expression(expr=sum(self.members[i].enviro for i in members_id))
-        self.auto = pyo.Expression(expr=sum(self.members[i].auto for i in members_id))
-        self.confort = pyo.Expression(expr=sum(self.members[i].confort for i in members_id))
+        self.price = pyo.Expression(expr=sum(self.members[i].price*self.mod.active_members[i] for i in self.mod.member_set))
+        self.price_operation = pyo.Expression(expr=sum(self.members[i].price_operation*self.mod.active_members[i] for i in self.mod.member_set))
+        self.price_invest = pyo.Expression(expr=sum(self.members[i].price_invest*self.mod.active_members[i] for i in self.mod.member_set))
+        self.enviro = pyo.Expression(expr=sum(self.members[i].enviro*self.mod.active_members[i] for i in self.mod.member_set))
+        self.auto = pyo.Expression(expr=sum(self.members[i].auto*self.mod.active_members[i] for i in self.mod.member_set))
+        self.confort = pyo.Expression(expr=sum(self.members[i].confort*self.mod.active_members[i] for i in self.mod.member_set))
         
         self.mod.price = self.price
         self.mod.enviro = self.enviro
@@ -276,13 +272,13 @@ class community :
 
         if hasattr(self.mod, "sqr_pena_expr") :
             del self.mod.sqr_pena_expr
-        self.mod.sqr_pena_expr = pyo.Expression(expr=sum((x_k_1[i, j, t] - self.P_exchange[i, j, t]+ self.U_exchange[i, j, t])**2 
+        self.mod.sqr_pena_expr = pyo.Expression(expr=sum((x_k_1[i, j, t] - self.P_exchange[i, j, t]+ self.U_exchange[i, j, t])**2*self.mod.active_members[i]*self.mod.active_members[j]  
                                                     for t in self.time_set 
-                                                    for i in members_id 
-                                                    for j in members_id)
-                                                    + sum((Surplus_k_1[i, t] - self.Surplus_repr[i, t]+ self.U_surplus[i, t])**2 
+                                                    for i in self.mod.member_set 
+                                                    for j in self.mod.member_set)
+                                                    + sum((Surplus_k_1[i, t] - self.Surplus_repr[i, t]+ self.U_surplus[i, t])**2*self.mod.active_members[i]
                                                           for t in self.time_set 
-                                                          for i in members_id)
+                                                          for i in self.mod.member_set)
                                                 )
         
         if hasattr(self.mod, "obj") :

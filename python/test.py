@@ -38,9 +38,9 @@ options = {"total_time" : 24, "deltat" : 1}
 #              }
 
 wash_mach = {'cycle_length': [3],
-  'power_needed': [2000.0],
-  'start_pref': [22],
-  'time_range': [[0, 0]]
+  'power_needed': [20.0],
+  'start_pref': [21],
+  'time_range': [[-24, 24]]
   }
 
 # wash_mach = {'cycle_length' : [0.5], 
@@ -50,7 +50,6 @@ wash_mach = {'cycle_length': [3],
 #              }
 
 device_wash_mach = d.white_good(**wash_mach, **options)
-
 print("\nWASHING MACHINE DEFINED\n")
 
 # plaque_electrique
@@ -71,6 +70,7 @@ therm_load = {
 device_therm = d.flex(**therm_load, **options)
 
 print("\nTHERMAL LOAD DEFINED\n")
+
 
 # EV
 
@@ -125,6 +125,15 @@ bat_load_device = d.battery(**bat_load, **options)
 
 print("\nBATTERY DEVICE DEFINED\n")
 
+AoN_load = {
+    "power_needed" : 10, 
+    "energy_needed" : 30,
+    }
+
+aon_device = d.AoN(**AoN_load, **options)
+
+print("AoN DEVICE DEFINED")
+
 def define_devices(wash_mach, therm_load, EV_load, fixed_load, pv_prod, bat_load, options) :
     device_wash_mach = d.white_good(**wash_mach, **options)
     device_therm = d.flex(**therm_load, **options)
@@ -135,20 +144,19 @@ def define_devices(wash_mach, therm_load, EV_load, fixed_load, pv_prod, bat_load
     
     return device_wash_mach, device_therm, device_EV, device_fixed, device_PV, device_bat
 
-
 community = comm.community([])
 
 import commu_opti.community.member as memb
 # Create dictionaries for different test cases
 test_cases = {
-    "wash_machine": {
-        "name": "wash_test",
-        "devices": [],
-        "community": community,
-        "prod_profile" : prod_profile, 
-        "socio" : [1, 0, 0, 0.01], 
-        "id" : 1
-    },
+    # "wash_machine": {
+    #     "name": "wash_test",
+    #     "devices": [],
+    #     "community": community,
+    #     "prod_profile" : prod_profile, 
+    #     "socio" : [1, 0, 0, 0.01], 
+    #     "id" : 1
+    # },
     # "thermostat": {
     #     "name": "therm_test",
     #     "devices": [],
@@ -181,14 +189,14 @@ test_cases = {
     #     "socio" : [1, 0, 0, 1], 
     #     "id" : 1
     #     }, 
-    # "all_devices": {
-    #     "name": "all_test",
-    #     "devices": [],
-    #     "community": community,
-    #     "prod_profile" : prod_profile, 
-    #     "socio" : [1, 1, 1, 1], 
-    #     "id" : 1
-    # },
+    "all_devices": {
+        "name": "all_test",
+        "devices": [],
+        "community": community,
+        "prod_profile" : prod_profile, 
+        "socio" : [1, 1, 1, 1], 
+        "id" : 1
+    },
     }
 
 member_options = {
@@ -225,8 +233,8 @@ for case_name, case_params in test_cases.items():
     device_wash_mach, device_therm, device_EV, device_fixed, device_PV, device_bat = define_devices(wash_mach, therm_load, EV_load, fixed_load, pv_prod, bat_load,options)
     
     if case_name=="wash_machine" : 
-        # case_params['devices'] = [device_wash_mach, device_PV]
-        case_params['devices'] = [device_wash_mach]
+        case_params['devices'] = [device_wash_mach, device_PV]
+        # case_params['devices'] = [device_wash_mach]
     elif case_name=="thermostat" :
         case_params['devices'] = [device_therm, device_PV]
     elif case_name=="EV" :
@@ -289,7 +297,7 @@ import commu_opti.community.community as comm
 import commu_opti.community.member as memb
 
 options = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 
-           'method' : 'admm', "nb_commu" : 2, "calc_ref" : True, "max_iter" : 100, "power_max_random" : 10, 
+           'method' : 'centralized', "nb_commu" : 2, "calc_ref" : False, "max_iter" : 100, "power_max_random" : 10, 
            "eps_r":1e-4, "eps_s":1e-4}
 
 members_dico = {
@@ -373,8 +381,8 @@ co = comm.community(members, **options, **coef_options)
 # co.build_model()
 co.socio = [1, 0, 0, 0]
 # co.ref_values[0] = 1
-co.optimize_admm("gurobi", **co.kwargs)
-# co.optimize("gurobi")
+# co.optimize_admm("gurobi", **co.kwargs)
+co.optimize("gurobi")
 # co.mod.write('commu.lp', io_options={'symbolic_solver_labels': True})
 
 co.aggregate_distributed_information()

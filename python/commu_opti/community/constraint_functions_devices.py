@@ -128,10 +128,10 @@ def rule_flex(mod, t) :
     return mod.Pcons[t] == mod.allocated_power[t]
 
 def confort_rule_flex(mod, t) :
-    return mod.p_range[t][1] - mod.allocated_power[t]
+    return mod.p_range[t, 1] - mod.allocated_power[t]
 
 # AoN devices
 
 def rule_AoN(mod, t) : 
-    return mod.Pcons[t] == mod.on_off[t]*self.power_needed
+    return mod.Pcons[t] == mod.on_off[t]*mod.power_needed
 

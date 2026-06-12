@@ -43,10 +43,10 @@ def P_auto_expr(m, t) :
     return m.P_self[t] + m.P_commu_exchange[t] - m.P_grid_minus[t]
 
 def p_confort_expr(m, t) : 
-    return sum(getattr(m, f'member_{i}').mod_member.p_confort[t]*m.active_members[i] for i in m.member_set)
+    return sum(getattr(m, f'member_{i}').p_confort[t]*m.active_members[i] for i in m.member_set)
 
 def t_confort_expr(m) :
-    return sum(getattr(m, f'member_{i}').mod_member.t_confort*m.active_members[i] for i in m.member_set)
+    return sum(getattr(m, f'member_{i}').t_confort*m.active_members[i] for i in m.member_set)
 
 # ADMM constraints
 

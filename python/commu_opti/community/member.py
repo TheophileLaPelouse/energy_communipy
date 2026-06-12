@@ -1,4 +1,3 @@
-from numpy import mod
 from . import pyo
 from .utils import calc_auto, calc_eco, calc_enviro, calc_pena_pow, calc_confort, calc_eco_total, calc_invest_cost
 from ..opti.solving import solve_model
@@ -25,9 +24,6 @@ class member :
         
         self.mod_member = pyo.ConcreteModel()
         self.time_index = pyo.RangeSet(0, self.total_time - 1)
-        self.mod_member.time_index = self.time_index
-        self.mod_member.commu = pyo.Param(initialize=0, within=pyo.Binary, mutable=True)
-        self.mod_member.id = pyo.Param(initialize=id_, mutable=True)
         
         self.P_disponible = kwargs.get("irradiance_profile", [0 for t in range(self.total_time)])
         self.P_prod = None
@@ -58,7 +54,8 @@ class member :
         # print("BUILDING MEMBER DONE")
     
     def add_to_community(self, commu, id_, method=None) :
-        self.mod_member.commu.set_value(1)
+        if hasattr(self.mod_member, 'commu'):
+            self.mod_member.commu.set_value(1)
         if method == "admm" : 
             self.commu = {
                 "members_id" : commu.members_id[:],
@@ -101,7 +98,9 @@ class member :
         if method == "centralized" : 
             
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_centralized)
+            print("Bonjour", self.P_exchange.pprint())
             self.mod_member.P_exchange = self.P_exchange
+            print("ICI ?")
             
         elif method=="admm" : 
             if self.commu is None : 
@@ -170,6 +169,10 @@ class member :
         """ 
         
         self.clear_model()
+        
+        self.mod_member.time_index = self.time_index
+        self.mod_member.commu = pyo.Param(initialize=(int(self.commu is None) + 1)%2, within=pyo.Binary, mutable=True)
+        self.mod_member.id = pyo.Param(initialize=self.id, mutable=True)
         
         for k in range(len(self.devices)) : 
             if self.devices[k].__class__.__name__ == "PV" and self.def_irradiance : 
@@ -295,7 +298,6 @@ class member :
         Run the optimization with some default values to get reference values for normalization of the different criteria
         """
         self.commu = None
-        self.mod_member.commu.set_value(0)
         self.ref_values = [1 for k in range(4)]
         
         self.build_model(**kwargs)
