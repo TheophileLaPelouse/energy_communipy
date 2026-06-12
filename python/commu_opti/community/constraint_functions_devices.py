@@ -115,12 +115,12 @@ def starttime_con_minus(mod, t_set) :
 # Fixed devices
 
 def rule_fixed(mod, t) :
-    return mod.Pcons[t] == power_profile[t] 
+    return mod.Pcons[t] == mod.power_profile[t] 
 
 # PV devices 
 
 def rule_PV(mod, t) :
-    return mod.Pcons[t] == -irradiance_profile[t]*mod.PV_surface*eff
+    return mod.Pcons[t] == -mod.irradiance_profile[t]*mod.PV_surface*mod.eff
 
 # Flex devices 
 
@@ -128,7 +128,7 @@ def rule_flex(mod, t) :
     return mod.Pcons[t] == mod.allocated_power[t]
 
 def confort_rule_flex(mod, t) :
-    return self.p_range[t][1] - mod.allocated_power[t]
+    return mod.p_range[t][1] - mod.allocated_power[t]
 
 # AoN devices
 

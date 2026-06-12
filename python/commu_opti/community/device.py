@@ -245,67 +245,6 @@ class white_good(device) :
                 for t in range(m.t_min[t_set], m.t_max[t_set]-m.cycle_length[t_set]+1) : 
                     m.available_time_set[t_set, t].set_value(1)
         return
-        
-    # def generate_spec_constraint(self) : 
-    #     """
-    #     For each cycle, we have a constraint, we will use 1 constraint for the power 
-    #     and 2 others to count positively and negatively the time gap with the comfort value
-        
-    #     For the power : 
-    #     S = [max(t - cycle_length, tmin), min(t, tmax - cycle_length)] ([tmin, tmax] being set_t0)
-    #     sum bin_t0[t]*power_needed for t in S) == Pcons[t] (power_needed is constant during a cycle)
-        
-    #     For the comfort : 
-    #     starting_time_plus >= sum bin_t0[t]*t for t in set_t0) - start_pref
-    #     starting_time_minus >= start_pref - sum bin_t0[t]*t for t in set_t0)
-
-    #     """
-    #     set_P0 = pyo.RangeSet(0, self.total_time - 1)
-    #     for instant in self.mod.t_set : 
-    #         # print("\n INSTANT %d" % instant)
-    #         t_min = max(0, self.t_use[instant][0] + self.t_range[instant][0])
-    #         t_max = min(self.t_use[instant][1] + self.t_range[instant][1], self.total_time-1)
-    #         cycle_length = self.t_use[instant][1] - self.t_use[instant][0] - 1
-    #         set_t0 = pyo.RangeSet(t_min,t_max-cycle_length)
-    #         set_P0 = set_P0.difference(set_t0)
-    #         bin_t0 = pyo.Var(set_t0, within=pyo.Boolean)
-    #         starting_time_plus = pyo.Var(within=pyo.NonNegativeReals)
-    #         starting_time_minus = pyo.Var(within=pyo.NonNegativeReals)
-            
-    #         setattr(self.mod, f"set_t0_{instant}", set_t0)
-    #         # setattr(self.mod, f"set_d_{instant}", set_t0)
-    #         setattr(self.mod, f"bin_{instant}", bin_t0)
-    #         setattr(self.mod, f"starting_time_plus_{instant}", starting_time_plus)
-    #         setattr(self.mod, f"starting_time_minus_{instant}", starting_time_minus)
-            
-    #         time_con= pyo.Constraint(expr=sum(bin_t0[t] for t in set_t0)==1)
-            
-    #         # print("BONJOUR", self.t_use[instant][0], self.t_range[instant])
-    #         # set_t0.display()
-            
-    #         setattr(self.mod, f"bin_t_con_{instant}", time_con)
-    #         starttime_con_plus = pyo.Constraint(expr=sum(t*bin_t0[t] for t in set_t0)- self.t_use[instant][0] <= starting_time_plus)
-    #         setattr(self.mod, f"starttime_con_plus_{instant}", starttime_con_plus)
-    #         starttime_con_minus = pyo.Constraint(expr=self.t_use[instant][0] - sum(t*bin_t0[t] for t in set_t0) <= starting_time_minus)
-    #         setattr(self.mod, f"starttime_con_minus_{instant}", starttime_con_minus)
-            
-    #         # set_t0.display()
-
-    #         pow_con = pyo.Constraint(set_t0, rule=rule_pow_wg)
-    #         setattr(self.mod, f"bin_p_con_{instant}", pow_con)
-            
-    #         confort_con = pyo.Expression(rule=rule_confort)
-    #         setattr(self.mod, f"confort_con_{instant}", confort_con)
-            
-
-    #     pow_con = pyo.Constraint(set_P0, rule=rule_pow_wg2)
-    #     self.mod.pow_con = pow_con
-        
-    #     self.mod.t_confort_lvl = pyo.Expression(expr = sum(getattr(self.mod, f"confort_con_{instant}") for instant in self.mod.t_set))
-            
-    #     return
-            
-        
 class fixed(device) :
     def __init__(self, power_profile, **kwargs) : 
         """Fixed profile devices, act as a parameter, so one very simple constraint
@@ -320,6 +259,7 @@ class fixed(device) :
         time_range = [[0, 0] for k in range(len(time_use))]
         super().__init__(power_range, time_use, time_range, **kwargs)
         total_t_index = pyo.RangeSet(0, len(power_profile)-1)
+        self.mod.power_profile = pyo.Param(total_t_index, initialize={k : power_profile[k] for k in total_t_index}, within=pyo.Reals, mutable=True)
         self.mod.pow_con = pyo.Constraint(total_t_index, rule=rule_fixed)
         return
     
@@ -344,15 +284,18 @@ class PV(device) :
         time_range = [[0, 0] for k in range(len(time_use))]
         super().__init__(power_range, time_use, time_range, **kwargs)
         
+        time_set = self.mod.time_total_set
+        self.mod.eff = pyo.Param(initialize=eff, within=pyo.NonNegativeReals, mutable=True)
+        self.mod.irradiance_profile = pyo.Param(time_set, initialize={k : irradiance_profile[k] for k in time_set}, within=pyo.Reals, mutable=True)
         if not surface :
             self.PV_surface = pyo.Var(initialize=0, within=pyo.NonNegativeReals, bounds=(0, None))
             self.mod.PV_surface = self.PV_surface
             
-            self.mod.pow_con = pyo.Constraint(self.time_total_set, rule=rule_PV)
+            self.mod.pow_con = pyo.Constraint(time_set, rule=rule_PV)
         else :
             self.PV_surface = pyo.Param(initialize=surface, within=pyo.NonNegativeReals)
             self.mod.PV_surface = self.PV_surface
-            self.mod.pow_con = pyo.Constraint(self.time_total_set, rule=rule_PV)
+            self.mod.pow_con = pyo.Constraint(time_set, rule=rule_PV)
         return
     
     def update_irradiance(self, new_irradiance) : 
@@ -394,6 +337,8 @@ class AoN(device) :
         self.energy_needed = energy_needed
         self.power_needed = power_needed
         super().__init__(power_range, time_use, time_range, **kwargs)
+        self.mod.power_needed = pyo.Param(initialize=power_needed, within=pyo.NonNegativeReals, mutable=True)
+        self.mod.energy_needed = pyo.Param(initialize=energy_needed, within=pyo.NonNegativeReals, mutable=True)
         self.generate_spec_constraint()
         
     def generate_spec_constraint(self) : 
@@ -401,12 +346,12 @@ class AoN(device) :
         Ici on a un vecteur de binaires pour quand ça s'active ou pas.
         """
         self.mod.on_off = pyo.Var(self.mod.t_set, within=pyo.Boolean, initialize=[0 for k in self.mod.t_set])
-        self.mod.sum_on_off_con_min = pyo.Constraint(expr=(sum(self.mod.on_off[k] for k in self.mod.t_set)*self.power_needed*self.deltat 
+        self.mod.sum_on_off_con_min = pyo.Constraint(expr=(sum(self.mod.on_off[k] for k in self.mod.t_set)*self.mod.power_needed*self.deltat 
                                                        >= 
-                                                       self.energy_needed))
-        self.mod.sum_on_off_con_max = pyo.Constraint(expr=(sum(self.mod.on_off[k] for k in self.mod.t_set)*self.power_needed*self.deltat 
+                                                       self.mod.energy_needed))
+        self.mod.sum_on_off_con_max = pyo.Constraint(expr=(sum(self.mod.on_off[k] for k in self.mod.t_set)*self.mod.power_needed*self.deltat 
                                                        <= 
-                                                       max(1.5*self.energy_needed, self.power_needed*self.deltat + self.energy_needed)))
+                                                       max(1.5*self.mod.energy_needed, self.mod.power_needed*self.deltat + self.mod.energy_needed)))
 
         self.mod.pow_con = pyo.Constraint(self.mod.t_set, rule=rule_AoN)
         
@@ -434,7 +379,7 @@ class battery(device) :
         super().__init__(power_range, t_use, time_range, **kwargs)
         if not E_range : 
             self.capacity = pyo.Var(initialize=0, within=pyo.NonNegativeReals)
-            self.E_range = (kwargs.get('min_rate', 0.1 * self.capacity), kwargs.get('max_rate', 0.9 * self.capacity))
+            self.E_range = (kwargs.get('min_rate', 0.1) * self.capacity, kwargs.get('max_rate', 0.9) * self.capacity)
             self.mod.capacity = self.capacity
             p_range_rate = kwargs.get('p_range_rate', 0.5)
             self.p_range_bat = (-p_range_rate*self.capacity, p_range_rate*self.capacity)

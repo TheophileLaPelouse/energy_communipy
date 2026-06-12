@@ -18,6 +18,8 @@ class community :
         self.kwargs = kwargs
         self.agent = None
         self.mod = pyo.ConcreteModel()
+        self.member_set = pyo.Set(initialize=self.members_id)
+        self.mod.member_set = self.member_set
         self.P_exchange = None
         self.U_exchange = None # For ADMM
         self.U_surplus = None # For ADMM
@@ -62,47 +64,33 @@ class community :
         self.clear_model()
         members_id = self.current_members_id
         self.time_set = pyo.RangeSet(0, self.total_time - 1)
-        self.member_set = pyo.Set(initialize=members_id)
-        self.mod.member_set = self.member_set
+        
+        self.mod.active_members = pyo.Param(self.member_set, initialize={i : 1 if i in self.current_members_id else 0 for i in self.members_id}, mutable=True)
         # print("MEMBER SET DEFINED")
         already_done = set()
         self.P_exchange = pyo.Var(self.members_id, self.members_id, self.time_set, within=pyo.NonNegativeReals, initialize=0)
-        for i in self.members_id :
-            for j in self.members_id : 
-                    # On ne compte que les échanges positifs.
-                    if i not in self.member_set or j not in self.member_set :
-                        self.P_exchange[i, j, :].fix(0)
         self.mod.P_exchange = self.P_exchange
                    
         # print("EXCHANGE VARIABLES DEFINED")
         method = kwargs.get("method", "centralized")
         if method == "centralized" :
             for k in self.members_id :
-                if k not in self.member_set : 
-                    if hasattr(self.mod, f"member_{k}") : 
-                        delattr(self.mod, f"member_{k}")
-                else : 
-                    member = self.members[k]
-                    member.add_to_community(self, k)
-                    member.ref_values = self.ref_values
-                    member.build_model(**kwargs)
-                    member.mod_member.obj.deactivate()
+                member = self.members[k]
+                member.add_to_community(self, k)
+                member.ref_values = self.ref_values
+                member.build_model(**kwargs)
+                member.mod_member.obj.deactivate()
             # print("MEMBER MODELS BUILT")
             self.build_centralized(**kwargs)
             
         if method == "admm" :
             # print("BONJOUR")
             for k in self.members_id :
-                # print(k)
-                if k not in self.member_set : 
-                    if hasattr(self.mod, f"member_{k}") : 
-                        delattr(self.mod, f"member_{k}")
-                else : 
-                    member = self.members[k]
-                    member.add_to_community(self, k, method)
-                    member.ref_values = self.ref_values
-                    # print("model kwargs : ", kwargs)
-                    member.build_model(**kwargs)
+                member = self.members[k]
+                member.add_to_community(self, k, method)
+                member.ref_values = self.ref_values
+                # print("model kwargs : ", kwargs)
+                member.build_model(**kwargs)
             print("MEMBER MODELS BUILT")
             self.build_admm(**kwargs)
     
@@ -111,6 +99,10 @@ class community :
         vars_to_remove = [attr for attr in dir(self.mod) if isinstance(getattr(self.mod, attr), (pyo.Var, pyo.Expression, pyo.Constraint, pyo.Objective, pyo.Set, pyo.RangeSet))]
         for var in vars_to_remove:
             delattr(self.mod, var)
+            
+    def update_model(self) : 
+        # For now just update the list of active members, maybe later we'll have other parameters to update.
+        self.active_members = {i : 1 if i in self.current_members_id else 0 for i in self.members_id}
             
     def calc_ref_values(self, **kwargs) :
         """
@@ -121,10 +113,6 @@ class community :
         ref_values = [0, 0, 0, 0]
         
         for i in self.members_id :
-            # self.members[i].fix_device_values()
-            # self.members[i].mod_member.obj.activate()
-            # solver = kwargs.get("ref_solver", "gurobi")
-            # results = solve_model(self.members[i].mod_member, solver, **kwargs.get("ref_options", {}))
             member_args = {}
             member_args.update(kwargs)
             print()
@@ -518,8 +506,7 @@ class community :
     
     def calc_gains(self, solver, **options) :
         self.current_members_id = self.members_id[:]
-        kwargs = self.kwargs
-        self.build_model(**kwargs)
+        self.update_model()
         results = self.optimize(solver, **options)
         community_obj = pyo.value(self.mod.obj)
         community_price = pyo.value(self.mod.price)
@@ -587,7 +574,8 @@ class community :
             # print("combinaison", comb)
             self.current_members_id = list(comb)
             kwargs = self.kwargs 
-            self.build_model(**kwargs)
+            self.update_model()
+            # self.build_model(**kwargs)
             solver = kwargs.get("solver", "gurobi")
             options = kwargs.get("options", {})
             self.optimize(solver, **options)

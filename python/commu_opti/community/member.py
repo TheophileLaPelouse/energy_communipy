@@ -26,6 +26,8 @@ class member :
         self.mod_member = pyo.ConcreteModel()
         self.time_index = pyo.RangeSet(0, self.total_time - 1)
         self.mod_member.time_index = self.time_index
+        self.mod_member.commu = pyo.Param(initialize=0, within=pyo.Binary, mutable=True)
+        self.mod_member.id = pyo.Param(initialize=id_, mutable=True)
         
         self.P_disponible = kwargs.get("irradiance_profile", [0 for t in range(self.total_time)])
         self.P_prod = None
@@ -56,6 +58,7 @@ class member :
         # print("BUILDING MEMBER DONE")
     
     def add_to_community(self, commu, id_, method=None) :
+        self.mod_member.commu.set_value(1)
         if method == "admm" : 
             self.commu = {
                 "members_id" : commu.members_id[:],
@@ -96,23 +99,21 @@ class member :
         """
         method = kwargs.get("method", "centralized")
         if method == "centralized" : 
-
+            
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_centralized)
             self.mod_member.P_exchange = self.P_exchange
             
         elif method=="admm" : 
             if self.commu is None : 
-                current_members_id = kwargs.get("current_members", [0])
-                self.P_exchange_repr = pyo.Var(current_members_id, self.time_index, within=pyo.NonNegativeReals, initialize=0)
-                self.P_exchange_repr.fix(0)
-                self.mod_member.P_exchange_repr = self.P_exchange_repr
+                members_id = [self.id]
+                current_members_id = [self.id]
             else : 
                 members_id = self.commu["members_id"]
-                self.P_exchange_repr = pyo.Var(members_id, self.time_index, within=pyo.NonNegativeReals, initialize=0)
-                for i in self.commu["members_id"] :
-                        if i not in self.commu["member_set"] :
-                            self.P_exchange_repr[i, :].fix(0)
-                self.mod_member.P_exchange_repr = self.P_exchange_repr
+                current_members_id = self.commu["current_members_id"]
+                
+            self.mod_member.member_set = pyo.Set(initialize=members_id)
+            self.mod_member.active_members = pyo.Param(members_id, initialize={i : 1 if i in current_members_id else 0 for i in members_id}, mutable=True)
+            self.P_exchange_repr = pyo.Var(self.mod_member.member_set, self.time_index, within=pyo.NonNegativeReals, initialize=0)
 
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_admm)
             self.mod_member.P_exchange = self.P_exchange
@@ -130,26 +131,28 @@ class member :
                 nb_members = len(self.commu["current_members_id"])
                 id_ = self.id
             
-            if not hasattr(self.mod_member, "rho") : 
+            m = self.mod_member
+            
+            if not hasattr(m, "rho") : 
                 rho = pyo.Param(initialize=1, mutable=True)
                 z_k = pyo.Param(range(nb_members), range(nb_members), self.time_index, initialize=0, mutable=True)
                 u_k = pyo.Param(range(nb_members), range(nb_members), self.time_index, initialize=0, mutable=True)
                 z2_k = pyo.Param(range(nb_members), self.time_index, initialize=0, mutable=True)
                 u2_k = pyo.Param(range(nb_members), self.time_index, initialize=0, mutable=True)
             
-                self.mod_member.rho = rho
-                self.mod_member.z_k = z_k
-                self.mod_member.u_k = u_k
-                self.mod_member.z2_k = z2_k
-                self.mod_member.u2_k = u2_k
+                m.rho = rho
+                m.z_k = z_k
+                m.u_k = u_k
+                m.z2_k = z2_k
+                m.u2_k = u2_k
             
-            self.mod_member.sqr_pena_expr = pyo.Expression(expr=sum((self.P_exchange_repr[i, t] - self.mod_member.z_k[i, id_, t] + self.mod_member.u_k[i, id_, t])**2 
+            m.sqr_pena_expr = pyo.Expression(expr=sum((m.P_exchange_repr[i, t] - m.z_k[i, id_, t] + m.u_k[i, id_, t])**2*m.active_members[i] 
                                                     for t in self.time_index 
                                                     for i in range(nb_members))
-                                                    + sum((self.P_surplus[t] - self.mod_member.z2_k[id_, t] + self.mod_member.u2_k[id_, t])**2 
+                                                    + sum((self.P_surplus[t] - m.z2_k[id_, t] + m.u2_k[id_, t])**2 
                                                           for t in self.time_index)
                                                     )
-            self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr + self.mod_member.rho/2*self.mod_member.sqr_pena_expr, sense=pyo.minimize)
+            m.obj = pyo.Objective(expr=m.obj_expr + m.rho/2*m.sqr_pena_expr, sense=pyo.minimize)
 
     def update_params_admm(self, **kwargs) :
         self.mod_member.rho.set_value(kwargs.get("rho", 1))
@@ -176,6 +179,8 @@ class member :
                 self.bat_present = True
             
             setattr(self.mod_member, f"device{k}", self.devices[k].mod)
+            
+        self.mod_member.device_set = pyo.RangeSet(0, len(self.devices)-1)
             
         
         # print("ADDING DEVICES DONE")
@@ -290,6 +295,7 @@ class member :
         Run the optimization with some default values to get reference values for normalization of the different criteria
         """
         self.commu = None
+        self.mod_member.commu.set_value(0)
         self.ref_values = [1 for k in range(4)]
         
         self.build_model(**kwargs)
@@ -319,6 +325,8 @@ class member :
             self.unfix_device_values()
             self.clear_model()
             self.commu = self.full_commu
+            if self.commu is not None : 
+                self.mod_member.commu.set_value(1)
         return flag
                     
     def fix_device_values(self) : 
