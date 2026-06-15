@@ -111,15 +111,15 @@ class community :
         Calculate some default values to get reference values for normalization of the different criteria in a decentralized way,
         Could also be used in a more general way for centralized as anyway this basic case removes the exchanges.
         """
-        print("Premier passage")
+        # print("Premier passage")
         ref_values = [0, 0, 0, 0]
         
         for i in self.members_id :
             member_args = {}
             member_args.update(kwargs)
-            print()
+            # print()
             self.members[i].calc_ref_values(**member_args, from_community=True)
-            print(f"Member {i} ref values : ", self.members[i].ref_values)
+            # print(f"Member {i} ref values : ", self.members[i].ref_values)
             for k in range(4) : ref_values[k] += self.members[i].ref_values[k]
             
         self.ref_values = ref_values
@@ -586,7 +586,7 @@ class community :
             combinations[comb] = tot_members_obj - community_obj
         
         self.current_members_id = [self.members_id[k] for k in range(len(self.members_id))]
-        self.clear_model()
+        # self.clear_model()
         return combinations 
     
     def marginal_contribution_sum(self, member_id, combinations) :

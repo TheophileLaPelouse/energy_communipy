@@ -12,7 +12,7 @@ def solve_model(model, solver="gurobi", options={}) :
     results = solver.solve(model)
     return results
 
-def treat_members_admm(self, params) :
+def treat_members_admm(params) :
     member, solver, solver_options = params
     member.self_optimize(solver, options=solver_options)
 

@@ -232,8 +232,8 @@ community.distribute_gains(method="shapley")
 print("Gains distributed with Shapley \n")
 
 #%% test 
-# community.current_members_id = [0, 1]
-community.build_model()
+community.current_members_id = community.members_id[:]
+community.update_model()
 r = community.optimize("gurobi")
 print("objective value : ", pyo.value(community.mod.obj))
 print("price", pyo.value(community.price))

@@ -1,6 +1,7 @@
 from .community.device import PV, battery, device, white_good, flex, EV, fixed, AoN
 from .community.member import member
 from .community.community import community
+import time
 
 def define_devices(list_args, **kwargs) : 
     # print("devices", list_args)
@@ -42,8 +43,10 @@ def define_members(list_args, **kwargs) :
     members = []
     # print("Defining members")
     for args in list_args : 
+        t0 = time.time()
         devices = define_devices(args["devices"], **args["device_options"])
         members.append(member(devices=devices, **args["parameters"], **kwargs))
+        print("Member defined in", time.time() - t0, "seconds\n")
     return members
 
 def define_community(members, **kwargs) : 

@@ -3,10 +3,10 @@ from .utils import calc_auto, calc_eco, calc_enviro, calc_pena_pow, calc_confort
 from ..opti.solving import solve_model
 from ..plotting.plot_functions import plot_power_curves
 from .constraint_functions_members import *
+import time
 
 class member : 
     def __init__(self, devices, socio, id_, **kwargs) :
-        
         method = kwargs.get("method", "centralized")   
         self.name = kwargs.get("name", f"member_{id_}")      
         self.socio = socio 
@@ -98,9 +98,7 @@ class member :
         if method == "centralized" : 
             
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_centralized)
-            print("Bonjour", self.P_exchange.pprint())
             self.mod_member.P_exchange = self.P_exchange
-            print("ICI ?")
             
         elif method=="admm" : 
             if self.commu is None : 
@@ -113,6 +111,7 @@ class member :
             self.mod_member.member_set = pyo.Set(initialize=members_id)
             self.mod_member.active_members = pyo.Param(members_id, initialize={i : 1 if i in current_members_id else 0 for i in members_id}, mutable=True)
             self.P_exchange_repr = pyo.Var(self.mod_member.member_set, self.time_index, within=pyo.NonNegativeReals, initialize=0)
+            self.mod_member.P_exchange_repr = self.P_exchange_repr
 
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_admm)
             self.mod_member.P_exchange = self.P_exchange
@@ -123,21 +122,15 @@ class member :
             self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr, sense=pyo.minimize)
             
         elif method == "admm" :
-            if self.commu is None : 
-                nb_members = kwargs.get("nb_members", 1)
-                id_ = 0
-            else : 
-                nb_members = len(self.commu["current_members_id"])
-                id_ = self.id
-            
+            id_ = self.id
             m = self.mod_member
             
             if not hasattr(m, "rho") : 
                 rho = pyo.Param(initialize=1, mutable=True)
-                z_k = pyo.Param(range(nb_members), range(nb_members), self.time_index, initialize=0, mutable=True)
-                u_k = pyo.Param(range(nb_members), range(nb_members), self.time_index, initialize=0, mutable=True)
-                z2_k = pyo.Param(range(nb_members), self.time_index, initialize=0, mutable=True)
-                u2_k = pyo.Param(range(nb_members), self.time_index, initialize=0, mutable=True)
+                z_k = pyo.Param(m.member_set, m.member_set, self.time_index, initialize=0, mutable=True)
+                u_k = pyo.Param(m.member_set, m.member_set, self.time_index, initialize=0, mutable=True)
+                z2_k = pyo.Param(m.member_set, self.time_index, initialize=0, mutable=True)
+                u2_k = pyo.Param(m.member_set, self.time_index, initialize=0, mutable=True)
             
                 m.rho = rho
                 m.z_k = z_k
@@ -147,7 +140,7 @@ class member :
             
             m.sqr_pena_expr = pyo.Expression(expr=sum((m.P_exchange_repr[i, t] - m.z_k[i, id_, t] + m.u_k[i, id_, t])**2*m.active_members[i] 
                                                     for t in self.time_index 
-                                                    for i in range(nb_members))
+                                                    for i in m.member_set)
                                                     + sum((self.P_surplus[t] - m.z2_k[id_, t] + m.u2_k[id_, t])**2 
                                                           for t in self.time_index)
                                                     )
@@ -333,29 +326,36 @@ class member :
                     
     def fix_device_values(self) : 
         # Fix the variables 
+        t0=time.time()
         for d in self.devices : 
             # if white goods
             if hasattr(d.mod, "t_confort_lvl") : 
-                for instant in d.mod.t_set : 
-                    div = (d.t_use[instant][0] + getattr(d.mod, f"set_t0_{instant}").at(1))/2
+                k = 0
+                while k < self.total_time and d.mod.used_time[k].value == 1 : 
+                    u = 0
+                    while u < self.total_time and d.mod.available_time_set[k, u].value == 0 : 
+                        u+=1
+                    div = (d.mod.t_wanted[k].value + u)/2
                     starting_time = int(div)
                     if starting_time != div and div!=0 : 
-                        starting_time += 1 # Attention
-                    diff = d.t_use[instant][0] - starting_time
-                    # print("diff", diff)
+                        starting_time += 1 
+                    diff = starting_time - d.mod.t_wanted[k].value
                     if diff == 0 : 
-                        div = (d.t_use[instant][0] + getattr(d.mod, f"set_t0_{instant}").at(-1))/2
+                        while u < self.total_time and d.mod.available_time_set[k, u].value == 1 : 
+                            u+=1
+                        u -= 1
+                        div = (d.mod.t_wanted[k].value + u)/2
                         starting_time = int(div)
                         if starting_time != div and div!=0 : 
                             starting_time += 1
-                        diff = starting_time - d.t_use[instant][0]
-                    # print("diff after diff == 0,", diff, getattr(d.mod, f"set_t0_{instant}").at(-1))
-                    if diff >= 0 : 
-                        getattr(d.mod, f"starting_time_plus_{instant}").fix(diff)
-                        getattr(d.mod, f"starting_time_minus_{instant}").fix(0)
+                        diff = starting_time - d.mod.t_wanted[k].value
+                    if diff >= 0 :
+                        d.mod.starting_time_plus[k].fix(diff)
+                        d.mod.starting_time_minus[k].fix(0)
                     else :
-                        getattr(d.mod, f"starting_time_plus_{instant}").fix(0)
-                        getattr(d.mod, f"starting_time_minus_{instant}").fix(-diff)
+                        d.mod.starting_time_plus[k].fix(0)
+                        d.mod.starting_time_minus[k].fix(-diff)
+                    k += 1
                         
             elif hasattr(d.mod, "E") : 
                 # A lot of constraint particularly for EV, so fix Pcons to 0 and then deactivate constraints
@@ -376,24 +376,19 @@ class member :
             else : 
                 for t in d.mod.t_set : 
                     getattr(d.mod, "allocated_power")[t].fix((d.p_range[t][1] + d.p_range[t][0])/2)
+        # print("How much time for fixing :", time.time() - t0)
                     
     def unfix_device_values(self) :
         # Unfix the variables
         for d in self.devices : 
             # if white goods
             if hasattr(d.mod, "t_confort_lvl") : 
-                for instant in d.mod.t_set : 
-                    starting_time = int((d.t_use[instant][0] + getattr(d.mod, f"set_t0_{instant}").at(1))/2)
-                    diff = d.t_use[instant][0] - starting_time
-                    if diff == 0 : 
-                        starting_time = int((d.t_use[instant][0] + getattr(d.mod, f"set_t0_{instant}").at(-1))/2)
-                    diff = d.t_use[instant][0] - starting_time
-                    if diff >= 0 : 
-                        getattr(d.mod, f"starting_time_plus_{instant}").unfix()
-                        getattr(d.mod, f"starting_time_minus_{instant}").unfix()
-                    else :
-                        getattr(d.mod, f"starting_time_plus_{instant}").unfix()
-                        getattr(d.mod, f"starting_time_minus_{instant}").unfix()
+                k = 0
+                while k < self.total_time and d.mod.used_time[k].value == 1 :
+                    if d.mod.starting_time_plus[k].fixed :
+                        d.mod.starting_time_plus.unfix()
+                        d.mod.starting_time_minus.unfix()
+                    k+=1
                 
             elif hasattr(d.mod, "E") : 
                 # A lot of constraint particularly for EV, so fix Pcons to 0 and then deactivate constraints
@@ -401,7 +396,6 @@ class member :
                     getattr(d.mod, "Pcons")[t].unfix()
                 for c in d.mod.component_objects(pyo.Constraint) :
                     c.activate()
-            
             else : 
                 for t in d.mod.t_set : 
                     getattr(d.mod, "allocated_power")[t].unfix()

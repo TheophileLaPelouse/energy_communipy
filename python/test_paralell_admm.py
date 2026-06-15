@@ -68,6 +68,8 @@ def test_complexity(n, method, test_calc_ref=False, calc_ref=True, calc_ref_comm
         "rho" : 0.001/n, 
         "power_max_random" : 0,
         "parallel" : True,
+        "eps_r" : 0.001, 
+        "eps_s" : 0.001,
     }
 
     price_options = {
@@ -105,6 +107,9 @@ def test_complexity(n, method, test_calc_ref=False, calc_ref=True, calc_ref_comm
     t6 = time()
     if method == 'admm' : 
         state = community.optimize_admm("gurobi", **community.kwargs)
+        time_centralized = community.results["admm"]["Times"]["global_optimizer"]
+        time_decentralized = community.results["admm"]["Times"]["local_optimizer"]
+        print(f"community optimized using admm with the global optimizer in {time_centralized} seconds and local optimizers in {time_decentralized} seconds \n")
     else : 
         state = community.optimize("gurobi")
     t7 = time()
@@ -113,6 +118,19 @@ def test_complexity(n, method, test_calc_ref=False, calc_ref=True, calc_ref_comm
     community.aggregate_distributed_information()
     return (t7 - t6, t7-t0, community, members_params, state)
 
-
-retur = test_complexity(4, "admm", calc_ref=False, calc_ref_commu = False)
-co = retur[2]
+if __name__ == "__main__" : 
+    import sys 
+    default_args = {
+        "n" : 2,
+        "method" : "admm",
+        "test_calc_ref" : False,
+        "calc_ref" : False,
+        "calc_ref_commu" : False,
+        "max_iter" : 100
+    }
+    args = sys.argv[1:]
+    # Just first number of members is taken into account, the rest is ignored
+    if len(args) > 0 :
+        default_args["n"] = int(args[0])
+    retur = test_complexity(**default_args)
+    co = retur[2]
