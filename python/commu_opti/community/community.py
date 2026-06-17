@@ -1,6 +1,6 @@
 from . import pyo, np
 from .utils import calc_auto, calc_eco, calc_eco_total, calc_enviro, calc_invest_cost, calc_pena_pow, calc_confort
-from ..opti.solving import solve_model, treat_members_admm
+from ..opti.solving import solve_model, treat_members_admm, set_values
 from ..plotting.plot_functions import plot_power_curves, plot_hexagon_objective
 from .constraint_functions_comm import *
 import itertools
@@ -150,7 +150,14 @@ class community :
         return
     
     def optimize(self, solver, **options) : 
+        t0 = time.time()
         results = solve_model(self.mod, solver, **options)
+        if self.kwargs["method"] == "centralized" :
+            if not self.results.get("centralized") :
+                self.results["centralized"] = {}
+            if not self.results["centralized"].get("Times") : 
+                self.results["centralized"]["Times"] = {}
+            self.results["centralized"]["Times"]["self_optimize"] = time.time() - t0
         return results
     
     def save_model_results(self, filename=os.path.join(results_path, "community_results.json")) : 
@@ -383,12 +390,18 @@ class community :
                     member = self.members[i]
                     member.update_params_admm(**member_args)
                 
-                pool.map(treat_members_admm, params)
+                k_1 = pool.map(treat_members_admm, params)
 
-                for i in self.current_members_id :
-                    member = self.members[i]
-                    for_x_k_1 = member.P_exchange_repr.extract_values()
-                    for_surplus = member.P_surplus.extract_values()
+                for i in self.current_members_id :                    
+                    id_ = k_1[i]['id']
+                    member = self.members[id_]
+                    for_x_k_1 = k_1[i]['vars']['P_exchange_repr']
+                    for_surplus = k_1[i]['vars']['P_surplus']
+                    # set_values(member.mod_member, k_1[i]['vars'])
+                    # Set values for the next iteration as the paralellization is not updating the members
+                    # (what happens in parallel stay in parallel)
+                    # member.mod_member.P_exchange_repr.set_values(for_x_k_1)
+                    # member.mod_member.P_surplus.set_values(for_surplus)
                     for t in self.time_set :
                         for j in self.current_members_id : 
                             self.mod.x_k_1[j, i, t].set_value(for_x_k_1[(j, t)])
@@ -460,7 +473,11 @@ class community :
             print("\niter, r_k, s_k : ", iter, r_k, s_k)
             print("rho : ", rho)
             
-            
+        if parallel :
+            for i in self.current_members_id :
+                id_ = k_1[i]['id']
+                member = self.members[id_]
+                set_values(member.mod_member, k_1[i]['vars'])
             
         t_end = time.time()
         t_python = t_end - t_start - t_optimizer1 - t_optimizer2

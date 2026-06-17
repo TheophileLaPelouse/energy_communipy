@@ -33,6 +33,11 @@ with open(os.path.join(os.path.dirname(__file__), "initial_state_probabilities.j
 with open(os.path.join(os.path.dirname(__file__), "ev_travel_statistics.json"), "r") as f:
     ev_stat = json.load(f)
     ev_stat = convert_numeric_keys(ev_stat)
+    
+list_locations = [
+    (50.63, 3.06), (50.63, 2.5), (45.76, 4.83), (45.76, 3.8), (43.3, 5.4), 
+    (43.4, 5.54), (43.6, 1.44), (43.5, 1.14), (47.22, -1.55), (47.22, -1.9)
+]
 
 average_people = compute_average_number(building["nb_popu_proba"])
 deviation_people = compute_deviation_number(building["nb_popu_proba"], average_people)   
@@ -45,14 +50,23 @@ deviation_surface = {int(k): compute_deviation_number(v, average_surface[int(k)]
 
 def get_weather_data(date_start, date_end, lat=45, lon=8, forecast=True) :
     year = date_start.year 
-    file = f"weather_{'forecast' if forecast else 'history'}_{year}_{lat}_{lon}.csv"
-    if not os.path.exists(os.path.join(os.path.dirname(__file__), file)) :
+    folder = os.path.join(os.path.dirname(__file__), "weather_data")
+    file = f"weather_{'forecast' if forecast else 'archive'}_{year}_{lat}_{lon}.csv"
+    if not os.path.exists(os.path.join(folder, file)) :
         raise ValueError(f"Weather data for the year {year} and location ({lat}, {lon}) not found. Should be generated using weather_data.py")
-    df = pd.read_csv(os.path.join(os.path.dirname(__file__), file), parse_dates=["time"])
+    df = pd.read_csv(os.path.join(folder, file), parse_dates=["time"])
     df = df[(df["time"] >= date_start) & (df["time"] <= date_end)]
     weather = df["temperature_2m"].to_numpy()
     irradiance = df["shortwave_radiation"].to_numpy()
     return weather, irradiance
+
+def get_price_data(date_start, date_end) : 
+    year = date_start.year 
+    file = "day_ahead_price_FR_2021-01-01_2026-01-01.csv"
+    df = pd.read_csv(os.path.join(os.path.dirname(__file__), file))
+    df = df[(df["date"] >= date_start) & (df["date"] <= date_end)]
+    price_per_hour = df["price"].to_numpy()
+    return price_per_hour
 
 def generate_building() : 
     

@@ -430,6 +430,7 @@ class member :
     
     def send_obj_information(self, keys_not_to_send=None) : 
         objs = {
+            "Objective" : pyo.value(self.mod_member.obj),
             "price" : pyo.value(self.price),
             "price_operation" : pyo.value(self.price_operation),
             "price_invest" : pyo.value(self.price_invest),

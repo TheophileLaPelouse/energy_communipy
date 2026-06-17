@@ -296,9 +296,12 @@ import commu_opti.community.device as d
 import commu_opti.community.community as comm
 import commu_opti.community.member as memb
 
-options = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 
-           'method' : 'centralized', "nb_commu" : 2, "calc_ref" : False, "max_iter" : 100, "power_max_random" : 10, 
+options1 = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 
+           'method' : 'admm', "nb_commu" : 2, "calc_ref" : False, "max_iter" : 100, "power_max_random" : 10, 
            "eps_r":1e-4, "eps_s":1e-4}
+
+options2 = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 
+           'method' : 'centralized', "nb_commu" : 2, "calc_ref" : False}
 
 members_dico = {
     "member1" : {
@@ -366,27 +369,35 @@ coef_options = {
 }
 
 
-members = []
+members1 = []
+members2 = []
 co = None
 c = 0
 for key in members_dico : 
     m = members_dico[key]
-    devices = []
+    devices1 = []
+    devices2 = []
     for device in m["devices"] : 
-        devices.append(getattr(d, device["type"])(**device["parameters"], **options))
-    member = memb.member(devices, m["socio"], m["id"], **options)
-    members.append(member)
+        devices1.append(getattr(d, device["type"])(**device["parameters"], **options1))
+        devices2.append(getattr(d, device["type"])(**device["parameters"], **options2))
+    member1 = memb.member(devices1, m["socio"], m["id"], **options1)
+    member2 = memb.member(devices2, m["socio"], m["id"], **options2)
+    members1.append(member1)
+    members2.append(member2)
     c += 1
-co = comm.community(members, **options, **coef_options)
-# co.build_model()
-co.socio = [1, 0, 0, 0]
+co1 = comm.community(members1, **options1, **coef_options)
+co2 = comm.community(members2, **options2, **coef_options)
+# co1.build_model()
+# co2.build_model()
+co1.socio = [1, 0, 0, 0]
+co2.socio = [1, 0, 0, 0]
 # co.ref_values[0] = 1
-# co.optimize_admm("gurobi", **co.kwargs)
-co.optimize("gurobi")
+co1.optimize_admm("gurobi", **co1.kwargs)
+co2.optimize("gurobi")
 # co.mod.write('commu.lp', io_options={'symbolic_solver_labels': True})
 
-co.aggregate_distributed_information()
-
+co1.aggregate_distributed_information()
+co2.aggregate_distributed_information()
 print("Optimization done \n")
 
 # co.calc_gains("gurobi")
@@ -397,6 +408,7 @@ print("Optimization done \n")
 
 # co.distribute_gains(method="equal")
 # print("Gains distributed equally \n")
+
 
 # co.distribute_gains(method="shapley")
 # print("Gains distributed with Shapley \n")
@@ -413,14 +425,14 @@ print("Optimization done \n")
 
 to_plot = {
     "powers" : {
-        "P_grid" : co.results['aggregated_powers']['P_grid'],
-        "P_bat" : co.results['aggregated_powers']['P_bat'],
-        "P_cons" : co.results['aggregated_powers']['P_cons'], 
-        "P_exchange" : co.results['aggregated_powers']['P_exchange'],
+        "P_grid" : co1.results['aggregated_powers']['P_grid'],
+        "P_bat" : co1.results['aggregated_powers']['P_bat'],
+        "P_cons" : co1.results['aggregated_powers']['P_cons'], 
+        "P_exchange" : co1.results['aggregated_powers']['P_exchange'],
     }
 }
     
-co.plot_power_curves(**to_plot)
+co1.plot_power_curves(**to_plot)
         
 # to_plot_hex = {
 #     "values" : {

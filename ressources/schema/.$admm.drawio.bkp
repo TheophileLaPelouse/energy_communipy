@@ -1,0 +1,58 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.6 Chrome/140.0.7339.249 Electron/38.8.0 Safari/537.36" version="29.3.6">
+  <diagram name="Page-1" id="SuRGltguOg2OMkAzJLCN">
+    <mxGraphModel dx="813" dy="603" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="1" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-21" parent="1" style="ellipse;whiteSpace=wrap;html=1;dashed=1;fillColor=none;" value="" vertex="1">
+          <mxGeometry height="290" width="710" x="8" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-1" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontFamily=libertinus serif;fontStyle=1;fontSize=14;" value="&lt;div&gt;&lt;font&gt;Optimisation globale&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;color: light-dark(rgb(246, 178, 107), rgb(246, 178, 107));&quot;&gt;Aggregateur&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="80" width="170" x="130" y="149" as="geometry" />
+        </mxCell>
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-2" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontFamily=libertinus serif;fontStyle=1;fontSize=14;" value="&lt;div&gt;&lt;span style=&quot;color: rgb(246, 178, 107);&quot;&gt;Optimisations locales&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: rgb(246, 178, 107);&quot;&gt;Membres&lt;/span&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="80" width="170" x="120" y="286" as="geometry" />
+        </mxCell>
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-3" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontFamily=libertinus serif;fontStyle=1;fontSize=14;" value="Post traitement&lt;div&gt;&lt;span style=&quot;color: rgb(246, 178, 107);&quot;&gt;Aggregateur&lt;/span&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="80" width="170" x="120.55" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-7" edge="1" parent="1" style="curved=1;endArrow=classic;html=1;rounded=0;strokeWidth=2;entryX=0.176;entryY=0.526;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="130" y="246" />
+            </Array>
+            <mxPoint x="150" y="226" as="sourcePoint" />
+            <mxPoint x="140.24" y="289.89200000000005" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-8" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="$$X_{k+1}$$" vertex="1">
+          <mxGeometry height="30" width="60" x="175" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-9" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="$$Z_{k+1}, U_{k+1}$$" vertex="1">
+          <mxGeometry height="30" width="60" x="60.55" y="234" as="geometry" />
+        </mxCell>
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-10" parent="1" style="html=1;shadow=0;dashed=0;align=center;verticalAlign=middle;shape=mxgraph.arrows2.jumpInArrow;dy=8.61;dx=15.06;arrowHead=38.37;direction=west;rotation=-140;flipH=0;legacyAnchorPoints=0;flipV=1;" value="" vertex="1">
+          <mxGeometry height="79.37" width="110.79" x="19.209999999999997" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-13" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;rounded=0;fontFamily=libertinus serif;fontSize=14;" value="&lt;div&gt;&lt;b&gt;Contraintes au niveau de la communauté&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Problème documenté d&#39;allocation de puissance de manière équitable&lt;/div&gt;" vertex="1">
+          <mxGeometry height="102" width="340" x="320" y="138" as="geometry" />
+        </mxCell>
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-14" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;rounded=0;fontFamily=libertinus serif;fontSize=14;" value="&lt;div&gt;&lt;b&gt;Opération de chaque membre&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Problème documenté d&#39;optimisation : smart building&lt;/div&gt;" vertex="1">
+          <mxGeometry height="102" width="370" x="310" y="275" as="geometry" />
+        </mxCell>
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-15" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;rounded=0;fontFamily=libertinus serif;fontSize=14;" value="&lt;div&gt;&lt;b&gt;Répartition des gains financiers&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Problème classique de division équitable&lt;/div&gt;" vertex="1">
+          <mxGeometry height="102" width="310" x="320" y="409.58" as="geometry" />
+        </mxCell>
+        <mxCell id="IE6AMWnTw9XoMC2wMEdA-19" edge="1" parent="1" style="curved=1;endArrow=classic;html=1;rounded=0;strokeWidth=2;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="260" />
+            </Array>
+            <mxPoint x="160" y="286" as="sourcePoint" />
+            <mxPoint x="170" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

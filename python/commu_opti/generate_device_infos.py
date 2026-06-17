@@ -1,7 +1,7 @@
 from .data.generate_data_V2 import (
     generate_profile, generate_building, get_weather_data, 
     device_activation_profile, device_power_profile, one_device_allocation, 
-    list_devices
+    list_devices, list_locations
 )
 
 import datetime as dt
@@ -27,8 +27,10 @@ def generate_member_data_random(**kwargs) :
     states = [f"{k}{j}" for k in range(nb_people+1) for j in range(nb_people+1)]
     states = {states[i] : i for i in range(len(states))}
     profile = generate_profile(nb_people, False, deltat)
-    weather_forecast, irradiance_profile = get_weather_data(date_start, date_end)
-    weather_history, irradiance_history = get_weather_data(date_start, date_end, forecast=False)
+    
+    lat, lon = kwargs.get("location", list_locations[randint(0, len(list_locations)-1)])
+    weather_forecast, irradiance_profile = get_weather_data(date_start, date_end, lat=lat, lon=lon, forecast=True)
+    weather_history, irradiance_history = get_weather_data(date_start, date_end, lat=lat, lon=lon, forecast=False)
     weather = {"forecast" : {
         "temperature" : weather_forecast, 
         "irradiance" : irradiance_profile

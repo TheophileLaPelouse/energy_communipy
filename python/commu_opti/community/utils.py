@@ -22,14 +22,17 @@ def calc_auto(Pgrid, **kwargs) :
 
 def calc_eco(Pgrid_plus, Pgrid_minus, Pex, **kwargs) : 
     deltat = kwargs.get("deltat", 1)
-    cost_grid_buy = kwargs.get("cost_grid_buy", 1)
-    cost_grid_sell = kwargs.get("cost_grid_sell", -0.25)
+    cost_grid_buy = kwargs.get("cost_grid_buy", [1 for k in range(len(Pgrid_plus))])
+    cost_grid_sell = kwargs.get("cost_grid_sell", [-0.25 for k in range(len(Pgrid_minus))])
     cost_ex = kwargs.get("cost_ex", 0)
     ref_value = kwargs.get("ref", 1)
+    taxes_buy = kwargs.get("turpe_buy", 0)
+    taxes_sell = kwargs.get("turpe_sell", 0)
+    
     return (
-        sum(Pgrid_plus[k]*deltat*cost_grid_buy for k in range(len(Pgrid_plus))) 
-        + sum(Pex[k]*deltat*cost_ex for k in range(len(Pex)))
-        + sum(Pgrid_minus[k]*deltat*cost_grid_sell for k in range(len(Pgrid_minus)))
+        sum(Pgrid_plus[k]*deltat*cost_grid_buy[k]*taxes_buy for k in range(len(Pgrid_plus))) 
+        + sum(Pex[k]*deltat*cost_ex*taxes_sell for k in range(len(Pex)))
+        + sum(Pgrid_minus[k]*deltat*cost_grid_sell[k]*taxes_sell for k in range(len(Pgrid_minus)))
         )/ref_value
 
 def calc_pena_pow(excess_l, excess_u, **pena_args) : 
