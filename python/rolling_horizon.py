@@ -170,4 +170,4 @@ for t in range(n_total_time) :
     new_irradiance = [irradiance_t] + weather_forecast["irradiance"][t+1:t+horizon]
     weather_t = weather_history["temperature"][t]
     new_weather = [weather_t] + weather_forecast["temperature"][t+1:t+horizon]
-    community.update_weather(new_weather, new_irradiance)
+    

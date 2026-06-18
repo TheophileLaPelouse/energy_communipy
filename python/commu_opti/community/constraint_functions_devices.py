@@ -15,7 +15,8 @@ def power_constraint_upper(mod, t_set) :
 def soc(mod, t) :
     if t == 0 : 
         return mod.E[t] == mod.E0[0]
-    return mod.E[t] == mod.E[t - 1] + mod.P_plus[t] * mod.charge_eff - mod.P_minus[t] / mod.dcharge_eff
+    # active_time is used for knowing is the battery is at home or not. And E_return is giving the energy used when the battery was not at home when it returns.
+    return mod.E[t] == mod.E[t - 1] + (mod.P_plus[t-1] * mod.charge_eff - mod.P_minus[t-1] / mod.dcharge_eff)*mod.active_time[t-1] + mod.E_return[t]
 
 
 def soc_max(mod, t) :
@@ -28,40 +29,17 @@ def P_plus_max(mod, t) :
 def P_minus_max(mod, t) :
     return mod.P_minus[t] <= -mod.p_range_bat[0]
         
-def power_constraint(mod, t) :
+def power_constraint_bat(mod, t) :
     if t == 0 : 
         return mod.Pcons[t] == 0
-    return mod.Pcons[t] == mod.P_plus[t] - mod.P_minus[t] 
+    return mod.Pcons[t] == (mod.P_plus[t] - mod.P_minus[t])*mod.active_time[t]
     # Pour l'instant on fait comme ça pour rester un max linéaire, on verra si on ajoute une fonction de pénalisation
-        
-def Pcons_0_constraint(mod, t) : 
-    return mod.Pcons[t] == 0
 
 def soc_end(mod) :
     return mod.E[mod.t_set.at(-1)] == mod.E_end
-        
-def start_constraint(mod, t) : 
-    c = 0 
-    # if t == 0 : 
-    #     return mod.E[t] == self.E0[c]
-    for i in mod.start_set :
-        if i == t :
-            break 
-        else : 
-            c += 1
-    if c == 0 : 
-        return mod.E[t] == mod.E0[c]
-    else : 
-        return mod.E[t] == mod.E[mod.end_set.at(c)] + mod.E0[c]
     
 def end_constraint(mod, t) : 
-    c = 0 
-    for i in mod.end_set :
-        if i == t :
-            break 
-        else : 
-            c += 1
-    return mod.E[t] >= mod.E_min[c]
+    return mod.E[t] >= mod.E_min_t[t]
 
 
 # White goods : 

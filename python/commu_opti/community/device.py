@@ -114,30 +114,23 @@ class device :
         if self.E_min is not None : 
             mod.E_min = pyo.Param(range(len(self.E_min)), initialize=self.E_min, within=pyo.Reals, mutable=True)
             
-        mod.soc_con = pyo.Constraint(self.mod.home_set, rule=soc)
-        mod.soc_max_con = pyo.Constraint(self.mod.home_set, rule=soc_max)
-        mod.soc_min_con = pyo.Constraint(self.mod.home_set, rule=soc_min)
-        mod.P_plus_max_con = pyo.Constraint(self.mod.home_set, rule=P_plus_max)
-        mod.P_minus_max_con = pyo.Constraint(self.mod.home_set, rule=P_minus_max)
+        mod.soc_con = pyo.Constraint(self.mod.time_total_set, rule=soc)
+        mod.soc_max_con = pyo.Constraint(self.mod.time_total_set, rule=soc_max)
+        mod.soc_min_con = pyo.Constraint(self.mod.time_total_set, rule=soc_min)
+        mod.P_plus_max_con = pyo.Constraint(self.mod.time_total_set, rule=P_plus_max)
+        mod.P_minus_max_con = pyo.Constraint(self.mod.time_total_set, rule=P_minus_max)
 
-        mod.pow_con = pyo.Constraint(self.mod.home_set, rule=power_constraint)
-        
-        mod.pow_con_not_home = pyo.Constraint(self.mod.not_home_set, rule=Pcons_0_constraint)
-        
+        mod.pow_con = pyo.Constraint(self.mod.time_total_set, rule=power_constraint_bat)
+            
         if E_end is None : 
             mod.E_end = pyo.Param(initialize=self.E0[0], within=pyo.Reals, mutable=True)
         else : 
             mod.E_end = pyo.Param(initialize=E_end, within=pyo.Reals, mutable=True)
         
-        if not self.E_min : 
-            mod.end_con = pyo.Constraint(rule=soc_end)
-        else : 
-            mod.start_con = pyo.Constraint(self.start_set, rule=start_constraint)
-            mod.end_con = pyo.Constraint(self.end_set, rule=end_constraint)
+        if self.E_min : 
+            mod.end_con = pyo.Constraint(self.mod.time_total_set, rule=end_constraint)
             
-            
-        
-        
+        mod.end_con = pyo.Constraint(rule=soc_end)
 class white_good(device) : 
     def __init__(self, start_pref, cycle_length, time_range, power_needed, **kwargs) : 
         """Define a device with a fixed cycle
@@ -524,35 +517,11 @@ class EV(device) :
         self.P_plus = pyo.Var(self.t_set, within=pyo.NonNegativeReals, bounds=(0, p_range[1]))
         self.P_minus = pyo.Var(self.t_set, within=pyo.NonNegativeReals, bounds=(0, -p_range[0]))
         
-        home_set = []
-        start_set = []
-        end_set = []
-        not_home_set = []
-        time = 0
-        c = 0
-        while time < self.total_time : 
-            t0, tend = time_home[c]
-            if time == t0 : 
-                start_set.append(t0)
-                end_set.append(tend-1)
-                for t in range(t0, tend):
-                    home_set.append(t)
-                    time+=1
-                c += 1
-            else : 
-                not_home_set.append(time)
-                time+=1
+        home_set, E_return, E_min_t = self.get_home_values(time_home, E0s, E_min)
         
-
-        self.mod.home_set = pyo.Set(initialize=home_set)
-        self.mod.not_home_set = pyo.Set(initialize=not_home_set)
-        
-        self.mod.active_time = pyo.Param(self.mod.time_total_set, initialize={k : 1 if k in self.mod.home_set else 0 for k in self.mod.time_total_set}, within=pyo.Boolean, mutable=True)
-        
-        # self.start_set = pyo.Set(initialize=start_set)
-        # self.mod.start_set = self.start_set
-        # self.end_set = pyo.Set(initialize=end_set)
-        # self.mod.end_set = self.end_set
+        self.mod.active_time = pyo.Param(self.mod.time_total_set, initialize={k : 1 if k in home_set else 0 for k in self.mod.time_total_set}, within=pyo.Boolean, mutable=True)
+        self.mod.E_return = pyo.Param(self.mod.time_total_set, initialize={k : E_return[k] for k in self.mod.time_total_set}, within=pyo.Reals)
+        self.mod.E_min_t = pyo.Param(self.mod.time_total_set, initialize={k : E_min_t[k] for k in self.mod.time_total_set}, within=pyo.NonNegativeReals)
         
         self.mod.E = self.E 
         self.mod.P_plus = self.P_plus
@@ -560,13 +529,59 @@ class EV(device) :
         self.mod.capacity = self.capacity
         self.generate_bat_constraint(E_end=E_end)
         
+    def get_home_values(self, time_home, E0s, Emin) : 
+        home_set = set()
+        start_set = set()
+        time = 0
+        c = 0
+        while time < self.total_time : 
+            t0, tend = time_home[c]
+            if time == t0 : 
+                start_set.add(t0)
+                for t in range(t0, tend):
+                    home_set.add(t)
+                    time+=1
+                c += 1
+            else : 
+                time+=1
+        
+        E_return = []
+        c = 0
+        for t in self.mod.time_total_set : 
+            if t==0 : 
+                E_return.append(E0s[c])
+                c += 1
+            else :
+                if self.mod.active_time[t].value - self.mod.active_time[t-1].value == 1 : 
+                    E_return.append(E0s[c])
+                    c += 1
+                else :
+                    E_return.append(0)
+        
+        E_min_t = []
+        c = 0
+        for t in self.mod.time_total_set :
+            if t in start_set :
+                E_min_t.append(Emin[c])
+                c += 1
+            else :
+                E_min_t.append(0)
+        
+        return home_set, E_return, E_min_t
+        
     def update_params(self, **kwargs) :
         new_params = kwargs.get("EV_equipment", {})
         if self.name in new_params :
-            "time_home" : time_home, 
-                "E0s" : E0s,
-                "E_min" : Emin, 
-                "E_end" : E_end[0]
+            if "time_home" in new_params : 
+                time_home, E0s, E_min = new_params["time_home"], new_params["E0s"], new_params["E_min"]
+                home_set, E_return, E_min_t = self.get_home_values(time_home, E0s, E_min)
+                self.mod.active_time.store_values({k : 1 if k in home_set else 0 for k in self.mod.time_total_set})
+                self.mod.E_return.store_values({k : E_return[k] for k in self.mod.time_total_set})
+                self.mod.E_min_t.store_values({k : E_min_t[k] for k in self.mod.time_total_set})
+            if "E0" in new_params : 
+                self.mod.E_return[0].set_value(new_params["E0"])
+            if "E_end" in new_params : 
+                self.mod.E_end.set_value(new_params["E_end"])
         
         
 if __name__ == '__main__' :
