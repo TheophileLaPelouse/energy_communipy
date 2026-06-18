@@ -105,6 +105,10 @@ class community :
     def update_model(self) : 
         # For now just update the list of active members, maybe later we'll have other parameters to update.
         self.active_members = {i : 1 if i in self.current_members_id else 0 for i in self.members_id}
+        
+    def update_devices(self, **kwargs) :
+        for k in self.current_members_id : 
+            self.members[k].update_devices(**kwargs)
             
     def calc_ref_values(self, **kwargs) :
         """

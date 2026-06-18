@@ -1,7 +1,7 @@
 from . import pyo
 from .constraint_functions_devices import *
 import time
-
+from ..data.generate_data_V2 import heating_power_model, clim_power_model
 class device :
     def __init__(self, power_range, time_use, time_range, **kwargs) : 
         """Describe behaviour of any device in the community other than battery and maybe EV
@@ -108,7 +108,7 @@ class device :
         mod.E0 = pyo.Param(range(len(self.E0)), initialize=self.E0, within=pyo.Reals, mutable=True)
         mod.charge_eff = pyo.Param(initialize=self.charge_eff, within=pyo.NonNegativeReals, mutable=True)
         mod.dcharge_eff = pyo.Param(initialize=self.dcharge_eff, within=pyo.NonNegativeReals, mutable=True)
-        mod.E_range = pyo.Param(range(2), initialize=self.E_range, within=pyo.Reals, mutable=True)
+        mod.E_range = pyo.Expression(range(2), initialize={0 : self.E_range[0], 1 : self.E_range[1]}, within=pyo.Reals)
         mod.p_range_bat = pyo.Param(range(2), initialize=self.p_range_bat, within=pyo.Reals, mutable=True)
         
         if self.E_min is not None : 
@@ -242,12 +242,14 @@ class white_good(device) :
 
         m = self.mod
         
-        self.t_min = [max(0, self.t_use[k][0] + self.t_range[k][0]) if k in self.mod.t_set else 0 for k in self.mod.time_total_set]
-        self.t_max = [min(self.total_time, self.t_use[k][1] + self.t_range[k][1]+1) if k in self.mod.t_set else self.total_time for k in self.mod.time_total_set]
-        self.cycle_length = [self.t_use[k][1] - self.t_use[k][0] - 1 if k in self.mod.t_set else 0 for k in self.mod.time_total_set]
+        self.t_min = [max(0, self.t_use[k][0] + time_range[k][0]) if k in self.mod.t_set else 0 for k in self.mod.time_total_set]
+        self.t_max = [min(self.total_time, self.t_use[k][1] + time_range[k][1]+1) if k in self.mod.t_set else self.total_time for k in self.mod.time_total_set]
+        self.cycle_length = [cycle_length[k] if k in self.mod.t_set else 0 for k in self.mod.time_total_set]
         
         m.t_wanted.store_values({k : time_use[k][0] if k in m.t_set else 0 for k in m.time_total_set})
         m.used_time.store_values({k : 1 if k in m.t_set else 0 for k in m.time_total_set})
+        
+        self.mod.p_range.store_values({(k, i) : power_needed[k][i] for k in self.t_set for i in range(2)})
         
         for t_set in m.time_total_set :
             if t_set in m.t_set :
@@ -259,6 +261,12 @@ class white_good(device) :
                 for t in range(self.t_min[t_set], self.t_max[t_set]-self.cycle_length[t_set]+1) : 
                     m.available_time_set[t_set, t].set_value(1)
         return
+    
+    def update_params(self, **kwargs) : 
+        new_params = kwargs.get("white_good_equipment", {})
+        if self.name in new_params :
+            self.update_time_param(new_params["start_pref"], new_params["cycle_length"], new_params["time_range"], new_params["power_needed"])
+            
 class fixed(device) :
     def __init__(self, power_profile, **kwargs) : 
         """Fixed profile devices, act as a parameter, so one very simple constraint
@@ -277,6 +285,10 @@ class fixed(device) :
         self.mod.pow_con = pyo.Constraint(total_t_index, rule=rule_fixed)
         return
     
+    def update_params(self, **kwargs) : 
+        new_params = kwargs.get("fixed_equipment", {})
+        if self.name in new_params :
+            self.mod.power_profile.store_values({k : new_params["power_profile"][k] for k in self.mod.time_total_set})
 class PV(device) : 
     def __init__(self, irradiance_profile, **kwargs) :
         """PV devices model. If no surface is given in kwargs, then the surface will remain as a variable.
@@ -312,9 +324,9 @@ class PV(device) :
             self.mod.pow_con = pyo.Constraint(time_set, rule=rule_PV)
         return
     
-    def update_irradiance(self, new_irradiance) : 
-        del self.mod.pow_con
-        self.mod.pow_con = pyo.Constraint(self.time_total_set, rule=rule_PV)
+    def update_params(self, **kwargs) : 
+        if "irradiance_profile" in kwargs :
+            self.mod.irradiance_profile.store_values({k : kwargs["irradiance_profile"][k] for k in self.mod.time_total_set})
     
 class flex(device) : 
     def __init__(self, power_range, **kwargs) : 
@@ -330,6 +342,8 @@ class flex(device) :
         self.total_time = total_time
         time_use = [[k, k+1] for k in range(total_time)]
         time_range = [[0, 0] for k in range(total_time)]
+        if kwargs.get("heating_params") :
+            self.heating_params = kwargs.get("heating_params")
         super().__init__(power_range, time_use, time_range, **kwargs)
         self.generate_spec_constraint()
 
@@ -337,6 +351,45 @@ class flex(device) :
 
         self.mod.pow_con = pyo.Constraint(self.mod.t_set, rule=rule_flex)
         self.mod.p_confort_lvl = pyo.Expression(self.t_set, rule=confort_rule_flex)
+        
+    def update_params(self, **kwargs) :
+        if hasattr(self, "heating_params") and kwargs.get("weather") and kwargs.get("presence_profile") : 
+            T_wanted = self.heating_params['T_wanted']
+            T_min = self.heating_params['T_min']
+            R1 = self.heating_params['R1']
+            R2 = self.heating_params['R2']
+            C = self.heating_params['C']
+            typ = self.heating_params['type']
+            efficiency = self.heating_params['efficiency']
+            options = self.heating_params.get("options", {})
+            weather = kwargs["weather"]
+            presence_profile = kwargs["presence_profile"]
+            total_time = self.total_time
+            deltat = self.deltat
+
+            power_confort_forecast, carnot_confort = heating_power_model(T_wanted, weather, presence_profile, R1, R2, C, total_time, deltat, typ, **options)
+            power_min_forecast, carnot_min = heating_power_model(T_min, weather, presence_profile, R1, R2, C, total_time, deltat, typ, **options)
+            
+            p_range_forecast = [(min(power_min_forecast[i], power_confort_forecast[i])/(efficiency*carnot_min[i]), 
+                                max(power_min_forecast[i], power_confort_forecast[i])/(efficiency*carnot_confort[i])) 
+                                for i in range(total_time)]
+            self.mod.p_range.store_values({(k, i) : p_range_forecast[k][i] for k in self.mod.t_set for i in range(2)})
+            
+        elif hasattr(self, "clim_params") and kwargs.get("weather") and kwargs.get("presence_profile") : 
+            T_activation = self.clim_params['T_activation']
+            T_minus = self.clim_params['T_minus']
+            R1 = self.clim_params['R1']
+            R2 = self.clim_params['R2']
+            C = self.clim_params['C']
+            efficiency = self.clim_params['efficiency']
+            options = self.clim_params.get("options", {})
+            weather = kwargs["weather"]
+            presence_profile = kwargs["presence_profile"]
+            total_time = self.total_time
+            deltat = self.deltat
+            flux_forecast, T_in_forecast, carnot_forecast = clim_power_model(T_activation, T_minus, R1, R2, C, weather, presence_profile, total_time, deltat, **options)
+            p_range = [(0, flux_forecast[i]/(efficiency*carnot_forecast[i])) for i in range(total_time)]
+            self.mod.p_range.store_values({(k, i) : p_range[k][i] for k in self.mod.t_set for i in range(2)})
         
 class AoN(device) : 
     def __init__(self, power_needed, energy_needed, **kwargs) :
@@ -375,6 +428,16 @@ class AoN(device) :
         self.mod.p_excess_l.fix(0)
         self.mod.p_excess_u.fix(0)
         return
+    
+    def update_params(self, **kwargs) : 
+        new_params = kwargs.get("AoN_equipment", {})
+        if self.name in new_params :
+            if "power_needed" in new_params : 
+                self.mod.power_needed.set_value(new_params["power_needed"])
+            if "energy_needed" in new_params : 
+                self.mod.energy_needed.set_value(new_params["energy_needed"])
+            if "max_factor" in new_params : 
+                self.mod.max_factor.set_value(new_params["max_factor"])
         
 class battery(device) : 
     def __init__(self, p_range, E_range, **kwargs) : 
@@ -401,12 +464,12 @@ class battery(device) :
         else : 
             self.E_range = E_range # [Emin, Emax]
             self.p_range_bat = p_range
-            self.capacity = pyo.Param(initialize=self.E_range[1], within=pyo.NonNegativeReals)
+            self.capacity = pyo.Param(initialize=self.E_range[1]/0.9, within=pyo.NonNegativeReals)
             self.mod.capacity = self.capacity
         
         # + custom constraints soc : E_min <= E <= E_max + suivie E(t) = E(t - 1) + P delta t
-        self.charge_eff = kwargs.get('charge_eff', 0.98)
-        self.dcharge_eff = kwargs.get('dcharge_eff', 0.98)
+        self.charge_eff = kwargs.get('charge_eff', 0.95)
+        self.dcharge_eff = kwargs.get('dcharge_eff', 0.95)
         self.E0 = [kwargs.get('E0', 0.5 * (self.E_range[0] + self.E_range[1]))]
         self.E = pyo.Var(self.t_set, within=pyo.NonNegativeReals)
         self.P_plus = pyo.Var(self.t_set, within=pyo.NonNegativeReals)
@@ -421,6 +484,14 @@ class battery(device) :
         self.mod.P_minus = self.P_minus
         self.E_min = None
         self.generate_bat_constraint(E_end=kwargs.get('E_end', self.E0[0]))
+        
+    def update_params(self, **kwargs) :
+        new_params = kwargs.get("battery_equipment", {})
+        if self.name in new_params :
+            if "E0" in new_params : 
+                self.mod.E0.store_values(new_params["E0"])
+            if "E_end" in new_params : 
+                self.mod.E_end.set_value(new_params["E_end"])
 
 class EV(device) : 
     def __init__(self, p_range, E_range, time_home, E0s, E_min, E_end, **kwargs) : 
@@ -442,6 +513,7 @@ class EV(device) :
         super().__init__(power_range, t_use, time_range, **kwargs)
         self.E_min = E_min
         self.E_range = E_range
+        self.capacity = pyo.Param(initialize=self.E_range[1]/0.9, within=pyo.NonNegativeReals)
         self.E_end = E_end
         self.p_range_bat = p_range
         
@@ -475,15 +547,26 @@ class EV(device) :
         self.mod.home_set = pyo.Set(initialize=home_set)
         self.mod.not_home_set = pyo.Set(initialize=not_home_set)
         
-        self.start_set = pyo.Set(initialize=start_set)
-        self.mod.start_set = self.start_set
-        self.end_set = pyo.Set(initialize=end_set)
-        self.mod.end_set = self.end_set
+        self.mod.active_time = pyo.Param(self.mod.time_total_set, initialize={k : 1 if k in self.mod.home_set else 0 for k in self.mod.time_total_set}, within=pyo.Boolean, mutable=True)
+        
+        # self.start_set = pyo.Set(initialize=start_set)
+        # self.mod.start_set = self.start_set
+        # self.end_set = pyo.Set(initialize=end_set)
+        # self.mod.end_set = self.end_set
         
         self.mod.E = self.E 
         self.mod.P_plus = self.P_plus
         self.mod.P_minus = self.P_minus
+        self.mod.capacity = self.capacity
         self.generate_bat_constraint(E_end=E_end)
+        
+    def update_params(self, **kwargs) :
+        new_params = kwargs.get("EV_equipment", {})
+        if self.name in new_params :
+            "time_home" : time_home, 
+                "E0s" : E0s,
+                "E_min" : Emin, 
+                "E_end" : E_end[0]
         
         
 if __name__ == '__main__' :

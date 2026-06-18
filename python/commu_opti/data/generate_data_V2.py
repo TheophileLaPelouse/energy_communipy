@@ -48,7 +48,7 @@ average_surface = {int(k): compute_average_number(v) for k, v in building["surfa
 deviation_surface = {int(k): compute_deviation_number(v, average_surface[int(k)]) for k, v in building["surface_probability"].items()}    
 
 
-def get_weather_data(date_start, date_end, lat=45, lon=8, forecast=True) :
+def get_weather_data(date_start, date_end, lat=45, lon=8, forecast=True, deltat=1) :
     year = date_start.year 
     folder = os.path.join(os.path.dirname(__file__), "weather_data")
     file = f"weather_{'forecast' if forecast else 'archive'}_{year}_{lat}_{lon}.csv"
@@ -58,15 +58,22 @@ def get_weather_data(date_start, date_end, lat=45, lon=8, forecast=True) :
     df = df[(df["time"] >= date_start) & (df["time"] <= date_end)]
     weather = df["temperature_2m"].to_numpy()
     irradiance = df["shortwave_radiation"].to_numpy()
+    if deltat != 1 : 
+        weather = change_deltat(weather, 1, deltat)
+        irradiance = change_deltat(irradiance, 1, deltat)
     return weather, irradiance
 
-def get_price_data(date_start, date_end) : 
+def get_price_data(date_start, date_end, deltat=1) : 
     year = date_start.year 
     file = "day_ahead_price_FR_2021-01-01_2026-01-01.csv"
     df = pd.read_csv(os.path.join(os.path.dirname(__file__), file))
     df = df[(df["date"] >= date_start) & (df["date"] <= date_end)]
     price_per_hour = df["price"].to_numpy()
-    return price_per_hour
+    if deltat != 1 : 
+        price = change_deltat(price_per_hour, 1, deltat)
+    else : 
+        price = price_per_hour
+    return price
 
 def generate_building() : 
     
@@ -578,7 +585,9 @@ def heating_system_profile(allocated, deltat, total_time, building, presence_pro
     p_range_forecast = [(min(power_min_forecast[i], power_confort_forecast[i])/(efficiency*carnot_min[i]), 
                          max(power_min_forecast[i], power_confort_forecast[i])/(efficiency*carnot_confort[i])) 
                         for i in range(total_time)]
-    params = {"parameters" : {"power_range" : p_range_forecast}, "type" : "flex"}
+    params = {"parameters" : {"power_range" : p_range_forecast, 
+                              "heating_params" : {"T_wanted" : T_wanted, "T_min" : T_min, "R1" : R1, "R2" : R2, "C" : C, "efficiency" : efficiency, "type" : typ}}, 
+              "type" : "flex"}
     
     if weather.get("history") : 
         presence_profile_history  = options.get("presence_profile_history", presence_profile)
@@ -590,6 +599,49 @@ def heating_system_profile(allocated, deltat, total_time, building, presence_pro
         params["parameters"]["p_range_history"] = p_range_history
         
     return params
+    
+def iterate_clim(T_activation, T_minus, presence_profile, T_b, T_out, T_in_t, R1, R2, C, deltat) :
+    if presence_profile.get("awake", 0) > 0 or presence_profile.get("asleep", 0) > 0 : 
+        if T_in_t >= T_activation - T_minus and T_out > T_activation - T_minus : 
+            T_in = T_activation + T_minus
+            T_b, flux = thermal_model_flux(T_b, T_out, T_in, R1, R2, C, deltat)
+        elif T_in_t >= T_activation and T_out > T_activation : 
+            T_in = T_activation
+            T_b, flux = thermal_model_flux(T_b, T_out, T_in, R1, R2, C, deltat)
+        else : 
+            flux = 0
+            T_b, T_in = thermal_model_Tin(T_b, T_out, flux, R1, R2, C, deltat)
+
+    else : 
+        flux = 0
+        T_b, T_in = thermal_model_Tin(T_b, T_out, flux, R1, R2, C, deltat)
+    
+    return T_b, T_in, flux
+
+def clim_power_model(T_activation, T_minus, R1, R2, C, T_out, presence_profile, total_time, deltat, **options) : 
+    
+    flux = []
+    T_in = []
+    carnot = []
+    for t in range(total_time) :
+        if t == 0 : 
+            if T_out[t] > T_activation - T_minus : 
+                T_in = T_activation + T_minus
+            elif T_out[t] > T_activation : 
+                T_in = T_activation
+            else : 
+                T_in = T_out[t]
+        T_b, T_in, flux = iterate_clim(T_activation, T_minus, presence_profile[t], T_b, T_out[t], T_in, R1, R2, C, deltat)
+        flux.append(max(0, flux))
+        T_in.append(T_in)
+        if flux != 0 or T_in >= T_out[t] + 0.1 : # We add a small margin to avoid numerical issues
+            carnot.append(max(1, (T_in+273.15) / (T_out[t]- T_in)))
+        else :
+            carnot.append(1)
+
+        return flux, T_in, carnot
+            
+             
     
 def clim_profile(allocated, deltat, total_time, presence_profile, weather, building, **options)  :
     T_out_forecast = weather["forecast"]["temperature"]
@@ -606,66 +658,19 @@ def clim_profile(allocated, deltat, total_time, presence_profile, weather, build
     
     R1, R2, C = building["R1"], building["R2"], building["C"]
     
-    def iterate_clim(presence_profile, T_b, T_out, T_in_t, R1, R2, C, deltat) :
-        if presence_profile.get("awake", 0) > 0 or presence_profile.get("asleep", 0) > 0 : 
-            if T_in_t >= T_activation - T_minus and T_out > T_activation - T_minus : 
-                T_in = T_activation + T_minus
-                T_b, flux = thermal_model_flux(T_b, T_out, T_in, R1, R2, C, deltat)
-            elif T_in_t >= T_activation and T_out > T_activation : 
-                T_in = T_activation
-                T_b, flux = thermal_model_flux(T_b, T_out, T_in, R1, R2, C, deltat)
-            else : 
-                flux = 0
-                T_b, T_in = thermal_model_Tin(T_b, T_out, flux, R1, R2, C, deltat)
-
-        else : 
-            flux = 0
-            T_b, T_in = thermal_model_Tin(T_b, T_out, flux, R1, R2, C, deltat)
-        
-        return T_b, T_in, flux
-
-
-    carnot_forecast = []
-    carnot_history = []
-    for t in range(total_time) :
-        if t == 0 : 
-            if T_out_forecast[t] > T_activation - T_minus : 
-                T_in = T_activation + T_minus
-            elif T_out_forecast[t] > T_activation : 
-                T_in = T_activation
-            else : 
-                T_in = T_out_forecast[t]
-        T_b, T_in, flux = iterate_clim(presence_profile[t], T_b, T_out_forecast[t], T_in, R1, R2, C, deltat)
-        flux_forecast.append(max(0, flux))
-        T_in_forecast.append(T_in)
-        if flux != 0 or T_in >= T_out_forecast[t] + 0.1 : # We add a small margin to avoid numerical issues
-            carnot_forecast.append(max(1, (T_in+273.15) / (T_out_forecast[t]- T_in)))
-        else :
-            carnot_forecast.append(1)
-
-        if weather.get('history') :
-            if t == 0 : 
-                if T_out_history[t] > T_activation - T_minus : 
-                    T_in_hist = T_activation + T_minus
-                elif T_out_history[t] > T_activation : 
-                    T_in_hist = T_activation
-                else : 
-                    T_in_hist = T_out_history[t] 
-            presence_history = options.get("presence_profile_history", presence_profile)
-            T_b, T_in_hist, flux = iterate_clim(presence_history[t], T_b, T_out_history[t], T_in_hist, R1, R2, C, deltat)
-            flux_history.append(max(0, flux))
-            if flux != 0 or T_in_hist >= T_out_history[t] + 0.1 : # We add a small margin to avoid numerical issues
-                # print("T_in_hist", T_in_hist, "T_out_history[t]", T_out_history[t])
-                carnot_history.append(max(1, (T_in_hist+273.15) / (T_out_history[t]- T_in_hist)))
-            else : 
-                carnot_history.append(1)
-            T_in_history.append(T_in_hist)            
+    flux_forecast, T_in_forecast, carnot_forecast = clim_power_model(T_activation, T_minus, R1, R2, C, T_out_forecast, presence_profile, total_time, deltat, **options)
+    if weather.get("history") :
+        flux_history, T_in_history, carnot_history = clim_power_model(T_activation, T_minus, R1, R2, C, T_out_history, presence_profile, total_time, deltat, **options)
     
 
     efficiency = normal_positive(allocated.get("efficiency", 0.5), 0.1)
     
     p_range = [(0, flux_forecast[i]/(efficiency*carnot_forecast[i])) for i in range(total_time)]
-    params = {"parameters" : {"power_range" : p_range}, "type" : "flex"}
+    params = {"parameters" : 
+        {"power_range" : p_range, 
+        "clim_params" : {"T_activation" : T_activation, "T_minus" : T_minus, "R1" : R1, "R2" : R2, "C" : C, "efficiency" : efficiency}
+        },
+        "type" : "flex"}
     if weather.get("history") :
         p_range_history = [(0, flux_history[i]/(efficiency*carnot_history[i])) for i in range(total_time)]
         params["parameters"]["p_range_history"] = p_range_history

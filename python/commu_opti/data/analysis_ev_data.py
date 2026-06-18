@@ -375,3 +375,6 @@ plt.title('Power not at home for each user')
 #%%
 for user in dico_users : 
     print(user, len(dico_users[user]['energy_not_home']), all(dico_users[user]['home']),dico_users[user]['end'][-1]- dico_users[user]['start'][0])
+    
+for user in dico_users : 
+    print(user, dico_users[user]['max_power'])

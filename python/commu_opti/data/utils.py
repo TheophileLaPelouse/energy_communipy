@@ -250,7 +250,39 @@ def thermal_model_Tin(T_out_t1, T_b_t, flux_t1, R1, R2, C, deltat) :
     return T_b_t1, T_in_t1
 
     
+def change_deltat(l, deltat, new_deltat) :
+    if new_deltat < deltat : 
+        new_l = []
+        i = 0
+        k = 0
+        while i < len(l) :
+            if k * new_deltat <= i * deltat :
+                new_l.append(l[i])
+                k += 1
+            if k * new_deltat > i * deltat :
+                i += 1
+        return new_l
+    
+    elif new_deltat > deltat :
+        if len(l) == 0:
+            return []
+        if len(l) == 1:
+            return [l[0]]
 
+        total_time = (len(l) - 1) * deltat
+        new_l = []
+        t = 0
+        while t <= total_time:
+            pos = t / deltat
+            i = int(pos)
+            if i >= len(l) - 1:
+                new_l.append(l[-1])
+            else:
+                frac = pos - i
+                new_l.append(l[i] * (1 - frac) + l[i + 1] * frac)
+            t += new_deltat
+        return new_l
+    return l
     
 if __name__ == "__main__" : 
     R1 = 6

@@ -153,6 +153,11 @@ class member :
         self.mod_member.z2_k.store_values(kwargs.get("z2_k"))
         self.mod_member.u2_k.store_values(kwargs.get("u2_k"))
         
+    def update_devices(self, **kwargs) :
+        for dev in self.devices : 
+            dev.update_params(**kwargs)
+                
+        
 
     def build_model(self, **kwargs) :
         """
@@ -169,7 +174,7 @@ class member :
         
         for k in range(len(self.devices)) : 
             if self.devices[k].__class__.__name__ == "PV" and self.def_irradiance : 
-                self.devices[k].update_irradiance(self.P_disponible)
+                self.devices[k].update_params(irradiance_profile=self.P_disponible)
                 self.PV_present = True
             if self.devices[k].__class__.__name__ == "battery" :
                 self.bat_present = True
