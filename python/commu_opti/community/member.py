@@ -1,8 +1,10 @@
-from . import pyo
+from . import pyo, dt, np
 from .utils import calc_auto, calc_eco, calc_enviro, calc_pena_pow, calc_confort, calc_eco_total, calc_invest_cost
 from ..opti.solving import solve_model
 from ..plotting.plot_functions import plot_power_curves
 from .constraint_functions_members import *
+from ..data.generate_data_V2 import generate_profile, device_activation_profile, device_power_profile
+from .rolling_functions import white_goods_rolling, EV_rolling, heating_rolling, clim_rolling
 import time
 
 class member : 
@@ -37,6 +39,23 @@ class member :
         self.devices = devices 
         self.devices_name = [device.name for device in devices]
         
+        # For the rolling horizon optimization
+        self.buiding = kwargs.get("building", None)
+        self.nb_people = kwargs.get("nb_people", None)
+        self.time_window = kwargs.get("time_window", None)
+        self.horizon = kwargs.get("horizon", None)
+        self.current_window = [self.time_window[0], self.time_window[0] + dt.timedelta(hours=self.horizon)]
+        self.total_time_window = int((self.time_window[1] - self.time_window[0]).total_seconds() / 3600 / self.deltat)
+        self.time_window_index = [t for t in range(self.total_time_window)]
+        self.current_time_index = [0, self.horizon - 1]
+        self.device_futur = {}
+        self.time_midnight = self.horizon
+        self.presence_profile = kwargs.get("presence_profile", [])
+        if len(self.presence_profile) < self.total_time_window : 
+            self.generate_presence_profile(**kwargs)
+            
+        self.generate_device_futur(**kwargs)
+        
         self.P_exchange_repr = None # Only used for admm
         # print("START BUILDING")
         
@@ -52,6 +71,25 @@ class member :
             # print("Ou c'est après")
             self.build_model(**kwargs)
         # print("BUILDING MEMBER DONE")
+        
+    def generate_presence_profile(self, **kwargs) : 
+        profile_method = kwargs.get("profile_method", "random")
+        if profile_method == "random" : 
+            nb_of_days = int((self.time_window[1] - self.time_window[0]).total_seconds() / 3600 / 24)
+            nb_of_days -= len(self.presence_profile) // int(24/self.deltat)
+            for _ in range(nb_of_days) : 
+                self.presence_profile += generate_profile(self.nb_people, False, self.deltat)
+                
+    def generate_device_futur(self, **kwargs) :
+        device_method = kwargs.get("profile_method", "given")
+        if device_method == "given" : 
+            for d in self.devices : 
+                self.device_futur[d.name] = kwargs.get(f"devices_futur", {}).get(d.name, {})
+        # if profile_method == "random" : 
+        #     for d in self.devices : 
+        #         if d.__class__.__name__ == "white_good" : 
+                    
+            
     
     def add_to_community(self, commu, id_, method=None) :
         if hasattr(self.mod_member, 'commu'):
@@ -153,11 +191,9 @@ class member :
         self.mod_member.z2_k.store_values(kwargs.get("z2_k"))
         self.mod_member.u2_k.store_values(kwargs.get("u2_k"))
         
-    def update_devices(self, **kwargs) :
-        for dev in self.devices : 
-            dev.update_params(**kwargs)
-                
-        
+    # def update_devices(self, **kwargs) :
+    #     for dev in self.devices : 
+    #         dev.update_params(**kwargs)
 
     def build_model(self, **kwargs) :
         """
@@ -447,6 +483,51 @@ class member :
             for key in keys_not_to_send :
                 objs.pop(key, None)
         return objs
+                    
+    def rolling_horizon_update(self, new_weather, new_irradiance, **kwargs) : 
+        # Fix the values needed for each devices 
+        new_params = {"general" : {
+            "weather_profile" : new_weather,
+            "irradiance_profile" : new_irradiance,
+            }}
+        
+        self.time_midnight = (self.time_midnight - 1) % self.horizon
+        new_params['general']["time_midnight"] = self.time_midnight
+        self.current_window = [self.current_window[0] + dt.timedelta(hours=self.deltat), self.current_window[1] + dt.timedelta(hours=self.deltat)]
+        self.current_time_index = [self.current_time_index[0] + 1, self.current_time_index[1] + 1]
+        new_params["general"]["current_time_index"] = self.current_time_index[0]
+        new_params["general"]["presence_profile"] = self.presence_profile[self.current_time_index[0]:self.current_time_index[1]]
+        
+        for d in self.devices :
+            if d.__class__.__name__ == "white_good" : 
+                white_goods_rolling(self.device_futur[d.name], self.total_time, self.current_time_index, d, new_params, **kwargs)
+                        
+            if d.__class__.__name__ == "AoN" : 
+                if d.mod.P_cons[0] > 0 : 
+                    energy_needed = d.mod.energy_needed_day.value - pyo.value(d.mod.P_cons[0])*self.deltat
+                    if not new_params.get(d.name):
+                        new_params[d.name] = {}
+                    new_params[d.name]["energy_needed"] = energy_needed
+                    
+            if d.__class__.__name__ == "battery" : 
+                E0 = pyo.value(d.mod.E[0])
+                # For now no Eend as we will be on 24 hours so make sense to begin and end at the same level, but should be changed in due time
+                if not new_params.get(d.name):
+                    new_params[d.name] = {}
+                new_params[d.name]["E0"] = E0
+            
+            if d.__class__.__name__ == "PV" : 
+                if not new_params.get(d.name):
+                    new_params[d.name] = {}
+                new_params[d.name]["irradiance_profile"] = new_irradiance
+                
+            if d.__class__.__name__ == "EV" : 
+                EV_rolling(self.current_time_index, self.device_futur[d.name], new_params, d)
+                
+            d.update_params(**new_params["general"], **new_params.get(d.name, {}))
+            # if d.__class__.__name__ == "flex" :
+                
+                
                     
     def drop_device(self, k) :
         if k < 0 : 

@@ -219,7 +219,21 @@ def one_device_allocation(device, nb_people) :
     for key in device : 
         if key not in key_to_use : 
             allocated[key] = device[key]
+            
+    # Specific ones : 
     
+    if "T_wanted_awake" in device : 
+        T_wanted = {"awake" : normal_positive(device["T_wanted_awake"], device["net_deviation"]), 
+                "asleep" : normal_positive(device["T_wanted_asleep"], device["net_deviation"]), 
+                "away" : normal_positive(device["T_wanted_away"], device["net_deviation"])}
+        allocated["T_wanted"] = T_wanted
+        allocated["efficiency"] = normal_positive(device.get("efficiency", 0.5), 0.1)
+        
+    if "T_activation" in device : 
+        allocated["T_activation"] = normal_positive(device["T_activation"], device["net_deviation"])
+        allocated["T_minus"] = normal_positive(device["T_minus"], device["net_deviation"])
+        allocated["efficiency"] = normal_positive(device.get("efficiency", 0.5), 0.1)
+        
     return allocated
 
 def state_to_presence(nb_people, state) : 
@@ -258,22 +272,35 @@ def profile_to_presence(profile, nb_people) :
     
     return [state_to_presence(nb_people, state) for state in profile]
 
-def when_to_profile(deltat, device) :
+def when_to_profile(deltat, device, **kwargs) :
     """
     Translate the when field in devices into a list of interval 
     with the different possible states for each deltat during the day.
     """
-    
-    intervals = [{} for _ in range(int(24/deltat))]
+    total_time = kwargs.get("total_time", 24)
+    intervals = [{} for _ in range(int(total_time/deltat))]
     when = device.get("when", None)
     
     if not when : 
         # Always used
         union = {"awake" : 1, "asleep" : 1, "away" : 1}
-        return [union for _ in range(int(24/deltat))]
+        return [union for _ in range(int(total_time/deltat))]
     
     if when.get("time") : 
         # print("Bonjour", when["time"])
+        nb_days = total_time // 24
+        time_intervals = when["time"]
+        for k in range(nb_days) : 
+            for time_interval in when["time"] :
+                start, end, proba = time_interval
+                start, end = start + 24*(k+1), end + 24*(k+1)
+                if start >= total_time : 
+                    break
+                elif end > total_time : 
+                    end = total_time
+                else : 
+                    time_intervals.append((start, end, proba))
+        
         for time_interval in when["time"] : 
             start, end, proba = time_interval
             start_index = int(start/deltat)
@@ -288,9 +315,20 @@ def when_to_profile(deltat, device) :
             
     if when.get("moment") :
         translation = {"morning" : (6, 12), "afternoon" : (12, 20), "night" : (20, 6), "sleep" : (22, 6)}
+        nb_days = total_time // 24
+        time_intervals = []
+        for k in range(nb_days) :
+            for moment in when["moment"] :
+                start, end = translation[moment]
+                start, end = start + 24*k, end + 24*k
+                if start >= total_time : 
+                    break
+                elif end > total_time : 
+                    end = total_time
+                else : 
+                    time_intervals.append((start, end))
         
-        for moment in when["moment"] :
-            start, end = translation[moment]
+        for start, end in time_intervals :
             start, end = round(normal(start, 0.3*start)), round(normal(end, 0.3*end))
             if end < start : start, end = end, start
             start_index = int(round(start/deltat))
@@ -304,32 +342,41 @@ def when_to_profile(deltat, device) :
                     
         
     if not when.get("time") and not when.get("moment") : 
-        start, end = 0, 24
-        start_index = int(round(start/deltat))
-        end_index = int(round(end/deltat))
-        indices = possible_starts(end-start, range(start, end), deltat, device.get("cycle_length", 0))
-        proba = when.get("proba")
-        probat = when.get("probat")
-        # print("Bonjour", indices, len(intervals))
-        for i in indices : 
-            intervals[i]  = {}
-            for key in when["presence_state"] : 
-                if proba : 
-                    intervals[i][key] = {"proba" : proba}
-                elif probat : 
-                    intervals[i][key] = {"probat" : probat}
-                else :  
-                    intervals[i][key] = {"probat" : 1}
+        nb_days = total_time // 24
+        time_intervals = []
+        for k in range(nb_days) : 
+            start, end = 24*k, 24*(k+1)
+            if end > total_time : 
+                end = total_time
+            time_intervals.append((start, end))
+        
+        for start, end in time_intervals :
+            start_index = int(round(start/deltat))
+            end_index = int(round(end/deltat))
+            indices = possible_starts(end-start, range(start, end), deltat, device.get("cycle_length", 0))
+            proba = when.get("proba")
+            probat = when.get("probat")
+            # print("Bonjour", indices, len(intervals))
+            for i in indices : 
+                intervals[i]  = {}
+                for key in when["presence_state"] : 
+                    if proba : 
+                        intervals[i][key] = {"proba" : proba, "time" : (start, end)}
+                    elif probat : 
+                        intervals[i][key] = {"probat" : probat, "time" : (start, end)}
+                    else :  
+                        intervals[i][key] = {"probat" : 1, "time" : (start, end)}
             
     return intervals
 
-def device_activation_profile(profile, device, deltat, nb_people) : 
+def device_activation_profile(profile, device, deltat, nb_people, **kwargs) : 
     """
     Generate the activation profile of the device depending on the presence profile and the when field of the device.
     """
+    total_time = kwargs.get("total_time", 24)
     profile_presence = profile_to_presence(profile, nb_people)
-    when_profile = when_to_profile(deltat, device)
-    activation_profile = [0 for _ in range(int(24/deltat))]
+    when_profile = when_to_profile(deltat, device, **kwargs)
+    activation_profile = [0 for _ in range(int(total_time/deltat))]
     i = 0
     set_proba = set()
     while i < len(when_profile) : 
@@ -565,9 +612,7 @@ def heating_power_model(T, T_out, presence_profile, R1, R2, C, total_time, delta
 
 def heating_system_profile(allocated, deltat, total_time, building, presence_profile, weather, **options) :
     # 2R1C model, we compute first the power range for a certain temperature
-    T_wanted = {"awake" : normal_positive(allocated["T_wanted_awake"], 1), 
-                "asleep" : normal_positive(allocated["T_wanted_asleep"], 1), 
-                "away" : normal_positive(allocated["T_wanted_away"], 1)}
+    T_wanted = allocated["T_wanted"]
     T_min = {
         "awake" : 16, 
         "asleep" : 14,
@@ -580,7 +625,7 @@ def heating_system_profile(allocated, deltat, total_time, building, presence_pro
     power_confort_forecast, carnot_confort = heating_power_model(T_wanted, weather["forecast"]["temperature"], presence_profile, R1, R2, C, total_time, deltat, typ, **options)
     power_min_forecast, carnot_min = heating_power_model(T_min, weather["forecast"]["temperature"], presence_profile, R1, R2, C, total_time, deltat, typ, **options)
     
-    efficiency = normal_positive(allocated.get("efficiency", 0.5), 0.1)
+    efficiency = allocated["efficiency"]
     
     p_range_forecast = [(min(power_min_forecast[i], power_confort_forecast[i])/(efficiency*carnot_min[i]), 
                          max(power_min_forecast[i], power_confort_forecast[i])/(efficiency*carnot_confort[i])) 
@@ -663,7 +708,7 @@ def clim_profile(allocated, deltat, total_time, presence_profile, weather, build
         flux_history, T_in_history, carnot_history = clim_power_model(T_activation, T_minus, R1, R2, C, T_out_history, presence_profile, total_time, deltat, **options)
     
 
-    efficiency = normal_positive(allocated.get("efficiency", 0.5), 0.1)
+    efficiency = allocated["efficiency"]
     
     p_range = [(0, flux_forecast[i]/(efficiency*carnot_forecast[i])) for i in range(total_time)]
     params = {"parameters" : 

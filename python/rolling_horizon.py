@@ -15,7 +15,7 @@ from pyomo.opt import SolverFactory
 
 from commu_opti.data.generate_data import generate_n_profile, create_random_agent
 from commu_opti.commu_builder import define_members, define_community
-from commu_opti.generate_device_infos import generate_member_data_random
+from commu_opti.generate_device_infos import generate_member_data_random, generate_devices_data, generate_devices_profile
 from commu_opti.data.generate_data_V2 import get_weather_data, list_locations, get_price_data
 from commu_opti.data.ev_profile import EV_profile
 
@@ -73,7 +73,9 @@ params = []
 for k in range(n) : 
     rd_EV = np.random.rand()
     rd_PV = np.random.rand()
-    rd_bat = np.random.rand()
+    rd_bat = np.random.rand()   
+    
+    nb_people, deltat, equipments, build, weather = generate_devices_data(date=date, nb_of_days=nb_of_days, location=(lat, lon), deltat=deltat)
     
     param, final_result = generate_member_data_random(nb_of_days=3, location=(lat, lon))
     presence_profile = final_result['args']['presence_profile']
@@ -114,6 +116,10 @@ for k in range(n) :
     param["parameters"]["calc_ref"] = False
     param["parameters"]["id_"] = k 
     param["parameters"]["method"] = "admm"
+    param["parameters"]["building"] = building
+    param["parameters"]["nb_people"] = final_result['args']['nb_people']
+    param["parameters"]["time_window"] = [date, date + dt.timedelta(days=nb_of_days)]
+    param["parameters"]["horizon"] = horizon
     params.append(param)
     
 members = define_members(params)
@@ -170,4 +176,7 @@ for t in range(n_total_time) :
     new_irradiance = [irradiance_t] + weather_forecast["irradiance"][t+1:t+horizon]
     weather_t = weather_history["temperature"][t]
     new_weather = [weather_t] + weather_forecast["temperature"][t+1:t+horizon]
-    
+    for i in community.current_members_id : 
+        m = community.members[i]
+        m.rolling_horizon_update(new_weather, new_irradiance)
+        

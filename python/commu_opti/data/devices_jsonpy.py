@@ -220,7 +220,7 @@ list_devices = {
     }, 
     "climatisation" : {
         "proba" : 0.25, # Hellowatt
-        "T_activation" : 25, # °C
+        "T_activation" : 27, # °C
         "T_minus" : -7, # °C compared to outside temperature
         "net_deviation" : 3, # °C
         "when" : {"presence_state" : ["awake", "asleep"]}
