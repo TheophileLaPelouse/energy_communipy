@@ -17,6 +17,7 @@ def define_devices(list_args, **kwargs) :
             args = dico
             name = f"device_{c}"
             c += 1
+        
         args["parameters"]["name"] = name
         
         if args["type"] == "white_good" : 

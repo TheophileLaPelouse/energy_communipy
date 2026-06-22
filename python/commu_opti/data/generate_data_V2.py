@@ -66,7 +66,7 @@ def get_weather_data(date_start, date_end, lat=45, lon=8, forecast=True, deltat=
 def get_price_data(date_start, date_end, deltat=1) : 
     year = date_start.year 
     file = "day_ahead_price_FR_2021-01-01_2026-01-01.csv"
-    df = pd.read_csv(os.path.join(os.path.dirname(__file__), file))
+    df = pd.read_csv(os.path.join(os.path.dirname(__file__), file), parse_dates=["date"])    
     df = df[(df["date"] >= date_start) & (df["date"] <= date_end)]
     price_per_hour = df["price"].to_numpy()
     if deltat != 1 : 
@@ -663,10 +663,10 @@ def iterate_clim(T_activation, T_minus, presence_profile, T_b, T_out, T_in_t, R1
     
     return T_b, T_in, flux
 
-def clim_power_model(T_activation, T_minus, R1, R2, C, T_out, presence_profile, total_time, deltat, **options) : 
+def clim_power_model(T_activation, T_minus, T_b, R1, R2, C, T_out, presence_profile, total_time, deltat, **options) : 
     
-    flux = []
-    T_in = []
+    fluxs = []
+    T_ins = []
     carnot = []
     for t in range(total_time) :
         if t == 0 : 
@@ -677,14 +677,14 @@ def clim_power_model(T_activation, T_minus, R1, R2, C, T_out, presence_profile, 
             else : 
                 T_in = T_out[t]
         T_b, T_in, flux = iterate_clim(T_activation, T_minus, presence_profile[t], T_b, T_out[t], T_in, R1, R2, C, deltat)
-        flux.append(max(0, flux))
-        T_in.append(T_in)
+        fluxs.append(max(0, flux))
+        T_ins.append(T_in)
         if flux != 0 or T_in >= T_out[t] + 0.1 : # We add a small margin to avoid numerical issues
             carnot.append(max(1, (T_in+273.15) / (T_out[t]- T_in)))
         else :
             carnot.append(1)
 
-        return flux, T_in, carnot
+    return fluxs, T_ins, carnot
             
              
     
@@ -703,9 +703,9 @@ def clim_profile(allocated, deltat, total_time, presence_profile, weather, build
     
     R1, R2, C = building["R1"], building["R2"], building["C"]
     
-    flux_forecast, T_in_forecast, carnot_forecast = clim_power_model(T_activation, T_minus, R1, R2, C, T_out_forecast, presence_profile, total_time, deltat, **options)
+    flux_forecast, T_in_forecast, carnot_forecast = clim_power_model(T_activation, T_minus, T_b, R1, R2, C, T_out_forecast, presence_profile, total_time, deltat, **options)
     if weather.get("history") :
-        flux_history, T_in_history, carnot_history = clim_power_model(T_activation, T_minus, R1, R2, C, T_out_history, presence_profile, total_time, deltat, **options)
+        flux_history, T_in_history, carnot_history = clim_power_model(T_activation, T_minus, T_b, R1, R2, C, T_out_history, presence_profile, total_time, deltat, **options)
     
 
     efficiency = allocated["efficiency"]

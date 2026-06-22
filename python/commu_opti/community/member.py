@@ -3,8 +3,8 @@ from .utils import calc_auto, calc_eco, calc_enviro, calc_pena_pow, calc_confort
 from ..opti.solving import solve_model
 from ..plotting.plot_functions import plot_power_curves
 from .constraint_functions_members import *
-from ..data.generate_data_V2 import generate_profile, device_activation_profile, device_power_profile
-from .rolling_functions import white_goods_rolling, EV_rolling, heating_rolling, clim_rolling
+from ..data.generate_data_V2 import generate_profile
+from .rolling_functions import white_goods_rolling, EV_rolling
 import time
 
 class member : 
@@ -408,7 +408,7 @@ class member :
                 nb_activation_needed = int(d.energy_needed/d.power_needed) + int(d.energy_needed%d.power_needed != 0)
                 spread_indices = set()
                 for i in range(nb_activation_needed) : 
-                    spread_indices.add(round(i*(self.total_time-1)/(nb_activation_needed-1)))
+                    spread_indices.add(round(i*(self.total_time-1)/(nb_activation_needed)))
                 for t in range(self.total_time) : 
                     if t in spread_indices : 
                         d.mod.on_off[t].fix(1)
@@ -503,8 +503,8 @@ class member :
                 white_goods_rolling(self.device_futur[d.name], self.total_time, self.current_time_index, d, new_params, **kwargs)
                         
             if d.__class__.__name__ == "AoN" : 
-                if d.mod.P_cons[0] > 0 : 
-                    energy_needed = d.mod.energy_needed_day.value - pyo.value(d.mod.P_cons[0])*self.deltat
+                if pyo.value(d.mod.Pcons[0]) > 0 : 
+                    energy_needed = d.mod.energy_needed_day.value - pyo.value(d.mod.Pcons[0])*self.deltat
                     if not new_params.get(d.name):
                         new_params[d.name] = {}
                     new_params[d.name]["energy_needed"] = energy_needed
@@ -519,7 +519,7 @@ class member :
             if d.__class__.__name__ == "PV" : 
                 if not new_params.get(d.name):
                     new_params[d.name] = {}
-                new_params[d.name]["irradiance_profile"] = new_irradiance
+                # new_params[d.name]["irradiance_profile"] = new_irradiance
                 
             if d.__class__.__name__ == "EV" : 
                 EV_rolling(self.current_time_index, self.device_futur[d.name], new_params, d)

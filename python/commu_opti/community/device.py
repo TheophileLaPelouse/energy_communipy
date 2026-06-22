@@ -108,7 +108,7 @@ class device :
         mod.E0 = pyo.Param(range(len(self.E0)), initialize=self.E0, within=pyo.Reals, mutable=True)
         mod.charge_eff = pyo.Param(initialize=self.charge_eff, within=pyo.NonNegativeReals, mutable=True)
         mod.dcharge_eff = pyo.Param(initialize=self.dcharge_eff, within=pyo.NonNegativeReals, mutable=True)
-        mod.E_range = pyo.Expression(range(2), initialize={0 : self.E_range[0], 1 : self.E_range[1]}, within=pyo.Reals)
+        mod.E_range = pyo.Expression(range(2), initialize={0 : self.E_range[0], 1 : self.E_range[1]})
         mod.p_range_bat = pyo.Param(range(2), initialize=self.p_range_bat, within=pyo.Reals, mutable=True)
         
         if self.E_min is not None : 
@@ -192,7 +192,7 @@ class white_good(device) :
                 interval_max = min(t, t_max[t_set]-cycle_length[t_set])
                 for t2 in range(interval_min, interval_max+1) :
                     available_time[t, t2].set_value(1)
-            for t in range(t_min[t_set], t_max[t_set]-cycle_length[t_set]+1) : 
+            for t in range(t_min[t_set], t_max[t_set]-cycle_length[t_set]) : 
                 available_time_set[t_set, t].set_value(1)
             t_set+=1
         
@@ -484,9 +484,9 @@ class battery(device) :
         self.charge_eff = kwargs.get('charge_eff', 0.95)
         self.dcharge_eff = kwargs.get('dcharge_eff', 0.95)
         self.E0 = [kwargs.get('E0', 0.5 * (self.E_range[0] + self.E_range[1]))]
-        self.E = pyo.Var(self.t_set, within=pyo.NonNegativeReals)
-        self.P_plus = pyo.Var(self.t_set, within=pyo.NonNegativeReals)
-        self.P_minus = pyo.Var(self.t_set, within=pyo.NonNegativeReals)
+        self.E = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=0)
+        self.P_plus = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=0)
+        self.P_minus = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=0)
 
         self.mod.active_time = pyo.Param(self.mod.time_total_set, initialize={k : 1 for k in self.mod.time_total_set}, within=pyo.Boolean, mutable=True)
         self.mod.E_return = pyo.Param(self.mod.time_total_set, initialize={k : self.E0[0] if k == 0 else 0 for k in self.mod.time_total_set}, within=pyo.Reals)
@@ -542,7 +542,7 @@ class EV(device) :
         E_return, E_min_t = self.get_home_values(time_home, E0s, E_min)
         
         self.mod.E_return = pyo.Param(self.mod.time_total_set, initialize={k : E_return[k] for k in self.mod.time_total_set}, within=pyo.Reals)
-        self.mod.E_min_t = pyo.Param(self.mod.time_total_set, initialize={k : E_min_t[k] for k in self.mod.time_total_set}, within=pyo.NonNegativeReals)
+        self.mod.E_min_t = pyo.Param(self.mod.time_total_set, initialize={k : E_min_t[k] for k in self.mod.time_total_set}, within=pyo.Reals)
         
         self.mod.E = self.E 
         self.mod.P_plus = self.P_plus
@@ -556,6 +556,9 @@ class EV(device) :
         start_set = set()
         time = 0
         c = 0
+        if not time_home : 
+            self.mod.active_time.store_values({k : 0 for k in self.mod.time_total_set})
+            return [0 for k in self.mod.time_total_set], [0 for k in self.mod.time_total_set]
         while time < self.total_time : 
             t0, tend = time_home[c]
             t0, tend = t0 - self.current_time, tend - self.current_time

@@ -22,7 +22,7 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
             'cycle_length', [d.cycle_length[k] for k in range(len(d.cycle_length)-1)]
             )
     else :
-        if d.mod.P_cons[0] > 0 : 
+        if pyo.value(d.mod.Pcons[0]) > 0 : 
             length = d.cycle_length[0]
             to_supply = np.zeros(total_time)
             to_supply[0:length] = d.p_range[0, 0]
@@ -49,7 +49,7 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
                 'cycle_length', [d.cycle_length[k] for k in range(len(d.cycle_length)-1)]
                 )
             
-    if dico['length'] > 0 :
+    if dico.get('length', 0) > 0 :
         if not new_params.get(d.name):
             new_params[d.name] = {}
         new_params[d.name]["previous_cycle"] = dico['to_supply']

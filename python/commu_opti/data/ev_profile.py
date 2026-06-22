@@ -7,7 +7,7 @@ with open(os.path.join(os.path.dirname(__file__), "ev_travel_statistics.json"), 
     ev_stat = json.load(f)
     ev_stat = convert_numeric_keys(ev_stat)
 
-def possible_travels(presence_profile) :
+def possible_travels(presence_profile, deltat) :
     """"
     We want to determine each time there is a travel outside the home that could be made using the EV.
     For this we consider that there is a travel if their is a start and an end.
@@ -25,7 +25,7 @@ def possible_travels(presence_profile) :
         if i == 0 : 
             if presence_profile[i]['away'] > 0 : 
                 start += 1
-                start_stack.append(-1)
+                start_stack.append([i, -1])
         else : 
             if presence_profile[i]['away'] > presence_profile[i-1]['away'] : 
                 start += presence_profile[i]['away'] - presence_profile[i-1]['away']
@@ -40,7 +40,7 @@ def possible_travels(presence_profile) :
                 start -= 1
                 
     if start > 0 : 
-        possible_travels.append((-1, 25))
+        possible_travels.append((-1, len(presence_profile)//deltat)+1)
                 
     # How much travels is possible is decided by the number of following end and start.
     
@@ -83,7 +83,17 @@ def possible_travels(presence_profile) :
             traveller_id -= 1
             travellers[traveller_id]["end"].append(sorted_end[j][1])
             j += 1
+            
+    if j < len(sorted_end) :
+        while j < len(sorted_end) :
+            traveller_id -= 1
+            travellers[traveller_id]["end"].append(sorted_end[j][1])
+            j += 1
+    if max_id == 0 and travellers[0] : max_id = 1
     travellers = travellers[:max_id]
+        
+    if not travellers :
+        return [], 0, [], []
     
     # travellers is a list of possible travelers with the first one having the least possible travels within each possible time interval.
     
@@ -105,6 +115,7 @@ def possible_travels(presence_profile) :
             while js[i] < len(travellers[i]["start"]) and travellers[i]["start"][js[i]] < travellers[i-1]["end"][js[i-1]] :
                 nb_travels_possible[i] += 1
                 js[i] += 1
+            if js[i] == len(travellers[i]["start"]) : js[i] -= 1
             if nb_travels_possible[i] == previous_value : 
                 depths[k] = i
                 break
@@ -180,7 +191,9 @@ def choose_travels_per_group(travellers, group, nb_wanted, depth) :
     i = 0
     while i < depth and js[i][1] - js[i][0] + 1 < nb_wanted : 
         i += 1
-        
+    if i == depth : 
+        i -= 1
+        nb_wanted = js[i][1] - js[i][0] + 1
     travels_to_choose = [k for k in range(js[i][0], js[i][1]+1)]
     chosen = choice(travels_to_choose, nb_wanted, replace=False)
     travels = []
@@ -200,7 +213,7 @@ def choose_travels_per_group(travellers, group, nb_wanted, depth) :
         travels.append((start, end))
     return travels
        
-def EV_profile(allocated, presence_profile, deltat) : 
+def EV_profile(allocated, presence_profile, deltat, bypass=False) : 
     """
     Depending on E, we have in the stats the probability of moving or not that day, only for the day. 
     Then we compute the possible travels during the day.
@@ -211,8 +224,9 @@ def EV_profile(allocated, presence_profile, deltat) :
     # power in kW in the data
     E = allocated["E"]
     avg, ecart = ev_stat["travel_proba"][round(E/10)] # standard deviation small so we don't consider it.
-    if rand() < avg : 
-        travellers, nb_travels_max, nb_travels_parts, depths = possible_travels(presence_profile)
+    all_travels = []
+    if rand() < avg or bypass: 
+        travellers, nb_travels_max, nb_travels_parts, depths = possible_travels(presence_profile, deltat)
         nb_travel_proba = ev_stat['nb_travels_proba']
         nbs_proba = [0]
         nb_max = min(5, nb_travels_max)
@@ -229,6 +243,12 @@ def EV_profile(allocated, presence_profile, deltat) :
         for k in range(len(travel_per_group)) :
             if travel_per_group[k] > 0 : 
                 travels += choose_travels_per_group(travellers, k, travel_per_group[k], depths[k])
+        
+        # Sometimes we have some weird cases where end and start are inversed. Should be fixed in the future but for now : 
+        for k in range(len(travels)) :
+            start, end = travels[k]
+            if end < start : 
+                travels[k] = (end, start)
         
         travels = sorted(travels, key=lambda x: x[0]) # sort travels by start time
         
@@ -251,6 +271,8 @@ def EV_profile(allocated, presence_profile, deltat) :
         energy_travels = []
         for start, end in travels :
             length = round((end - start)*deltat) # in hour
+            if length > 18 : length = 18
+            if E >= 75 : E = 74.9
             power_avg = ev_stat["power_by_capacity_length"][round(E/10)][length][0] # in kW
             var = ev_stat["power_by_capacity_length"][round(E/10)][length][1]
             if not isnan(var) : 

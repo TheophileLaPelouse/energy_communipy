@@ -16,6 +16,7 @@ csv_path="/Users/theophilemounier/Documents/Stage_these/Data/price_spot_france/d
 df = pd.read_csv(csv_path, sep=',', parse_dates=["ts_utc"])
 
 df.columns = ['date', 'price']
+df["date"] = df['date'].dt.tz_convert(None) + dt.timedelta(hours=1) # For France
 file = "day_ahead_price_FR_2021-01-01_2026-01-01.csv"
 df.to_csv(os.path.join(os.path.dirname(__file__), file))
 

@@ -58,12 +58,13 @@ def generate_devices_profile(nb_people, deltat, equipments, build, weather, **kw
     profile = profile[:int(total_time/deltat)]
     
     final_result = {}
+    args = {}
     for device in equipments : 
         if equipments[device]["Number"] != 0 and equipments[device].get("P") != 0 : 
             # print(f"\nDevice {device} \n")
             activation_profile, when_profile, presence_profile = device_activation_profile(profile, equipments[device], deltat, nb_people, **kwargs)
             # print("Activation profile copmuted")
-            args = {
+            spec_args = {
                 "activation_profile" : activation_profile,
                 "when_profile" : when_profile,
                 "presence_profile" : presence_profile,
@@ -74,13 +75,20 @@ def generate_devices_profile(nb_people, deltat, equipments, build, weather, **kw
                 "deltat" : deltat,
                 "weather" : weather
                 }
-            pow_profile = device_power_profile(**args)
+            if not args.get("presence_profile") : 
+                args["presence_profile"] = presence_profile
+                args["building"] = build
+                args["weather"] = weather
+                args["nb_people"] = nb_people
+                args["deltat"] = deltat
+            pow_profile = device_power_profile(**spec_args)
             pow_profile["parameters"]["name"] = device
             # print("Power profile computed")
             
-            final_result[device] = {"power_profile" : pow_profile, "args" : args}
-
+            final_result[device] = {"power_profile" : pow_profile, "args" : spec_args}
+    
     devices = {device : final_result[device]["power_profile"] for device in final_result}
+    final_result["args"] = args
     # member_param = {
     #     'socio': [1, 1, 0, 1],
     #     'id_': 0,

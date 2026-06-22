@@ -25,9 +25,13 @@ from commu_opti.data.ev_profile import EV_profile
 
 # choose penetration rate of PV, EV and battery
 
-EV_rate = 0.2
-PV_rate = 0.3
-Battery_rate = 0.1
+# EV_rate = 0.2
+# PV_rate = 0.3
+# Battery_rate = 0.1
+
+EV_rate = 1
+PV_rate = 1
+Battery_rate = 1
 
 # generate agents data
 
@@ -38,7 +42,7 @@ for k in range(8) :
             possible_socio.append([k, j, i, 8-k-j-i])
             
 
-n = 10
+n = 2
 
 
 day_number = np.random.randint(1, 365)
@@ -49,6 +53,9 @@ deltat = 1
 
 weather_forecast, irradiance_forecast = get_weather_data(date, date + dt.timedelta(days=nb_of_days), lat=lat, lon=lon, forecast=True, deltat=deltat)
 weather_history, irradiance_history = get_weather_data(date, date + dt.timedelta(days=nb_of_days), lat=lat, lon=lon, forecast=False, deltat=deltat)
+
+weather_forecast, irradiance_forecast = list(weather_forecast), list(irradiance_forecast)
+weather_history, irradiance_history = list(weather_history), list(irradiance_history)
 
 horizon = 24
 
@@ -88,8 +95,13 @@ for k in range(n) :
         E = EV_allocation["E_range"][0] + (EV_allocation["E_range"][1] - EV_allocation["E_range"][0]) * np.random.rand()
         P_max = EV_allocation["P_max"][np.random.randint(0, len(EV_allocation["P_max"]))]
         P_min = -P_max*(np.random.rand()>EV_allocation["proba_minus"])
-        allocated = {"E": E, "power_pos": P_max, "power_neg": P_min}
-        param["devices"]["EV"] = EV_profile(allocated, presence_profile, deltat)
+        allocated = {"E": E, "power_pos": P_max, "power_neg": P_min, "name" : "EV"}
+        for k in range(3) : 
+            try : 
+                param["devices"]["EV"] = EV_profile(allocated, presence_profile, deltat, bypass=True)
+                break
+            except : 
+                continue
         # flag_pv=True
         
     if rd_bat < Battery_rate : 
@@ -101,7 +113,7 @@ for k in range(n) :
         charge_eff = np.random.normal(bat_allocation["charge_eff"][0], bat_allocation["charge_eff"][1])
         dcharge_eff = np.random.normal(bat_allocation["dcharge_eff"][0], bat_allocation["dcharge_eff"][1])
         param["devices"]["battery"] = {
-            "parameters" : {"E_range" : E_range, "p_range" : P_range, "charge_eff" : charge_eff, "dcharge_eff" : dcharge_eff}, 
+            "parameters" : {"E_range" : E_range, "p_range" : P_range, "charge_eff" : charge_eff, "dcharge_eff" : dcharge_eff, "name" : "battery"}, 
             "type" : "battery"
             }
 
@@ -111,7 +123,12 @@ for k in range(n) :
         irradiance = weather["forecast"]["irradiance"][:horizon]
         eff = np.random.normal(PV_allocation["eff"][0], PV_allocation["eff"][1])
         surface = PV_allocation["portion_surf"] * building["surface"] if PV_allocation["portion_surf"] is not None else None
+        param['devices']['PV'] = {
+            "parameters" : {"irradiance_profile":irradiance, "surface":surface, 'eff' : eff, "name" : "PV"}, 
+            "type" : "PV"
+            }
     
+    param['parameters'] = {}
     param["parameters"]["socio"] = possible_socio[np.random.randint(0, len(possible_socio)-1)]
     param["parameters"]["calc_ref"] = False
     param["parameters"]["id_"] = k 
@@ -123,6 +140,7 @@ for k in range(n) :
     params.append(param)
     
 members = define_members(params)
+
 
 param_commu = {
         "method" : "admm",
@@ -137,8 +155,8 @@ param_commu = {
         "eps_s" : 1e-2,
     }
 
-
-prices = get_price_data(date, date + dt.timedelta(days=nb_of_days))
+date_price = date.replace(year=2024)
+prices = get_price_data(date_price, date_price + dt.timedelta(days=nb_of_days))
 
 price_options = {
     "eco" : {
@@ -169,13 +187,15 @@ price_options = {
 
 community = define_community(members, **param_commu, **price_options)
 
-n_total_time = len(weather_forecast["irradiance"])
+n_total_time = len(weather_forecast)
 i_horizon = horizon
-for t in range(n_total_time) :
-    irradiance_t = weather_history["irradiance"][t]
-    new_irradiance = [irradiance_t] + weather_forecast["irradiance"][t+1:t+horizon]
-    weather_t = weather_history["temperature"][t]
-    new_weather = [weather_t] + weather_forecast["temperature"][t+1:t+horizon]
+for t in range(n_total_time - horizon) :
+    community.optimize_admm("gurobi", **community.kwargs)
+    print("Optimization finished !", t)
+    irradiance_t = irradiance_history[t]
+    new_irradiance = [irradiance_t] + irradiance_forecast[t+1:t+horizon]
+    weather_t = weather_history[t]
+    new_weather = [weather_t] + weather_forecast[t+1:t+horizon]
     for i in community.current_members_id : 
         m = community.members[i]
         m.rolling_horizon_update(new_weather, new_irradiance)
