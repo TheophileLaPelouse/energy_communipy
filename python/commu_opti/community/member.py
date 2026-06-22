@@ -61,6 +61,8 @@ class member :
         
         self.def_irradiance = kwargs.get("def_irradiance", False)
         
+        self.memory = {}
+        
         if not method == "centralized" : 
             self.build_model(**kwargs)
             
@@ -448,28 +450,28 @@ class member :
     #     Powers_to_scale = ['P_bat','P_cons','P_prod','bat_cap'] # Others are defined regarding these ones
     #     for power in Powers_to_scale :
     #         if hasattr(self.mod_member, power) : 
-                
-        
-        
                     
-    def send_power_information(self, privacy=0) : 
+    def send_power_information(self, privacy=0, until=None) : 
         """
         Send the power information to the community. Privacy is a parameter varying between 0 and some integers.
         The higher the number, the less information is shared. For now only 0 is implemented
         """
+        
+        if until is None : 
+            until = self.total_time
         powers = {
-            "P_cons": [pyo.value(self.P_cons[t]) for t in self.time_index],
-            "P_prod": [pyo.value(self.P_prod[t]) for t in self.time_index],
-            "P_bat": [pyo.value(self.P_bat[t]) for t in self.time_index],
-            "P_exchange": [pyo.value(self.P_exchange[t]) for t in self.time_index],
-            "P_surplus": [pyo.value(self.P_surplus[t]) for t in self.time_index],
-            "P_self": [pyo.value(self.P_self[t]) for t in self.time_index], 
-            "P_grid": [pyo.value(self.P_grid_plus[t] - self.P_grid_minus[t]) for t in self.time_index],
+            "P_cons": [pyo.value(self.P_cons[t]) for t in range(until)],
+            "P_prod": [pyo.value(self.P_prod[t]) for t in range(until)],
+            "P_bat": [pyo.value(self.P_bat[t]) for t in range(until)],
+            "P_exchange": [pyo.value(self.P_exchange[t]) for t in range(until)],
+            "P_surplus": [pyo.value(self.P_surplus[t]) for t in range(until)],
+            "P_self": [pyo.value(self.P_self[t]) for t in range(until)], 
+            "P_grid": [pyo.value(self.P_grid_plus[t] - self.P_grid_minus[t]) for t in range(until)],
         }
         # In the future could send a json for working as an agent.
         return powers
     
-    def send_obj_information(self, keys_not_to_send=None) : 
+    def send_obj_information(self, keys_not_to_send=None, next_step_only=False) : 
         objs = {
             "Objective" : pyo.value(self.mod_member.obj),
             "price" : pyo.value(self.price),
@@ -483,6 +485,27 @@ class member :
             for key in keys_not_to_send :
                 objs.pop(key, None)
         return objs
+                    
+    def keep_in_memory(self) : 
+        """Store information that needs to be stored between each updates
+        """
+        for d in self.devices :
+            if d.__class__.__name__ == "flex" : 
+                d.memory["actual_temp"].append(pyo.value(d.Pcons[0])) 
+                
+                
+            if d.__class__.__name__ == "white_good" :
+                if self.device_futur[d.name].get('length', 0)==0 and pyo.value(d.mod.Pcons[0]) > 0 :
+                    if not d.memory.get("actual_starts") : 
+                        d.memory["actual_starts"] = []
+                    d.memory["actual_starts"].append(self.current_time_index[0])
+                    
+        powers = self.send_power_information(until=1)
+        for pow in powers : 
+            if not self.memory.get(pow) : 
+                self.memory[pow] = []
+            self.memory[pow].append(powers[pow][0])
+        
                     
     def rolling_horizon_update(self, new_weather, new_irradiance, **kwargs) : 
         # Fix the values needed for each devices 
@@ -501,7 +524,7 @@ class member :
         for d in self.devices :
             if d.__class__.__name__ == "white_good" : 
                 white_goods_rolling(self.device_futur[d.name], self.total_time, self.current_time_index, d, new_params, **kwargs)
-                        
+                
             if d.__class__.__name__ == "AoN" : 
                 if pyo.value(d.mod.Pcons[0]) > 0 : 
                     energy_needed = d.mod.energy_needed_day.value - pyo.value(d.mod.Pcons[0])*self.deltat
@@ -527,6 +550,12 @@ class member :
             d.update_params(**new_params["general"], **new_params.get(d.name, {}))
             # if d.__class__.__name__ == "flex" :
                 
+    def objectif_from_memory(self) :
+        
+                # Get last value that was not recovered in the updates.
+                
+        
+        return
                 
                     
     def drop_device(self, k) :

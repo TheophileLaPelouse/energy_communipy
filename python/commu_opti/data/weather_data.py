@@ -15,11 +15,11 @@ locations = {
     "Marseille_countryside" : (43.4, 5.54),
     "Toulouse" : (43.6, 1.44), 
     "Toulouse_countryside" : (43.5, 1.14),
-    "Nates" : (47.22, -1.55),
-    "Nates_countryside" : (47.22, -1.9),
+    "Nantes" : (47.22, -1.55),
+    "Nantes_countryside" : (47.22, -1.9),
 }
 
-year = 2020
+year = 2025
 
 
 #%% Open meteo data
@@ -35,11 +35,14 @@ def get_weather_data(lat, lon, year, url, name="weather_forecast") :
         "end_date": f"{year}-12-31",
         "hourly": [ # Possible toute les 15 minutes potentiellement
             "temperature_2m", # °C
-            "wind_speed_10m", # km/h
+            # "wind_speed_10m", # km/h
             "shortwave_radiation" # W/m2
         ],
         "timezone": "UTC"
     }
+    
+    if name == "weather_forecast" : 
+        params["hourly"] = ["temperature_2m_previous_day1", "shortwave_radiation_previous_day1"]
     
     res = requests.get(url, params=params).json()
     df = pd.DataFrame(res['hourly'])
@@ -48,9 +51,26 @@ def get_weather_data(lat, lon, year, url, name="weather_forecast") :
     
 for loc in locations : 
     lat, lon = locations[loc]
-    get_weather_data(lat, lon, year, url="https://historical-forecast-api.open-meteo.com/v1/forecast", name="weather_forecast")
+    get_weather_data(lat, lon, year, url="https://previous-runs-api.open-meteo.com/v1/forecast", name="weather_forecast")
     get_weather_data(lat, lon, year, url="https://archive-api.open-meteo.com/v1/archive", name="weather_archive")
     
+#%%
+params = {
+    "latitude": lat,
+    "longitude": lon,   
+    "start_date": f"{year}-01-01",
+    "end_date": f"{year}-12-31",
+    "hourly": [ # Possible toute les 15 minutes potentiellement
+        "temperature_2m", # °C
+        "wind_speed_10m", # km/h
+        "shortwave_radiation" # W/m2
+    ],
+    "timezone": "UTC"
+}    
+
+params["forecast_days"] = 3
+url="https://previous-runs-api.open-meteo.com/v1/forecast"
+res = requests.get(url, params=params).json()
 #%% Pvgis 
 client = PVGISClient()
 

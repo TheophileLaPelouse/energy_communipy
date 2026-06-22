@@ -68,6 +68,9 @@ class device :
         
         self.power_score = 0
         self.time_score = 0 
+        
+        # Memory will be used if needed during rolling horizon
+        self.memory = {}
 
 
         
@@ -343,6 +346,8 @@ class flex(device) :
         if kwargs.get("heating_params") :
             self.heating_params = kwargs.get("heating_params")
         super().__init__(power_range, time_use, time_range, **kwargs)
+        self.memory['comfort_temp'] = [power_range[0][1]]
+        self.memory['actual_temp'] = []
         self.generate_spec_constraint()
 
     def generate_spec_constraint(self) : 
@@ -373,6 +378,9 @@ class flex(device) :
                                 for i in range(total_time)]
             self.mod.p_range.store_values({(k, i) : p_range_forecast[k][i] for k in self.mod.t_set for i in range(2)})
             
+            self.memory['comfort_temp'].append(p_range_forecast[0][1]) # Version efficace one at a time]
+            # self.memory['comfort_temp'] = self.memory['comfort_temp'][:kwargs.get("current_time_index", 0)] + [p_range_forecast[k][1] for k in range(p_range_forecast)]
+            
         elif hasattr(self, "clim_params") and kwargs.get("weather") and kwargs.get("presence_profile") : 
             T_activation = self.clim_params['T_activation']
             T_minus = self.clim_params['T_minus']
@@ -388,6 +396,8 @@ class flex(device) :
             flux_forecast, T_in_forecast, carnot_forecast = clim_power_model(T_activation, T_minus, R1, R2, C, weather, presence_profile, total_time, deltat, **options)
             p_range = [(0, flux_forecast[i]/(efficiency*carnot_forecast[i])) for i in range(total_time)]
             self.mod.p_range.store_values({(k, i) : p_range[k][i] for k in self.mod.t_set for i in range(2)})
+            
+            self.memory['comfort_temp'].append(p_range[0][1])
         
 class AoN(device) : 
     def __init__(self, power_needed, energy_needed, **kwargs) :

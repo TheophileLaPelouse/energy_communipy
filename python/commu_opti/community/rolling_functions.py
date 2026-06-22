@@ -100,6 +100,11 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
             "power_needed" : d.p_range[0, 0],
         }
         
+    if kwargs.get("remember", False) : 
+        if not d.memory.get("start_pref") : 
+            d.memory["start_pref"] = {}
+        d.memory['start_pref'][current_time_index[0]] = start_pref
+        
 def EV_rolling(current_time_index, dico, new_params, d) :
     if not new_params.get(d.name):
         new_params[d.name] = {}

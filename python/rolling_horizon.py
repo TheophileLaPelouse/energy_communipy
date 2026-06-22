@@ -46,7 +46,7 @@ n = 2
 
 
 day_number = np.random.randint(1, 365)
-date = dt.datetime(2020, 1, 1) + dt.timedelta(days=day_number)
+date = dt.datetime(2025, 1, 1) + dt.timedelta(days=day_number)
 nb_of_days = 3
 lat, lon = list_locations[np.random.randint(0, len(list_locations)-1)]
 deltat = 1
@@ -198,5 +198,7 @@ for t in range(n_total_time - horizon) :
     new_weather = [weather_t] + weather_forecast[t+1:t+horizon]
     for i in community.current_members_id : 
         m = community.members[i]
+        m.keep_in_memory()
         m.rolling_horizon_update(new_weather, new_irradiance)
+        
         
