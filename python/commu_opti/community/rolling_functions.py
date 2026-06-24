@@ -102,7 +102,7 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
     if previous_to_change :
         new_params[d.name]["previous_cycle"] = dico['to_supply']
         
-    # print("\nIn rolling function:", new_params.get(d.name, {}))
+    print("\nIn rolling function:", new_params.get(d.name, {}))
 
         
 def EV_rolling(current_time_index, dico, new_params, d) :

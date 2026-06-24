@@ -67,7 +67,7 @@ def rule_pow_wg(mod, t) :
 
 def time_constraint(mod, t_set) : 
     return (sum(
-        mod.bin_t0[t_set, t]*mod.available_time_set[t_set, t] 
+        mod.bin_t0[t_set, t] 
         for t in mod.time_total_set)
             == mod.used_time[t_set]
     )

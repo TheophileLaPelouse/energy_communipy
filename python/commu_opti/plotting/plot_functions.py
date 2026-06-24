@@ -110,7 +110,9 @@ def plot_hexagon_objective(values, title="Radar Objective Visualization", **kwar
     plt.show()
     return fig, ax
     
-def plot_power_curves(total_time, deltat, **kwargs) : 
+def plot_power_curves(**kwargs) : 
+    total_time = kwargs.get("total_time", 24)
+    deltat = kwargs.get("deltat", 1)
     time = [t*deltat for t in range(total_time)]
     powers = kwargs.get("powers", {})
     title = kwargs.get("title", "Power Curves")

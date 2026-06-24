@@ -248,7 +248,7 @@ class white_good(device) :
         t_min, t_max, cycle_length, available_time, available_time_set, t_wanted, used_time
         """
         
-        # print(f"\n Before any update, {self.start_pref=}, {self.cycle_length=}, {self.time_range=}, {self.power_needed=}")
+        print(f"\n Before any update, {self.start_pref=}, {self.cycle_length=}, {self.time_range=}, {self.power_needed=}")
         
         
         n_set = len(self.start_pref)
@@ -289,7 +289,7 @@ class white_good(device) :
                     self.power_needed[-1] = kwargs["last"][key]
 
         self.n_set = n_set
-        # print(f"\nUpdate {self.start_pref=}, {self.cycle_length=}, {self.time_range=}, {self.power_needed=}")
+        print(f"\nUpdate {self.start_pref=}, {self.cycle_length=}, {self.time_range=}, {self.power_needed=}")
         time_use = [[self.start_pref[k], self.start_pref[k] + self.cycle_length[k]] for k in range(len(self.start_pref))]
         index_window = kwargs.get("time_index_window", [0, 24])
 

@@ -654,7 +654,7 @@ class community :
         self.results['power_exchange_commu'] = [[[pyo.value(self.P_exchange[i, j, t]) for t in self.time_set] for j in self.current_members_id] for i in self.current_members_id]
 
     def plot_power_curves(self, **kwargs) :
-        plot_power_curves(self.total_time, self.deltat, **kwargs)
+        plot_power_curves(**kwargs)
         
     def plot_hexagon(self, values, members, title="Hexagon Plot") :
         plot_hexagon_objective(values, members, title)

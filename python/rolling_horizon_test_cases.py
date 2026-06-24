@@ -53,7 +53,7 @@ param['devices']['PV'] = {
 param, devices_futur = separate_horizon_futur(param, horizon)
 
 
-param["parameters"]["socio"] = [1, 1, 1, 1]
+param["parameters"]["socio"] = [1, 1, 1, 0]
 param["parameters"]["calc_ref"] = False
 param["parameters"]["id_"] = 0
 param["parameters"]["profile_method"] = None
@@ -115,11 +115,13 @@ for t in range(total_time - horizon) :
     
     i = 0
     d = community.members[0].devices[0]
-    while i < 24 and pyo.value(d.mod.bin_t0[0, i]) != 1:
+    while i < 24 and pyo.value(d.mod.bin_t0[0, i])*d.mod.available_time_set[0, i].value != 1:
         i += 1
     print("bin_t0", i, [pyo.value(d.mod.bin_t0[0, i]) for i in range(24)])
     print(pyo.value(d.mod.Pcons[0]))
     print(pyo.value(d.mod.starting_time_plus[0]), pyo.value(d.mod.starting_time_minus[0]))
+    print(d.mod.used_time.extract_values())
+    print([d.mod.available_time_set[0, t].value for t in range(24)])
     print(d.mod.used_time.extract_values())
     
     irradiance_t = irradiance_profile[t]
@@ -134,3 +136,32 @@ for i in community.current_members_id :
     m.objectif_from_memory()
 community.aggregate_distributed_information(from_memory=True)
 with_rolling = community.results.copy()
+#%% plots
+to_plot_rolling = {
+    "powers" : {
+        "with_rolling P_cons" : with_rolling['aggregated_powers']["P_cons"],
+        "Irradiance" : irradiance_profile[:total_time-horizon]
+    },
+    "total_time" : 48, 
+}
+
+to_plot = {
+    "powers" :  {
+        "standard P_cons" : without_rolling['aggregated_powers']["P_cons"],
+        "Irradiance" : irradiance_profile[:horizon]
+        }
+    }
+
+community.plot_power_curves(**to_plot)
+community.plot_power_curves(**to_plot_rolling)
+
+#%% Autre 
+
+t = 5
+s = 0
+for t_set in d.mod.max_set : 
+    for t2 in d.mod.time_total_set : 
+        new_val =  pyo.value(d.mod.bin_t0[t_set, t2])*d.mod.p_range_wg[t_set, max(0, t-t2)].value*d.mod.available_time_set[t_set, t2].value
+        if new_val > 0 :
+            print(f"t_set {t_set}, t2 {t2}, bin_t0 {pyo.value(d.mod.bin_t0[t_set, t2])}, p_range_wg {d.mod.p_range_wg[t_set, max(0, t-t2)].value}, available_time_set {d.mod.available_time_set[t_set, t].value}, new_val {new_val}")
+        s += new_val
