@@ -21,6 +21,10 @@ class device :
         self.t_range = time_range 
         self.total_time = kwargs.get('total_time', 24)
         self.deltat = kwargs.get('deltat', 1) # hour
+        if len(self.p_range) >= self.total_time // self.deltat : 
+            self.p_range = self.p_range[:self.total_time // self.deltat]
+            self.t_use = self.t_use[:self.total_time // self.deltat]
+            self.t_range = self.t_range[:self.total_time // self.deltat]
         self.dico_used_time = {}
         try : 
             assert(len(self.p_range) == len(self.t_use))
@@ -157,7 +161,11 @@ class white_good(device) :
         # print("cycle_length", cycle_length, "start_pref", start_pref)
         self.start_pref = start_pref
         self.time_range = time_range
+        self.cycle_length = cycle_length
+        self.power_needed = power_needed
         time_use = [[start_pref[k], start_pref[k] + cycle_length[k]] for k in range(len(start_pref))]
+        self.n_set = len(start_pref)
+        self.max_set = 4
         # print("time_use", time_use)
         super().__init__(power_range, time_use, time_range, **kwargs)
         for times in time_use : 
@@ -171,14 +179,14 @@ class white_good(device) :
         
     def generate_spec_constraint(self) :
         
-        max_set = 4 # No white goods can be used more than 4 times (limit the computation time)
-        self.mod.max_set = pyo.RangeSet(0, max_set-1)
+         # No white goods can be used more than 4 times (limit the computation time)
+        self.mod.max_set = pyo.RangeSet(0, self.max_set-1)
         
         # We make the parameters as large as possible to be able to change them in the future without changing the model.
         t_min = [max(0, self.t_use[k][0] + self.t_range[k][0]) if k in self.mod.t_set else 0 for k in self.mod.max_set]
         t_max = [min(self.total_time, self.t_use[k][1] + self.t_range[k][1]+1) if k in self.mod.t_set else self.total_time for k in self.mod.max_set]
         cycle_length = [self.t_use[k][1] - self.t_use[k][0] - 1 if k in self.mod.t_set else 0 for k in self.mod.max_set]
-        self.mod.used_time = pyo.Param(self.mod.time_total_set, initialize={k : 1 if k in self.mod.t_set else 0 for k in self.mod.max_set}, within=pyo.Boolean, mutable=True)
+        self.mod.used_time = pyo.Param(self.mod.max_set, initialize={k : 1 if k in self.mod.t_set else 0 for k in self.mod.max_set}, within=pyo.Boolean, mutable=True)
         
         self.mod.t_wanted = pyo.Param(self.mod.time_total_set, initialize={k : self.t_use[k][0] if k in self.mod.t_set else 0 for k in self.mod.max_set}, within=pyo.NonNegativeReals, mutable=True)
 
@@ -199,9 +207,10 @@ class white_good(device) :
                 available_time_set[t_set, t].set_value(1)
             t_set+=1
         
-        del self.mod.p_range
-        self.mod.p_range = pyo.Param(self.mod.max_set, range(2), initialize={(k, i) : self.p_range[k][i] if k in self.mod.t_set else 0 for k in self.mod.max_set for i in range(2)}, mutable=True)
-        
+        self.mod.p_range_wg = pyo.Param(
+            self.mod.max_set, self.mod.time_total_set, 
+            initialize={(k, t) : self.power_needed[k] if k < self.n_set and t <= self.cycle_length[k] else 0 for k in self.mod.max_set for t in self.mod.time_total_set},
+            mutable=True)
         
         bin_t0 = pyo.Var(self.mod.max_set, self.mod.time_total_set, within=pyo.Boolean, initialize=0)
         starting_time_plus = pyo.Var(self.mod.max_set, within=pyo.NonNegativeReals, initialize=0)
@@ -232,43 +241,96 @@ class white_good(device) :
                 starting_time_con_minus[k].deactivate()
             
         
-    def update_time_param(self, start_pref, cycle_length, time_range, power_needed, **kwargs) : 
+    def update_time_param(self, **kwargs) : 
         """
         Update the time parameters of the white good, in case we want to change them during the optimization process
         to update : 
         t_min, t_max, cycle_length, available_time, available_time_set, t_wanted, used_time
         """
         
-        time_use = [[start_pref[k], start_pref[k] + cycle_length[k]] for k in range(len(start_pref))]
+        # print(f"\n Before any update, {self.start_pref=}, {self.cycle_length=}, {self.time_range=}, {self.power_needed=}")
+        
+        
+        n_set = len(self.start_pref)
+        if not kwargs.get("keep_id_0", True) : 
+            self.start_pref.pop(0)
+            self.time_range.pop(0)
+            self.power_needed.pop(0)
+            self.cycle_length = [self.cycle_length[k+1] for k in range(self.max_set-1)] + [0]
+            n_set -= 1
+        
+        if kwargs.get("other_changes") : 
+            if kwargs["other_changes"].get("start_pref") :
+                self.start_pref = kwargs["other_changes"]["start_pref"]
+            if kwargs["other_changes"].get("cycle_length") :              
+                self.cycle_length = kwargs["other_changes"]["cycle_length"]
+            if kwargs["other_changes"].get("time_range") :               
+                self.time_range = kwargs["other_changes"]["time_range"]
+            if kwargs["other_changes"].get("power_needed") :                
+                self.power_needed = kwargs["other_changes"]["power_needed"]
+            
+        if kwargs.get("to_add") :             
+            self.start_pref.append(kwargs["to_add"]["start_pref"])
+            self.cycle_length[n_set] = kwargs["to_add"]["cycle_length"]
+            self.time_range.append(kwargs["to_add"]["time_range"])
+            self.power_needed.append(kwargs["to_add"]["power_needed"])
+            n_set += 1
+            
+        if kwargs.get("last_to_change") :             
+            for key in kwargs["last"] : 
+                if key == "start_pref" : 
+                    print(self.start_pref, kwargs["last"][key])
+                    self.start_pref[-1] = kwargs["last"][key]
+                elif key == "cycle_length" : 
+                    self.cycle_length[n_set-1] = kwargs["last"][key]
+                elif key == "time_range" : 
+                    self.time_range[-1] = kwargs["last"][key]
+                elif key == "power_needed" : 
+                    self.power_needed[-1] = kwargs["last"][key]
 
+        self.n_set = n_set
+        # print(f"\nUpdate {self.start_pref=}, {self.cycle_length=}, {self.time_range=}, {self.power_needed=}")
+        time_use = [[self.start_pref[k], self.start_pref[k] + self.cycle_length[k]] for k in range(len(self.start_pref))]
+        index_window = kwargs.get("time_index_window", [0, 24])
+
+        # print(time_use, index_window)
+        
         m = self.mod
+        used_set = set(range(len(self.start_pref)))
+        self.t_min = [max(index_window[0], time_use[k][0] + self.time_range[k][0]) if k in used_set else index_window[0] for k in self.mod.max_set]
+        self.t_max = [min(index_window[1]+1, time_use[k][1] + self.time_range[k][1]+1) if k in used_set else index_window[1]+1 for k in self.mod.max_set]
+        # print("tmin", self.t_min, "tmax", self.t_max, "cycle_length", self.cycle_length, "time_range", self.time_range)
+        # self.cycle_length = [self.cycle_length[k] if k in used_set else 0 for k in self.mod.time_total_set]
+
+        m.t_wanted.store_values({k : max(time_use[k][0], index_window[0]) - index_window[0] if k in used_set else 0 for k in m.time_total_set})
+        m.used_time.store_values({k : 1 if k in used_set else 0 for k in m.max_set})
+                
+        self.mod.p_range_wg.store_values({(k, t) : self.power_needed[k] if k in used_set and t <= self.cycle_length[k] else 0 for k in m.max_set for t in m.time_total_set})
         
-        self.t_min = [max(0, self.t_use[k][0] + time_range[k][0]) if k in self.mod.t_set else 0 for k in self.mod.time_total_set]
-        self.t_max = [min(self.total_time, self.t_use[k][1] + time_range[k][1]+1) if k in self.mod.t_set else self.total_time for k in self.mod.time_total_set]
-        self.cycle_length = [cycle_length[k] if k in self.mod.t_set else 0 for k in self.mod.time_total_set]
-        
-        m.t_wanted.store_values({k : time_use[k][0] if k in m.t_set else 0 for k in m.time_total_set})
-        m.used_time.store_values({k : 1 if k in m.t_set else 0 for k in m.time_total_set})
-        
-        self.mod.p_range.store_values({(k, i) : power_needed[k][i] for k in self.t_set for i in range(2)})
+        available_time_set_dico = {(t_set, t) : 0 for t_set in m.max_set for t in m.time_total_set}
         
         for t_set in m.time_total_set :
             if t_set in m.t_set :
-                for t in m.time_total_set : 
-                    interval_min = max(t-self.cycle_length[t_set], self.t_min[t_set])
-                    interval_max = min(t, self.t_max[t_set]-self.cycle_length[t_set])
-                    for t2 in range(interval_min, interval_max+1) :
-                        m.available_time[t, t2].set_value(1)
-                for t in range(self.t_min[t_set], self.t_max[t_set]-self.cycle_length[t_set]+1) : 
-                    m.available_time_set[t_set, t].set_value(1)
+                for t in range(self.t_min[t_set], self.t_max[t_set]-self.cycle_length[t_set]) : 
+                    available_time_set_dico[(t_set, t - index_window[0])] = 1
+        
+        m.available_time_set.store_values(available_time_set_dico)
+        
+        m.used_time.store_values({k : 1 if k in used_set else 0 for k in self.mod.max_set})
+                        
+        # print(m.available_time_set.pprint())
+        # print(m.used_time.pprint())
         return
     
     def update_params(self, **new_params) : 
-        if self.name in new_params :
-            self.update_time_param(new_params["start_pref"], new_params["cycle_length"], new_params["time_range"], new_params["power_needed"])
-            if "previous_cycle" in new_params : 
-                self.mod.power_previous_cycle.store_values({k : new_params["previous_cycle"][k] for k in self.mod.time_total_set})
+        self.update_time_param(**new_params)
+        # print("Is previous_cycle in new_params ?", "previous_cycle" in new_params)
+        if "previous_cycle" in new_params : 
+            # print(f"Update previous cycle for {self.name}, {new_params['previous_cycle']=}")
+            self.mod.power_previous_cycle.store_values({k : new_params["previous_cycle"][k] for k in self.mod.time_total_set})
 
+        # print(self.mod.pprint())
+        
 class fixed(device) :
     def __init__(self, power_profile, **kwargs) : 
         """Fixed profile devices, act as a parameter, so one very simple constraint
@@ -282,14 +344,13 @@ class fixed(device) :
         time_use = [[k, k+1] for k in range(total_time)]
         time_range = [[0, 0] for k in range(len(time_use))]
         super().__init__(power_range, time_use, time_range, **kwargs)
-        total_t_index = pyo.RangeSet(0, len(power_profile)-1)
+        total_t_index = pyo.RangeSet(0, self.total_time//self.deltat - 1)
         self.mod.power_profile = pyo.Param(total_t_index, initialize={k : power_profile[k] for k in total_t_index}, within=pyo.Reals, mutable=True)
         self.mod.pow_con = pyo.Constraint(total_t_index, rule=rule_fixed)
         return
     
     def update_params(self, **new_params) : 
-        if self.name in new_params :
-            self.mod.power_profile.store_values({k : new_params["power_profile"][k] for k in self.mod.time_total_set})
+        self.mod.power_profile.store_values({k : new_params["power_profile"][k] for k in self.mod.time_total_set})
 class PV(device) : 
     def __init__(self, irradiance_profile, **kwargs) :
         """PV devices model. If no surface is given in kwargs, then the surface will remain as a variable.
@@ -351,7 +412,6 @@ class flex(device) :
         self.generate_spec_constraint()
 
     def generate_spec_constraint(self) : 
-
         self.mod.pow_con = pyo.Constraint(self.mod.t_set, rule=rule_flex)
         self.mod.p_confort_lvl = pyo.Expression(self.t_set, rule=confort_rule_flex)
         
@@ -450,16 +510,15 @@ class AoN(device) :
         return
     
     def update_params(self, **new_params) : 
-        if self.name in new_params :
-            if "power_needed" in new_params : 
-                self.mod.power_needed.set_value(new_params["power_needed"])
-            if "energy_needed" in new_params : 
-                self.mod.energy_needed_day.set_value(new_params["energy_needed"])
-            if "max_factor" in new_params : 
-                self.mod.max_factor.set_value(new_params["max_factor"])
-            if "time_midnight" in new_params : 
-                self.mod.time_midnight.set_value(new_params["time_midnight"])
-                self.mod.current_day = pyo.Param(self.mod.time_total_set, initialize={k: 1 if k <= self.mod.time_midnight.value else 0 for k in self.mod.time_total_set})
+        if "power_needed" in new_params : 
+            self.mod.power_needed.set_value(new_params["power_needed"])
+        if "energy_needed" in new_params : 
+            self.mod.energy_needed_day.set_value(new_params["energy_needed"])
+        if "max_factor" in new_params : 
+            self.mod.max_factor.set_value(new_params["max_factor"])
+        if "time_midnight" in new_params : 
+            self.mod.time_midnight.set_value(new_params["time_midnight"])
+            self.mod.current_day = pyo.Param(self.mod.time_total_set, initialize={k: 1 if k <= self.mod.time_midnight.value else 0 for k in self.mod.time_total_set})
 
         
 class battery(device) : 
@@ -508,11 +567,10 @@ class battery(device) :
         self.generate_bat_constraint(E_end=kwargs.get('E_end', self.E0[0]))
         
     def update_params(self, **new_params) :
-        if self.name in new_params :
-            if "E0" in new_params : 
-                self.mod.E0.store_values(new_params["E0"])
-            if "E_end" in new_params : 
-                self.mod.E_end.set_value(new_params["E_end"])
+        if "E0" in new_params : 
+            self.mod.E0.store_values(new_params["E0"])
+        if "E_end" in new_params : 
+            self.mod.E_end.set_value(new_params["E_end"])
 
 class EV(device) : 
     def __init__(self, p_range, E_range, time_home, E0s, E_min, E_end, **kwargs) : 
@@ -541,7 +599,7 @@ class EV(device) :
         self.charge_eff = kwargs.get('charge_eff', 0.92)
         self.dcharge_eff = kwargs.get('dcharge_eff', 0.92)
         self.E0 = E0s
-        self.E = pyo.Var(self.t_set, within=pyo.Reals, bounds=(self.E_range[0], self.E_range[1]))
+        self.E = pyo.Var(self.t_set, within=pyo.Reals, bounds=(self.E_range[0], self.E_range[1]), initialize=(self.E_range[0] + self.E_range[1])/2)
         self.P_plus = pyo.Var(self.t_set, within=pyo.NonNegativeReals, bounds=(0, p_range[1]))
         self.P_minus = pyo.Var(self.t_set, within=pyo.NonNegativeReals, bounds=(0, -p_range[0]))
         
@@ -608,17 +666,16 @@ class EV(device) :
         return E_return, E_min_t
         
     def update_params(self, **new_params) :
-        if self.name in new_params :
-            if "time_home" in new_params : 
-                time_home, E0s, E_min = new_params["time_home"], new_params["E0s"], new_params["E_min"]
-                self.current_time = new_params.get("current_time", 0)
-                E_return, E_min_t = self.get_home_values(time_home, E0s, E_min)
-                self.mod.E_return.store_values({k : E_return[k] for k in self.mod.time_total_set})
-                self.mod.E_min_t.store_values({k : E_min_t[k] for k in self.mod.time_total_set})
-            if "E0" in new_params : 
-                self.mod.E_return[0].set_value(new_params["E0"])
-            if "E_end" in new_params : 
-                self.mod.E_end.set_value(new_params["E_end"])
+        if "time_home" in new_params : 
+            time_home, E0s, E_min = new_params["time_home"], new_params["E0s"], new_params["E_min"]
+            self.current_time = new_params.get("current_time", 0)
+            E_return, E_min_t = self.get_home_values(time_home, E0s, E_min)
+            self.mod.E_return.store_values({k : E_return[k] for k in self.mod.time_total_set})
+            self.mod.E_min_t.store_values({k : E_min_t[k] for k in self.mod.time_total_set})
+        if "E0" in new_params : 
+            self.mod.E_return[0].set_value(new_params["E0"])
+        if "E_end" in new_params : 
+            self.mod.E_end.set_value(new_params["E_end"])
         
         
 if __name__ == '__main__' :

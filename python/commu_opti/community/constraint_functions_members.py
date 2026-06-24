@@ -58,7 +58,7 @@ def bat_cap_rule(m) :
 
 # fetch P exchange 
 
-def simple_power_exchange_sum_centralized(m, t) : 
+def simple_power_exchange_sum_centralized(m, t) :  # Vérifier que ça marche quand on change la valeur de m.commu
     # print("Dans la fonction")
     if m.commu.value == 0 : 
         return 0

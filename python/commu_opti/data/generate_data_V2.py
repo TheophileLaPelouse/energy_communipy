@@ -6,26 +6,26 @@ import json
 
 # Define all the data variables (they are small so we can load them all)
 
-from .devices_jsonpy import list_devices
-# if not os.path.exists(os.path.join(os.path.dirname(__file__), "devices.json")): 
-#     from .devices_jsonpy import list_devices
-#     with open(os.path.join(os.path.dirname(__file__), "devices.json"), "w") as f: 
-#         json.dump(list_devices, f, indent = 4)
-# else:
-#     with open(os.path.join(os.path.dirname(__file__), "devices.json"), "r") as f: 
-#         list_devices = json.load(f)
-#         list_devices = convert_numeric_keys(list_devices)
+# from .devices_jsonpy import list_devices
+if not os.path.exists(os.path.join(os.path.dirname(__file__), "devices.json")): 
+    from .devices_jsonpy import list_devices
+    with open(os.path.join(os.path.dirname(__file__), "devices.json"), "w") as f: 
+        json.dump(list_devices, f, indent = 4)
+else:
+    with open(os.path.join(os.path.dirname(__file__), "devices.json"), "r") as f: 
+        list_devices = json.load(f)
+        list_devices = convert_numeric_keys(list_devices)
         
    
-from .devices_jsonpy import building     
-# if not os.path.exists(os.path.join(os.path.dirname(__file__), "building.json")): 
-#     from .devices_jsonpy import building
-#     with open(os.path.join(os.path.dirname(__file__), "building.json"), "w") as f: 
-#         json.dump(building, f, indent = 4)
-# else:
-#     with open(os.path.join(os.path.dirname(__file__), "building.json"), "r") as f: 
-#         building = json.load(f)
-#         building = convert_numeric_keys(building)
+# from .devices_jsonpy import building     
+if not os.path.exists(os.path.join(os.path.dirname(__file__), "building.json")): 
+    from .devices_jsonpy import building
+    with open(os.path.join(os.path.dirname(__file__), "building.json"), "w") as f: 
+        json.dump(building, f, indent = 4)
+else:
+    with open(os.path.join(os.path.dirname(__file__), "building.json"), "r") as f: 
+        building = json.load(f)
+        building = convert_numeric_keys(building)
         
 with open(os.path.join(os.path.dirname(__file__), "initial_state_probabilities.json"), "r") as f:
     initial_state_probabilities = json.load(f)
@@ -56,8 +56,15 @@ def get_weather_data(date_start, date_end, lat=45, lon=8, forecast=True, deltat=
         raise ValueError(f"Weather data for the year {year} and location ({lat}, {lon}) not found. Should be generated using weather_data.py")
     df = pd.read_csv(os.path.join(folder, file), parse_dates=["time"])
     df = df[(df["time"] >= date_start) & (df["time"] <= date_end)]
-    weather = df["temperature_2m"].to_numpy()
-    irradiance = df["shortwave_radiation"].to_numpy()
+    if forecast : 
+        temp = "temperature_2m_previous_day1"
+        irradiance = "shortwave_radiation_previous_day1"
+    else : 
+        temp = "temperature_2m"
+        irradiance = "shortwave_radiation"
+    
+    weather = df[temp].to_numpy()
+    irradiance = df[irradiance].to_numpy()
     if deltat != 1 : 
         weather = change_deltat(weather, 1, deltat)
         irradiance = change_deltat(irradiance, 1, deltat)
@@ -289,11 +296,11 @@ def when_to_profile(deltat, device, **kwargs) :
     if when.get("time") : 
         # print("Bonjour", when["time"])
         nb_days = total_time // 24
-        time_intervals = when["time"]
+        time_intervals = []
         for k in range(nb_days) : 
             for time_interval in when["time"] :
                 start, end, proba = time_interval
-                start, end = start + 24*(k+1), end + 24*(k+1)
+                start, end = start + 24*k, end + 24*k
                 if start >= total_time : 
                     break
                 elif end > total_time : 
@@ -301,7 +308,7 @@ def when_to_profile(deltat, device, **kwargs) :
                 else : 
                     time_intervals.append((start, end, proba))
         
-        for time_interval in when["time"] : 
+        for time_interval in time_intervals : 
             start, end, proba = time_interval
             start_index = int(start/deltat)
             end_index = int(end/deltat)
@@ -472,19 +479,25 @@ def white_goods_profile(device_name, allocated, deltat, when_profile, activation
         power, cycle_length = allocated["P"], allocated["cycle_length"]
         finish_before_end = True
 
+    already_done = set()
+    start_range = {}
     start_pref = []
     time_range = []
     # print(when_profile)
     if allocated['when'].get('time') :
         for interval in allocated['when']['time'] : 
             start, end, proba = interval
-            indices = possible_starts(end-start, range(int(start/deltat), int(end/deltat)+1), deltat, cycle_length, finish_before_end=finish_before_end)
-            for i in indices : 
-                if activation_profile[i] == 1 :
-                    # Slow but I don't see how to accelerate it  
-                    start_pref.append(i)
-                    time_range.append((start-i, end-i))
-                    break
+            if not (start, end) in already_done :
+                already_done.add((start, end))
+                indices = possible_starts(end-start, range(int(start/deltat), int(end/deltat)+1), deltat, cycle_length, finish_before_end=finish_before_end)
+                print(indices, start, end)
+                for i in indices : 
+                    if activation_profile[i] == 1 :
+                        # Slow but I don't see how to accelerate it  
+                        start_range[i] = (start, end)
+                        break
+        start_pref = sorted(start_range.keys())
+        time_range = [start_range[k] for k in start_pref]
                 
     else :
         # We'll see later, for now no time range for these devices 

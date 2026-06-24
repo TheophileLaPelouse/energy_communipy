@@ -81,9 +81,12 @@ class member :
             nb_of_days -= len(self.presence_profile) // int(24/self.deltat)
             for _ in range(nb_of_days) : 
                 self.presence_profile += generate_profile(self.nb_people, False, self.deltat)
+        
+        if profile_method is None : 
+            return
                 
     def generate_device_futur(self, **kwargs) :
-        device_method = kwargs.get("profile_method", "given")
+        device_method = kwargs.get("device_method", "given")
         if device_method == "given" : 
             for d in self.devices : 
                 self.device_futur[d.name] = kwargs.get(f"devices_futur", {}).get(d.name, {})
@@ -451,7 +454,7 @@ class member :
     #     for power in Powers_to_scale :
     #         if hasattr(self.mod_member, power) : 
                     
-    def send_power_information(self, privacy=0, until=None) : 
+    def send_power_information(self, privacy=0, until=None, from_memory=False) : 
         """
         Send the power information to the community. Privacy is a parameter varying between 0 and some integers.
         The higher the number, the less information is shared. For now only 0 is implemented
@@ -459,28 +462,41 @@ class member :
         
         if until is None : 
             until = self.total_time
-        powers = {
-            "P_cons": [pyo.value(self.P_cons[t]) for t in range(until)],
-            "P_prod": [pyo.value(self.P_prod[t]) for t in range(until)],
-            "P_bat": [pyo.value(self.P_bat[t]) for t in range(until)],
-            "P_exchange": [pyo.value(self.P_exchange[t]) for t in range(until)],
-            "P_surplus": [pyo.value(self.P_surplus[t]) for t in range(until)],
-            "P_self": [pyo.value(self.P_self[t]) for t in range(until)], 
-            "P_grid": [pyo.value(self.P_grid_plus[t] - self.P_grid_minus[t]) for t in range(until)],
-        }
+            
+        powers_name = ["P_cons", "P_prod", "P_bat", "P_exchange", "P_surplus", "P_self", "P_grid", "P_grid_plus", "P_grid_minus"]
+        powers = {}
+        if from_memory : 
+            for pow in powers_name : 
+                powers[pow] = self.memory.get(pow, [0 for t in range(until)])
+        else : 
+            powers = {
+                "P_cons": [pyo.value(self.P_cons[t]) for t in range(until)],
+                "P_prod": [pyo.value(self.P_prod[t]) for t in range(until)],
+                "P_bat": [pyo.value(self.P_bat[t]) for t in range(until)],
+                "P_exchange": [pyo.value(self.P_exchange[t]) for t in range(until)],
+                "P_surplus": [pyo.value(self.P_surplus[t]) for t in range(until)],
+                "P_self": [pyo.value(self.P_self[t]) for t in range(until)], 
+                "P_grid": [pyo.value(self.P_grid_plus[t] - self.P_grid_minus[t]) for t in range(until)],
+                "P_grid_plus": [pyo.value(self.P_grid_plus[t]) for t in range(until)],
+                "P_grid_minus": [pyo.value(self.P_grid_minus[t]) for t in range(until)],
+            }
+        
         # In the future could send a json for working as an agent.
         return powers
     
-    def send_obj_information(self, keys_not_to_send=None, next_step_only=False) : 
-        objs = {
-            "Objective" : pyo.value(self.mod_member.obj),
-            "price" : pyo.value(self.price),
-            "price_operation" : pyo.value(self.price_operation),
-            "price_invest" : pyo.value(self.price_invest),
-            "enviro" : pyo.value(self.enviro),
-            "auto" : pyo.value(self.auto),
-            "confort" : pyo.value(self.confort)
-        }
+    def send_obj_information(self, keys_not_to_send=None, from_memory=False) : 
+        if not from_memory : 
+            objs = {
+                "Objective" : pyo.value(self.mod_member.obj),
+                "price" : pyo.value(self.price),
+                "price_operation" : pyo.value(self.price_operation),
+                "price_invest" : pyo.value(self.price_invest),
+                "enviro" : pyo.value(self.enviro),
+                "auto" : pyo.value(self.auto),
+                "confort" : pyo.value(self.confort)
+            }
+        else :
+            objs = self.memory["Objs"].copy()
         if keys_not_to_send is not None :
             for key in keys_not_to_send :
                 objs.pop(key, None)
@@ -489,12 +505,17 @@ class member :
     def keep_in_memory(self) : 
         """Store information that needs to be stored between each updates
         """
+        print(self.current_time_index)
         for d in self.devices :
             if d.__class__.__name__ == "flex" : 
                 d.memory["actual_temp"].append(pyo.value(d.Pcons[0])) 
                 
                 
             if d.__class__.__name__ == "white_good" :
+                if self.current_time_index[0]%24==0 :
+                    if not d.memory.get("start_pref") : 
+                        d.memory["start_pref"] = []
+                    d.memory['start_pref'] += d.start_pref[:]
                 if self.device_futur[d.name].get('length', 0)==0 and pyo.value(d.mod.Pcons[0]) > 0 :
                     if not d.memory.get("actual_starts") : 
                         d.memory["actual_starts"] = []
@@ -519,11 +540,14 @@ class member :
         self.current_window = [self.current_window[0] + dt.timedelta(hours=self.deltat), self.current_window[1] + dt.timedelta(hours=self.deltat)]
         self.current_time_index = [self.current_time_index[0] + 1, self.current_time_index[1] + 1]
         new_params["general"]["current_time_index"] = self.current_time_index[0]
+        new_params["general"]["time_index_window"] = self.current_time_index
         new_params["general"]["presence_profile"] = self.presence_profile[self.current_time_index[0]:self.current_time_index[1]]
         
         for d in self.devices :
             if d.__class__.__name__ == "white_good" : 
-                white_goods_rolling(self.device_futur[d.name], self.total_time, self.current_time_index, d, new_params, **kwargs)
+                # print("Avant", new_params.get(d.name, {}))
+                white_goods_rolling(self.device_futur[d.name], self.total_time, self.current_time_index, d, new_params, remember=(self.current_time_index[0]%24==0), **kwargs)
+                # print("APRès", new_params.get(d.name, {}))
                 
             if d.__class__.__name__ == "AoN" : 
                 if pyo.value(d.mod.Pcons[0]) > 0 : 
@@ -533,7 +557,7 @@ class member :
                     new_params[d.name]["energy_needed"] = energy_needed
                     
             if d.__class__.__name__ == "battery" : 
-                E0 = pyo.value(d.mod.E[0])
+                E0 = pyo.value(d.mod.E[1])
                 # For now no Eend as we will be on 24 hours so make sense to begin and end at the same level, but should be changed in due time
                 if not new_params.get(d.name):
                     new_params[d.name] = {}
@@ -551,9 +575,61 @@ class member :
             # if d.__class__.__name__ == "flex" :
                 
     def objectif_from_memory(self) :
+        # Get last value that was not recovered in the updates.
         
-                # Get last value that was not recovered in the updates.
-                
+        # Compute discomfort info
+        power_confort = 0
+        t_confort = 0
+        for d in self.devices :
+            if d.__class__.__name__ == "flex" : 
+                wanted_temp = d.memory.get("wanted_temp", [])
+                actual_temp = d.memory.get("actual_temp", [])
+                power_confort=sum([wanted_temp[k] - actual_temp[k] for k in range(len(wanted_temp))])
+            
+            if d.__class__.__name__ == "white_good" :
+                start_pref = d.memory.get("start_pref", [])
+                actual_starts = d.memory.get("actual_starts", [])
+                # print(start_pref, actual_starts)
+                print("start_pref", start_pref, "actual_starts", actual_starts)
+                for k in range(len(actual_starts)) :
+                    t_confort += abs(start_pref[k] - actual_starts[k])
+                    
+        # Compute all the objective values
+        
+        eco_args = self.kwargs.get("eco", {})
+        eco_args["deltat"] = self.deltat
+        eco_args["total_time"] = self.total_time
+        eco_args["ref"] = self.ref_values[0]
+        
+        enviro_args = self.kwargs.get("enviro", {})
+        enviro_args["ref"] = self.ref_values[1]
+        
+        auto_args = self.kwargs.get("auto", {})
+        auto_args["ref"] = self.ref_values[2]
+        
+        confort_args = self.kwargs.get("confort", {})
+        confort_args["ref"] = self.ref_values[3]
+        
+        pow = self.memory
+        
+        price = calc_eco_total(pow["P_grid_plus"], pow["P_grid_minus"], pow["P_exchange"], self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, **eco_args)
+        price_operation = calc_eco(pow["P_grid_plus"], pow["P_grid_minus"], pow["P_exchange"], **eco_args)
+        price_invest = calc_invest_cost(self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, **eco_args)
+        enviro = calc_enviro(pow["P_grid_plus"], pow["P_exchange"], pow["P_self"], **enviro_args)
+        auto = calc_auto(pow["P_grid_plus"], **auto_args)
+        confort = (power_confort*confort_args.get("coef_p", 1) + t_confort*confort_args.get("coef_t", 1))/confort_args.get("ref", 1)
+        
+        obj = price*self.socio[0] + enviro*self.socio[1] + auto*self.socio[2] + confort*self.socio[3]
+            
+        self.memory["Objs"] = {
+            "Objective" : obj,
+            "price" : price,
+            "price_operation" : price_operation,
+            "price_invest" : price_invest,
+            "enviro" : enviro,
+            "auto" : auto,
+            "confort" : confort
+        }
         
         return
                 

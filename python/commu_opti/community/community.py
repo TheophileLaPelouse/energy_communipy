@@ -431,7 +431,6 @@ class community :
             
             self.mod.rho.set_value(rho)
             
-            print("le modèle")
             # self.mod.pprint()
             
             t_opti_start = time.time()
@@ -474,8 +473,8 @@ class community :
 
             iter += 1
             # print("Surplus : ", Surplus)
-            print("\niter, r_k, s_k : ", iter, r_k, s_k)
-            print("rho : ", rho)
+            # print("\niter, r_k, s_k : ", iter, r_k, s_k)
+            # print("rho : ", rho)
             
         if parallel :
             for i in self.current_members_id :
@@ -626,10 +625,10 @@ class community :
                 s += (gain_with_i - gain_without_i)/math.comb(n-1, len(comb)-1)/n
         return s
                 
-    def aggregate_distributed_information(self, privacy=0) : 
+    def aggregate_distributed_information(self, privacy=0, from_memory=False) : 
         powers = {}
         for i in self.current_members_id :
-            member_power = self.members[i].send_power_information(privacy=privacy)
+            member_power = self.members[i].send_power_information(privacy=privacy, from_memory=from_memory)
             self.results[f'members_{i}'] = {}
             for key, value in member_power.items() :
                 self.results[f'members_{i}'][key] = value
@@ -641,7 +640,7 @@ class community :
                         
         objs = {}
         for i in self.current_members_id :
-            member_obj = self.members[i].send_obj_information()
+            member_obj = self.members[i].send_obj_information(from_memory=from_memory)
             for key, value in member_obj.items() :
                 self.results[f'members_{i}'][key] = value
                 if key not in objs :

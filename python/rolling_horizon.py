@@ -15,7 +15,7 @@ from pyomo.opt import SolverFactory
 
 from commu_opti.data.generate_data import generate_n_profile, create_random_agent
 from commu_opti.commu_builder import define_members, define_community
-from commu_opti.generate_device_infos import generate_member_data_random, generate_devices_data, generate_devices_profile
+from commu_opti.generate_device_infos import generate_member_data_random, generate_devices_data, generate_devices_profile, separate_horizon_futur
 from commu_opti.data.generate_data_V2 import get_weather_data, list_locations, get_price_data
 from commu_opti.data.ev_profile import EV_profile
 
@@ -43,11 +43,11 @@ for k in range(8) :
             
 
 n = 2
-
+nb_of_days = 2
 
 day_number = np.random.randint(1, 365)
 date = dt.datetime(2025, 1, 1) + dt.timedelta(days=day_number)
-nb_of_days = 3
+
 lat, lon = list_locations[np.random.randint(0, len(list_locations)-1)]
 deltat = 1
 
@@ -84,7 +84,8 @@ for k in range(n) :
     
     nb_people, deltat, equipments, build, weather = generate_devices_data(date=date, nb_of_days=nb_of_days, location=(lat, lon), deltat=deltat)
     
-    param, final_result = generate_member_data_random(nb_of_days=3, location=(lat, lon))
+    param, final_result = generate_devices_profile(nb_people, deltat, equipments, build, weather, total_time=(horizon*nb_of_days)//deltat)
+    param, devices_futur = separate_horizon_futur(param, horizon)
     presence_profile = final_result['args']['presence_profile']
     building = final_result['args']['building']
     weather = final_result['args']['weather']
@@ -137,8 +138,9 @@ for k in range(n) :
     param["parameters"]["nb_people"] = final_result['args']['nb_people']
     param["parameters"]["time_window"] = [date, date + dt.timedelta(days=nb_of_days)]
     param["parameters"]["horizon"] = horizon
+    param["parameters"]["devices_futur"] = devices_futur
     params.append(param)
-    
+#%%
 members = define_members(params)
 
 
@@ -155,8 +157,7 @@ param_commu = {
         "eps_s" : 1e-2,
     }
 
-date_price = date.replace(year=2024)
-prices = get_price_data(date_price, date_price + dt.timedelta(days=nb_of_days))
+prices = get_price_data(date, date + dt.timedelta(days=nb_of_days))
 
 price_options = {
     "eco" : {
@@ -187,10 +188,15 @@ price_options = {
 
 community = define_community(members, **param_commu, **price_options)
 
+
+
 n_total_time = len(weather_forecast)
 i_horizon = horizon
 for t in range(n_total_time - horizon) :
     community.optimize_admm("gurobi", **community.kwargs)
+    if t == 0 : 
+        community.aggregate_distributed_information()
+        without_rolling = community.results.copy()
     print("Optimization finished !", t)
     irradiance_t = irradiance_history[t]
     new_irradiance = [irradiance_t] + irradiance_forecast[t+1:t+horizon]
@@ -200,5 +206,33 @@ for t in range(n_total_time - horizon) :
         m = community.members[i]
         m.keep_in_memory()
         m.rolling_horizon_update(new_weather, new_irradiance)
+#%%
+for i in community.current_members_id : 
+    m = community.members[i]
+    m.objectif_from_memory()
+community.aggregate_distributed_information(from_memory=True)
+with_rolling = community.results.copy()
         
+#%% Plotting 
+
+# Plot comparaison between weather and irradiance forecast and history
+plt.figure()
+plt.subplot(2, 1, 1)
+plt.plot(weather_forecast[:n_total_time], label="forecast")
+plt.plot(weather_history[:n_total_time], label="history")
+plt.title("Temperature forecast vs history")
+plt.xlabel("Time (h)")
+plt.ylabel("Temperature (°C)")
+plt.legend()
+plt.subplot(2, 1, 2)
+plt.plot(irradiance_forecast[:n_total_time], label="forecast")
+plt.plot(irradiance_history[:n_total_time], label="history")
+plt.title("Irradiance forecast vs history")
+plt.xlabel("Time (h)")
+plt.ylabel("Irradiance (W/m2)") 
+plt.legend()
+
+# Plot power of the community over time with comparison between forecast and rolling horizon optimization
+
+
         

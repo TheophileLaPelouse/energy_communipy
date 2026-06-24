@@ -17,7 +17,7 @@ def generate_devices_data(**kwargs) :
     if not date : 
         # Choose random date in 2020
         day_number = randint(1, 365)
-        date = dt.datetime(2020, 1, 1) + dt.timedelta(days=day_number)
+        date = dt.datetime(2025, 1, 1) + dt.timedelta(days=day_number)
     date_start = date
     date_end = date + dt.timedelta(days=nb_of_days)
         
@@ -63,6 +63,7 @@ def generate_devices_profile(nb_people, deltat, equipments, build, weather, **kw
         if equipments[device]["Number"] != 0 and equipments[device].get("P") != 0 : 
             # print(f"\nDevice {device} \n")
             activation_profile, when_profile, presence_profile = device_activation_profile(profile, equipments[device], deltat, nb_people, **kwargs)
+            print(f"Activation profile for {device} : {activation_profile}, when_profile : {when_profile}")
             # print("Activation profile copmuted")
             spec_args = {
                 "activation_profile" : activation_profile,
@@ -102,7 +103,7 @@ def generate_member_data_random(**kwargs) :
     nb_people, deltat, equipments, build, weather = generate_devices_data(**kwargs)
     return generate_devices_profile(nb_people, deltat, equipments, build, weather, **kwargs)
 
-def separate_horizon_futur(param, horizon, total_time) : 
+def separate_horizon_futur(param, horizon) : 
     # Horizon, total_time as indices and not hours
     devices_futur = {}
     param["device_options"]["total_time"] = horizon
@@ -141,24 +142,32 @@ def separate_horizon_futur(param, horizon, total_time) :
             dico["parameters"]["E0s"] = E0s_horizon
 
         if typ == 'white_good' : 
+            # Attention pour le moment on ne s'occupe pas de la puissance, faudra le faire
+            
             start_time = dico["parameters"]["start_pref"]
             cycle_length = dico["parameters"]["cycle_length"]
             time_range = dico["parameters"]["time_range"]
+            power_needed = dico["parameters"]["power_needed"]
             i = 0
-            while start_time[i] + time_range[i][1] <= horizon :
+            while i < len(start_time) and start_time[i] + time_range[i][1] <= horizon :
                 i += 1
             start_time_horizon = start_time[:i]
             cycle_length_horizon = cycle_length[:i]
             time_range_horizon = time_range[:i]
+            power_needed_horizon = power_needed[:i]
             start_time_futur = start_time[i:]
             cycle_length_futur = cycle_length[i:]
             time_range_futur = time_range[i:]
+            power_needed_futur = power_needed[i:]
             devices_futur[dev] = {
                 "futur_starts" : start_time_futur,
                 "futur_lengths" : cycle_length_futur,
-                "futur_time_range" : time_range_futur
+                "futur_time_range" : time_range_futur,
+                "futur_power_needed" : power_needed_futur
             }
             dico["parameters"]["start_pref"] = start_time_horizon
             dico["parameters"]["cycle_length"] = cycle_length_horizon
             dico["parameters"]["time_range"] = time_range_horizon
+            dico["parameters"]["power_needed"] = power_needed_horizon
             
+    return param, devices_futur
