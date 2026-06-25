@@ -421,7 +421,7 @@ class member :
                         d.mod.on_off[t].fix(0)
             else : 
                 for t in d.mod.t_set : 
-                    getattr(d.mod, "allocated_power")[t].fix((d.p_range[t][1] + d.p_range[t][0])/2)
+                    getattr(d.mod, "Pcons")[t].fix((d.p_range[t][1] + d.p_range[t][0])/2)
         # print("How much time for fixing :", time.time() - t0)
                     
     def unfix_device_values(self) :
@@ -444,7 +444,7 @@ class member :
                     c.activate()
             else : 
                 for t in d.mod.t_set : 
-                    getattr(d.mod, "allocated_power")[t].unfix()
+                    getattr(d.mod, "Pcons")[t].unfix()
                     
     # def scale_power_model(self, scale) : 
     #     """
@@ -526,6 +526,8 @@ class member :
             if not self.memory.get(pow) : 
                 self.memory[pow] = []
             self.memory[pow].append(powers[pow][0])
+            
+        print("Pcons memory:", self.memory["P_cons"])
         
                     
     def rolling_horizon_update(self, new_weather, new_irradiance, **kwargs) : 

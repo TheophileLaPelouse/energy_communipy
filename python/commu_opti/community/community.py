@@ -320,10 +320,11 @@ class community :
         max_iter = kwargs.get("max_iter", 100)
         iter = 0
         
-        solver_options = kwargs.get("solver_options", {"MIPGap" : 0.01, 
+        solver_options = kwargs.get("solver_options", {"MIPGap" : 1e-2, 
                                                        "FeasibilityTol" : 1e-2,
                                                        "OptimalityTol" : 1e-2, 
-                                                       "Threads": 1})
+                                                    #    "Threads": 1
+                                                       })
         
         t_python = 0
         t_optimizer1 = 0

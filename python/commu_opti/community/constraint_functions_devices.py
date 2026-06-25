@@ -58,7 +58,7 @@ def end_constraint(mod, t) :
 def rule_pow_wg(mod, t) : 
   
     return (
-        sum(mod.bin_t0[t_set, t2]*mod.p_range_wg[t_set, max(0, t-t2)]*mod.available_time_set[t_set, t]
+        sum(mod.bin_t0[t_set, t2]*mod.p_range_wg[t_set, (t-t2)%len(mod.double_set)]#*mod.available_time_set[t_set, t2]
             for t_set in mod.max_set
             for t2 in mod.time_total_set) 
         + mod.power_previous_cycle[t] # For cycles that have already began before the optimization (for rolling horizon)
@@ -67,9 +67,16 @@ def rule_pow_wg(mod, t) :
 
 def time_constraint(mod, t_set) : 
     return (sum(
-        mod.bin_t0[t_set, t] 
+        mod.bin_t0[t_set, t]*mod.available_time_set[t_set, t]  
         for t in mod.time_total_set)
             == mod.used_time[t_set]
+    )
+    
+def time_constraint2(mod, t_set) : 
+    return (sum(
+        mod.bin_t0[t_set, t]  
+        for t in mod.time_total_set)
+            <= 1
     )
     
 def starttime_con_plus(mod, t_set) : 

@@ -26,8 +26,8 @@ def calc_eco(Pgrid_plus, Pgrid_minus, Pex, **kwargs) :
     cost_grid_sell = kwargs.get("cost_grid_sell", [-0.25 for k in range(len(Pgrid_minus))])
     cost_ex = kwargs.get("cost_ex", 0)
     ref_value = kwargs.get("ref", 1)
-    taxes_buy = kwargs.get("turpe_buy", 0)
-    taxes_sell = kwargs.get("turpe_sell", 0)
+    taxes_buy = kwargs.get("turpe_buy", 1)
+    taxes_sell = kwargs.get("turpe_sell", 1)
     
     return (
         sum(Pgrid_plus[k]*deltat*cost_grid_buy[k]*taxes_buy for k in range(len(Pgrid_plus))) 

@@ -17,7 +17,7 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
         
     else :
         if pyo.value(d.mod.Pcons[0]) > 0 : 
-            length = d.cycle_length[0] + 1
+            length = d.cycle_length[0]
             print("length", length, "pcons", pyo.value(d.mod.Pcons[0]))
             to_supply = np.zeros(total_time)
             to_supply[0:length] = d.mod.p_range[0, 0].value
@@ -28,7 +28,7 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
         else : 
             keep_id_0=True
     
-    # print(f"\n start of rolling, {current_time_index=}, {dico.get('length', 0)=}, {dico.get('to_supply', None)=}, {keep_id_0=}")
+    print(f"\n start of rolling, {current_time_index=}, {dico.get('length', 0)=}, {dico.get('to_supply', None)=}, {keep_id_0=}")
         
     futur_starts = dico.get('futur_starts', [])
     futur_lengths = dico.get('futur_lengths', [])
@@ -102,7 +102,7 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
     if previous_to_change :
         new_params[d.name]["previous_cycle"] = dico['to_supply']
         
-    print("\nIn rolling function:", new_params.get(d.name, {}))
+    # print("\nIn rolling function:", new_params.get(d.name, {}))
 
         
 def EV_rolling(current_time_index, dico, new_params, d) :

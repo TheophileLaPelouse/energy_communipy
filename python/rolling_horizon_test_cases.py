@@ -18,6 +18,7 @@ from commu_opti.commu_builder import define_members, define_community
 from commu_opti.generate_device_infos import generate_member_data_random, generate_devices_data, generate_devices_profile, separate_horizon_futur
 from commu_opti.data.generate_data_V2 import get_weather_data, list_locations, get_price_data
 from commu_opti.data.ev_profile import EV_profile
+from commu_opti.community.utils import calc_eco
 
 
 #%% Test rolling horizon for white goods
@@ -26,6 +27,8 @@ n = 1
 nb_of_days = 3
 horizon = 24
 total_time = nb_of_days * horizon
+method = "admm"
+# method = "centralized"
 
 param = {"devices" : {}, "parameters" : {}}
 
@@ -44,7 +47,9 @@ wash_mach = {
 param['devices']['washing_machine'] = wash_mach
 param["device_options"] = {"total_time" : total_time, "deltat" : 1}
 
-irradiance_profile = [20 if 5 <=k < 10 or 25 <= k < 30 else 0 for k in range(total_time)]
+irradiance_profile = [20 if 5 <=k < 10 else 0 for k in range(total_time)]
+# irradiance_profile = [0 for k in range(total_time)]
+
 param['devices']['PV'] = {
             "parameters" : {"irradiance_profile":irradiance_profile, "surface":1, 'eff' : 1, "name" : "PV"}, 
             "type" : "PV"
@@ -53,11 +58,11 @@ param['devices']['PV'] = {
 param, devices_futur = separate_horizon_futur(param, horizon)
 
 
-param["parameters"]["socio"] = [1, 1, 1, 0]
+param["parameters"]["socio"] = [1, 0, 0, 1]
 param["parameters"]["calc_ref"] = False
 param["parameters"]["id_"] = 0
 param["parameters"]["profile_method"] = None
-param["parameters"]["method"] = "admm"
+param["parameters"]["method"] = method
 param["parameters"]["time_window"] = [date, date + dt.timedelta(days=nb_of_days)]
 param["parameters"]["horizon"] = horizon
 param["parameters"]["devices_futur"] = devices_futur
@@ -65,7 +70,7 @@ param["parameters"]["devices_futur"] = devices_futur
 members = define_members([param])
 
 param_commu = {
-        "method" : "admm",
+        "method" : method,
         "deltat" : 1,
         "total_time" : horizon,
         "calc_ref" : True, 
@@ -77,7 +82,8 @@ param_commu = {
         "eps_s" : 1e-2,
     }
 
-prices = get_price_data(date, date + dt.timedelta(days=nb_of_days))
+# prices = get_price_data(date, date + dt.timedelta(days=nb_of_days))
+prices = np.array([10 for k in range(total_time - horizon)])
 
 price_options = {
     "eco" : {
@@ -106,8 +112,11 @@ community = define_community(members, **param_commu, **price_options)
 
 i_horizon = horizon
 for t in range(total_time - horizon) :
-# for t in range(1) :
-    community.optimize_admm("gurobi", **community.kwargs)
+# for t in range(6) :
+    if community.kwargs["method"] == "admm" : 
+        community.optimize_admm("gurobi", **community.kwargs)
+    else : 
+        community.optimize("gurobi")
     if t == 0 : 
         community.aggregate_distributed_information()
         without_rolling = community.results.copy()
@@ -115,15 +124,18 @@ for t in range(total_time - horizon) :
     
     i = 0
     d = community.members[0].devices[0]
+    pv = community.members[0].devices[1]
     while i < 24 and pyo.value(d.mod.bin_t0[0, i])*d.mod.available_time_set[0, i].value != 1:
         i += 1
-    print("bin_t0", i, [pyo.value(d.mod.bin_t0[0, i]) for i in range(24)])
-    print(pyo.value(d.mod.Pcons[0]))
-    print(pyo.value(d.mod.starting_time_plus[0]), pyo.value(d.mod.starting_time_minus[0]))
-    print(d.mod.used_time.extract_values())
-    print([d.mod.available_time_set[0, t].value for t in range(24)])
-    print(d.mod.used_time.extract_values())
+        
     
+    
+    print("bin_t0", i, [pyo.value(d.mod.bin_t0[0, i]) for i in range(24)])
+    print("P_cons", [pyo.value(d.mod.Pcons[k]) for k in range(24)])
+    print("irradiance", [pyo.value(pv.mod.Pcons[k]) for k in range(24)])
+    print("price", pyo.value(community.members[0].price), pyo.value(community.members[0].mod_member.obj_expr))
+    # print("available_time", [d.mod.available_time_set[0, t].value for t in range(24)])
+    # print("used_tim", d.mod.used_time.extract_values())
     irradiance_t = irradiance_profile[t]
     new_irradiance = [irradiance_t] + irradiance_profile[t+1:t+horizon]
     for i in community.current_members_id : 
@@ -157,11 +169,13 @@ community.plot_power_curves(**to_plot_rolling)
 
 #%% Autre 
 
-t = 5
-s = 0
-for t_set in d.mod.max_set : 
-    for t2 in d.mod.time_total_set : 
-        new_val =  pyo.value(d.mod.bin_t0[t_set, t2])*d.mod.p_range_wg[t_set, max(0, t-t2)].value*d.mod.available_time_set[t_set, t2].value
-        if new_val > 0 :
-            print(f"t_set {t_set}, t2 {t2}, bin_t0 {pyo.value(d.mod.bin_t0[t_set, t2])}, p_range_wg {d.mod.p_range_wg[t_set, max(0, t-t2)].value}, available_time_set {d.mod.available_time_set[t_set, t].value}, new_val {new_val}")
-        s += new_val
+Pconsbis = []
+for t in range(24) : 
+    s = 0
+    for t_set in d.mod.max_set : 
+        for t2 in d.mod.time_total_set : 
+            new_val =  pyo.value(d.mod.bin_t0[t_set, t2])*d.mod.p_range_wg[t_set, (t-t2)%48].value#%*d.mod.available_time_set[t_set, t2].value
+            if new_val > 0 :
+                print(f"t_set {t_set}, t2 {t2}, bin_t0 {pyo.value(d.mod.bin_t0[t_set, t2])}, p_range_wg {d.mod.p_range_wg[t_set, max(0, t-t2)].value}, available_time_set {d.mod.available_time_set[t_set, t].value}, new_val {new_val}")
+            s += new_val
+    Pconsbis.append(s)
