@@ -19,6 +19,8 @@ from commu_opti.generate_device_infos import generate_member_data_random, genera
 from commu_opti.data.generate_data_V2 import get_weather_data, list_locations, get_price_data
 from commu_opti.data.ev_profile import EV_profile
 from commu_opti.community.utils import calc_eco
+from commu_opti.opti.rolling_horizon import rolling_horizon_optimization
+from commu_opti.plotting.plot_functions import plot_power_curves
 
 
 #%% Test rolling horizon for white goods
@@ -27,8 +29,11 @@ n = 1
 nb_of_days = 3
 horizon = 24
 total_time = nb_of_days * horizon
-method = "admm"
-# method = "centralized"
+# method = "admm"
+method = "centralized"
+
+member_params = {"socio" : [1, 0, 0, 0.5], "calc_ref" : False, "id_" : 0, "profile_method" : None}
+
 
 param = {"devices" : {}, "parameters" : {}}
 
@@ -54,20 +59,14 @@ param['devices']['PV'] = {
             "parameters" : {"irradiance_profile":irradiance_profile, "surface":1, 'eff' : 1, "name" : "PV"}, 
             "type" : "PV"
             }
-
-param, devices_futur = separate_horizon_futur(param, horizon)
-
-
-param["parameters"]["socio"] = [1, 0, 0, 1]
-param["parameters"]["calc_ref"] = False
-param["parameters"]["id_"] = 0
-param["parameters"]["profile_method"] = None
+param["parameters"]["socio"] = member_params["socio"]
+param["parameters"]["calc_ref"] = member_params["calc_ref"]
+param["parameters"]["id_"] = member_params["id_"]
+param["parameters"]["profile_method"] = member_params["profile_method"]
 param["parameters"]["method"] = method
-param["parameters"]["time_window"] = [date, date + dt.timedelta(days=nb_of_days)]
-param["parameters"]["horizon"] = horizon
-param["parameters"]["devices_futur"] = devices_futur
 
-members = define_members([param])
+
+params = [param]
 
 param_commu = {
         "method" : method,
@@ -88,7 +87,7 @@ prices = np.array([10 for k in range(total_time - horizon)])
 price_options = {
     "eco" : {
         "cost_grid_buy" : prices[:horizon], # €/wh
-        "cost_grid_sell" : -prices[:horizon]/4,
+        "cost_grid_sell" : -prices[:horizon]/4*0,
         "cost_ex" : 0, 
         "cost_PV" : 0, # per m2
         "PV_min" : 0,
@@ -107,47 +106,19 @@ price_options = {
     }
 }
 new_weather = [20 for k in range(horizon)]
+#%%
+kwargs = {
+    "total_time" : total_time,
+    "horizon" : horizon,
+    "deltat" : 1,
+    "date" : date,
+    "irradiance_forecast" : irradiance_profile,
+    "irradiance_history" : irradiance_profile,
+    # "until" : 10,
+    }
 
-community = define_community(members, **param_commu, **price_options)
+with_rolling, without_rolling = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
 
-i_horizon = horizon
-for t in range(total_time - horizon) :
-# for t in range(6) :
-    if community.kwargs["method"] == "admm" : 
-        community.optimize_admm("gurobi", **community.kwargs)
-    else : 
-        community.optimize("gurobi")
-    if t == 0 : 
-        community.aggregate_distributed_information()
-        without_rolling = community.results.copy()
-    print("Optimization finished !", t)
-    
-    i = 0
-    d = community.members[0].devices[0]
-    pv = community.members[0].devices[1]
-    while i < 24 and pyo.value(d.mod.bin_t0[0, i])*d.mod.available_time_set[0, i].value != 1:
-        i += 1
-        
-    
-    
-    print("bin_t0", i, [pyo.value(d.mod.bin_t0[0, i]) for i in range(24)])
-    print("P_cons", [pyo.value(d.mod.Pcons[k]) for k in range(24)])
-    print("irradiance", [pyo.value(pv.mod.Pcons[k]) for k in range(24)])
-    print("price", pyo.value(community.members[0].price), pyo.value(community.members[0].mod_member.obj_expr))
-    # print("available_time", [d.mod.available_time_set[0, t].value for t in range(24)])
-    # print("used_tim", d.mod.used_time.extract_values())
-    irradiance_t = irradiance_profile[t]
-    new_irradiance = [irradiance_t] + irradiance_profile[t+1:t+horizon]
-    for i in community.current_members_id : 
-        m = community.members[i]
-        m.keep_in_memory()
-        m.rolling_horizon_update(new_weather, new_irradiance)
-
-for i in community.current_members_id : 
-    m = community.members[i]
-    m.objectif_from_memory()
-community.aggregate_distributed_information(from_memory=True)
-with_rolling = community.results.copy()
 #%% plots
 to_plot_rolling = {
     "powers" : {
@@ -164,18 +135,120 @@ to_plot = {
         }
     }
 
-community.plot_power_curves(**to_plot)
-community.plot_power_curves(**to_plot_rolling)
+plot_power_curves(**to_plot)
+plot_power_curves(**to_plot_rolling)
 
-#%% Autre 
 
-Pconsbis = []
-for t in range(24) : 
-    s = 0
-    for t_set in d.mod.max_set : 
-        for t2 in d.mod.time_total_set : 
-            new_val =  pyo.value(d.mod.bin_t0[t_set, t2])*d.mod.p_range_wg[t_set, (t-t2)%48].value#%*d.mod.available_time_set[t_set, t2].value
-            if new_val > 0 :
-                print(f"t_set {t_set}, t2 {t2}, bin_t0 {pyo.value(d.mod.bin_t0[t_set, t2])}, p_range_wg {d.mod.p_range_wg[t_set, max(0, t-t2)].value}, available_time_set {d.mod.available_time_set[t_set, t].value}, new_val {new_val}")
-            s += new_val
-    Pconsbis.append(s)
+#%% Test rolling horizon for heating
+wake_set = set(range(0, 8)) | set(range(20, 24))
+away_set = set(range(8, 20))
+presence_profile = [{"awake" : 1, "asleep" : 0, "away" : 0} if k in wake_set else {"awake" : 0, "asleep" : 0, "away" : 1} for k in range(horizon)]*nb_of_days
+
+heating_params = {
+    "T_wanted" : {"awake" : 20, "asleep" : 15, "away" : 15},
+    "T_min" : {"awake" : 16, "asleep" : 14, "away" : 10},
+    "R1" : 1, "R2" : 1, "C" : 10000000, "efficiency" : 1, "type" : "resistor"
+}
+
+heat_device = {
+    "parameters" : {"heating_params" : heating_params,
+        "power_range" : [[0, 0] for k in range(horizon)],
+        "name" : "heating_system"},
+    "type" : "flex"
+}
+param = {"devices" : {"heating_system" : heat_device}, "parameters" : {}}
+
+param["parameters"]["socio"] = [0, 0, 0, 1]
+param["parameters"]["calc_ref"] = member_params["calc_ref"]
+param["parameters"]["id_"] = member_params["id_"]
+param["parameters"]["profile_method"] = member_params["profile_method"]
+param["parameters"]["presence_profile"] = presence_profile
+
+params = [param]
+
+weather_forecast = [0 for k in range(total_time)]
+weather_history = [0 for k in range(total_time)]
+
+kwargs = {
+    "total_time" : total_time,
+    "horizon" : horizon,
+    "deltat" : 1,
+    "date" : date,
+    "weather_forecast" : weather_forecast,
+    "weather_history" : weather_history,
+    # "until" : 2
+    }
+
+with_rolling, without_rolling = {}, {}
+with_rolling, without_rolling = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
+
+#%% plots
+T_wanted = [(heating_params["T_wanted"]["awake"]*presence_profile[k]["awake"] + heating_params["T_wanted"]["away"]*presence_profile[k]["away"]) for k in range(48)]
+to_plot_rolling = {
+    "powers" : {
+        "with_rolling P_cons" : with_rolling['aggregated_powers']["P_cons"],
+        "Temperature_wanted" : T_wanted
+    },
+    "total_time" : 48, 
+}
+
+plot_power_curves(**to_plot_rolling)
+
+#%% Case EV
+
+EV_device = {
+    "parameters" : {
+        "p_range" : [-10, 10], 
+        "E_range" : [5, 45], 
+        # "time_home" : [[15, 23], [40, 48]],
+        # "E0s" : [25, -15], 
+        # "E_min" :[22, 25], 
+        "time_home" : [[0, 10], [15, 23], [40, 48]],
+        "E0s" : [25, -30, -15], 
+        "E_min" :[37, 22, 25], 
+        "E_end" : 25,
+        "name" : "EV"},
+    "type" : "EV"
+}
+
+param = {"devices" : {"EV" : EV_device}, "parameters" : {}}
+
+param["parameters"]["socio"] = [1, 0, 0, 0]
+param["parameters"]["calc_ref"] = member_params["calc_ref"]
+param["parameters"]["id_"] = member_params["id_"]
+param["parameters"]["profile_method"] = member_params["profile_method"]
+# param["parameters"]["presence_profile"] = presence_profile
+
+params = [param]
+
+kwargs = {
+    "total_time" : total_time,
+    "horizon" : horizon,
+    "deltat" : 1,
+    "date" : date,
+    # "until" : 20
+    }
+
+with_rolling, without_rolling = {}, {}
+with_rolling, without_rolling = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
+
+#%% Plots
+home_set = set(range(0, 10)) | set(range(15, 34)) | set(range(40, 48))
+home = [1 if k in home_set else 0 for k in range(48)]
+
+to_plot = {
+    "powers" : {
+        "with_rolling P_cons" : with_rolling['aggregated_powers']["P_bat"],
+        "Home" : home
+    },
+    "total_time" : 48,
+}
+plot_power_curves(**to_plot)
+
+to_plot = {
+    "powers" :  {
+        "standard P_cons" : without_rolling['aggregated_powers']["P_bat"],
+        "Home" : home[:24]
+        }
+    }
+plot_power_curves(**to_plot)

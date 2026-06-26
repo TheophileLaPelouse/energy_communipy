@@ -155,6 +155,7 @@ class member :
             self.mod_member.active_members = pyo.Param(members_id, initialize={i : 1 if i in current_members_id else 0 for i in members_id}, mutable=True)
             self.P_exchange_repr = pyo.Var(self.mod_member.member_set, self.time_index, within=pyo.NonNegativeReals, initialize=0)
             self.mod_member.P_exchange_repr = self.P_exchange_repr
+            self.mod_member.no_self_exchange = pyo.Constraint(self.time_index, rule=no_self_exchange)
 
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_admm)
             self.mod_member.P_exchange = self.P_exchange
@@ -533,7 +534,7 @@ class member :
     def rolling_horizon_update(self, new_weather, new_irradiance, **kwargs) : 
         # Fix the values needed for each devices 
         new_params = {"general" : {
-            "weather_profile" : new_weather,
+            "weather" : new_weather,
             "irradiance_profile" : new_irradiance,
             }}
         
@@ -543,7 +544,9 @@ class member :
         self.current_time_index = [self.current_time_index[0] + 1, self.current_time_index[1] + 1]
         new_params["general"]["current_time_index"] = self.current_time_index[0]
         new_params["general"]["time_index_window"] = self.current_time_index
-        new_params["general"]["presence_profile"] = self.presence_profile[self.current_time_index[0]:self.current_time_index[1]]
+        new_params["general"]["presence_profile"] = self.presence_profile[self.current_time_index[0]:self.current_time_index[1]+1]
+        
+        print("\nRolling horizon update, current time index:", self.current_time_index)
         
         for d in self.devices :
             if d.__class__.__name__ == "white_good" : 

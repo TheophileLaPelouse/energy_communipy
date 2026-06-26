@@ -14,7 +14,7 @@ def power_constraint_upper(mod, t_set) :
 
 def soc(mod, t) :
     if t == 0 : 
-        return mod.E[t] == mod.E0[0]
+        return mod.E[t] == mod.E_return[t]
     # active_time is used for knowing is the battery is at home or not. And E_return is giving the energy used when the battery was not at home when it returns.
     return mod.E[t] == mod.E[t - 1] + (mod.P_plus[t-1] * mod.charge_eff - mod.P_minus[t-1] / mod.dcharge_eff)*mod.active_time[t-1] + mod.E_return[t]
 
@@ -30,8 +30,6 @@ def P_minus_max(mod, t) :
     return mod.P_minus[t] <= -mod.p_range_bat[0]
         
 def power_constraint_bat(mod, t) :
-    if t == 0 : 
-        return mod.Pcons[t] == 0
     return mod.Pcons[t] == (mod.P_plus[t] - mod.P_minus[t])*mod.active_time[t]
     # Pour l'instant on fait comme ça pour rester un max linéaire, on verra si on ajoute une fonction de pénalisation
 

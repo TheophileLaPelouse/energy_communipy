@@ -119,19 +119,17 @@ def separate_horizon_futur(param, horizon) :
                 i += 1
             if time_home[i][0] < horizon : 
                 time_home_horizon = time_home[:i] + [[time_home[i][0], horizon]]
-                Emins_horizon = Emins[:i+1]
-                E0s_horizon = E0s[:i+1] 
                 time_home_futur = [[horizon, time_home[i][1]]] + time_home[i+1:]
-                Emins_futur = Emins[i+1:]
-                E0s_futur = E0s[i+1:]
-                
             else : 
                 time_home_horizon = time_home[:i]
-                Emins_horizon = Emins[:i]
-                E0s_horizon = E0s[:i+1] # To take the first value
                 time_home_futur = time_home[i:]
-                Emins_futur = Emins[i:]
-                E0s_futur = E0s[i:]
+            
+            Emins_horizon = Emins[:i] # One value for each end of a home period. And as much not home periods as 
+            Emins_futur = Emins[i:]
+            
+            E0s_horizon = E0s[:i] # One value for each start of a home period
+            E0s_futur = E0s[i:]
+                
             devices_futur[dev] = {
                 "futur_time_home" : time_home_futur,
                 "futur_Emins" : Emins_futur,
@@ -140,6 +138,7 @@ def separate_horizon_futur(param, horizon) :
             dico["parameters"]["time_home"] = time_home_horizon
             dico["parameters"]["E_min"] = Emins_horizon
             dico["parameters"]["E0s"] = E0s_horizon
+  
 
         if typ == 'white_good' : 
             # Attention pour le moment on ne s'occupe pas de la puissance, faudra le faire

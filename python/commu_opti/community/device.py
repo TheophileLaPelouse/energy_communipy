@@ -398,7 +398,9 @@ class flex(device) :
         self.mod.p_confort_lvl = pyo.Expression(self.t_set, rule=confort_rule_flex)
         
     def update_params(self, **kwargs) :
+        # print(kwargs)
         if hasattr(self, "heating_params") and kwargs.get("weather") and kwargs.get("presence_profile") : 
+            print("\nGoes here")
             T_wanted = self.heating_params['T_wanted']
             T_min = self.heating_params['T_min']
             R1 = self.heating_params['R1']
@@ -412,12 +414,16 @@ class flex(device) :
             total_time = self.total_time
             deltat = self.deltat
 
+            print("weather", weather)
+            print("presence_profile", presence_profile, len(presence_profile), "total_time", total_time)
             power_confort_forecast, carnot_confort = heating_power_model(T_wanted, weather, presence_profile, R1, R2, C, total_time, deltat, typ, **options)
             power_min_forecast, carnot_min = heating_power_model(T_min, weather, presence_profile, R1, R2, C, total_time, deltat, typ, **options)
+            
             
             p_range_forecast = [(min(power_min_forecast[i], power_confort_forecast[i])/(efficiency*carnot_min[i]), 
                                 max(power_min_forecast[i], power_confort_forecast[i])/(efficiency*carnot_confort[i])) 
                                 for i in range(total_time)]
+            print("p_range_forecast", p_range_forecast)
             self.mod.p_range.store_values({(k, i) : p_range_forecast[k][i] for k in self.mod.t_set for i in range(2)})
             
             self.memory['comfort_temp'].append(p_range_forecast[0][1]) # Version efficace one at a time]
@@ -540,7 +546,7 @@ class battery(device) :
         self.P_minus = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=0)
 
         self.mod.active_time = pyo.Param(self.mod.time_total_set, initialize={k : 1 for k in self.mod.time_total_set}, within=pyo.Boolean, mutable=True)
-        self.mod.E_return = pyo.Param(self.mod.time_total_set, initialize={k : self.E0[0] if k == 0 else 0 for k in self.mod.time_total_set}, within=pyo.Reals)
+        self.mod.E_return = pyo.Param(self.mod.time_total_set, initialize={k : self.E0[0] if k == 0 else 0 for k in self.mod.time_total_set}, within=pyo.Reals, mutable=True)
         
         self.mod.E = self.E 
         self.mod.P_plus = self.P_plus
@@ -591,8 +597,8 @@ class EV(device) :
         self.mod.active_time = pyo.Param(self.mod.time_total_set, initialize={k : 0 for k in self.mod.time_total_set}, within=pyo.Boolean, mutable=True)
         E_return, E_min_t = self.get_home_values(time_home, E0s, E_min)
         
-        self.mod.E_return = pyo.Param(self.mod.time_total_set, initialize={k : E_return[k] for k in self.mod.time_total_set}, within=pyo.Reals)
-        self.mod.E_min_t = pyo.Param(self.mod.time_total_set, initialize={k : E_min_t[k] for k in self.mod.time_total_set}, within=pyo.Reals)
+        self.mod.E_return = pyo.Param(self.mod.time_total_set, initialize={k : E_return[k] for k in self.mod.time_total_set}, within=pyo.Reals, mutable=True)
+        self.mod.E_min_t = pyo.Param(self.mod.time_total_set, initialize={k : E_min_t[k] for k in self.mod.time_total_set}, within=pyo.Reals, mutable=True)
         
         self.mod.E = self.E 
         self.mod.P_plus = self.P_plus
@@ -603,18 +609,18 @@ class EV(device) :
     def get_home_values(self, time_home, E0s, Emin) : 
         home_set = set()
         to_store = {}
-        start_set = set()
+        end_set = set()
         time = 0
         c = 0
         if not time_home : 
             self.mod.active_time.store_values({k : 0 for k in self.mod.time_total_set})
             return [0 for k in self.mod.time_total_set], [0 for k in self.mod.time_total_set]
-        while time < self.total_time : 
+        while c < len(time_home) and time < self.total_time : 
             t0, tend = time_home[c]
-            t0, tend = t0 - self.current_time, tend - self.current_time
+            t0, tend = max(t0 - self.current_time, 0), tend - self.current_time
             if time == t0 : 
-                start_set.add(t0)
-                for t in range(t0, max(tend, self.total_time)) :
+                end_set.add(tend)
+                for t in range(t0, min(tend, self.total_time)) :
                     home_set.add(t)
                     time+=1
                 c += 1
@@ -622,6 +628,7 @@ class EV(device) :
                 time+=1
         
         self.mod.active_time.store_values({k : 1 if k in home_set else 0 for k in self.mod.time_total_set})
+        print("active_time", {k : 1 if k in home_set else 0 for k in self.mod.time_total_set})
         
         E_return = []
         c = 0
@@ -639,7 +646,7 @@ class EV(device) :
         E_min_t = []
         c = 0
         for t in self.mod.time_total_set :
-            if t in start_set :
+            if t in end_set :
                 E_min_t.append(Emin[c])
                 c += 1
             else :
@@ -650,7 +657,8 @@ class EV(device) :
     def update_params(self, **new_params) :
         if "time_home" in new_params : 
             time_home, E0s, E_min = new_params["time_home"], new_params["E0s"], new_params["E_min"]
-            self.current_time = new_params.get("current_time", 0)
+            self.E0 = E0s
+            self.current_time = new_params.get("current_time_index", 0)
             E_return, E_min_t = self.get_home_values(time_home, E0s, E_min)
             self.mod.E_return.store_values({k : E_return[k] for k in self.mod.time_total_set})
             self.mod.E_min_t.store_values({k : E_min_t[k] for k in self.mod.time_total_set})

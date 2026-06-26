@@ -110,13 +110,13 @@ def EV_rolling(current_time_index, dico, new_params, d) :
     if not new_params.get(d.name):
         new_params[d.name] = {}
     E0 = pyo.value(d.mod.E[1])
-    new_params[d.name]["E0"] = E0
     
     # time_home, E0s, E_min
     
     # End >= Emin_futur[0] - T*P
     time_home = d.time_home
     E0s = d.E0
+    E0s[0] = E0
     Emins = d.E_min
     futur_time_home = dico.get('futur_time_home', [])
     futur_E0s = dico.get('futur_E0s', [])
@@ -125,10 +125,11 @@ def EV_rolling(current_time_index, dico, new_params, d) :
         # print(f"[EV_rolling] removing past home slot for {d.name}")
         time_home.pop(0)
         Emins.pop(0)
+        
+    if time_home[0][0] == current_time_index[0] and time_home[0][0] != 0 : 
         E0s = [E0s[k+1] if k !=0 else E0s[k] for k in range(len(E0s)-1)]
         
     if len(futur_time_home) > 0 and futur_time_home[0][0] == current_time_index[1] : 
-        # print(f"[EV_rolling] adding future home slot for {d.name}")
         # To verify but should be ok to just add futur values, if they are too high they just won't be used
         E0s.append(futur_E0s[0])
         Emins.append(futur_Emins[0])
@@ -141,12 +142,14 @@ def EV_rolling(current_time_index, dico, new_params, d) :
     new_params[d.name]["E0s"] = E0s
     new_params[d.name]["E_min"] = Emins
     
-    E_end_possible = [(sum(futur_Emins[k] 
-                         - (futur_time_home[k][1] - futur_time_home[k][0])*d.p_range_bat[1]*d.deltat*d.charge_eff) 
-                     for k in range(u)) for u in range(len(futur_Emins))]
+    E_end_possible = [sum(futur_Emins[k] 
+                         - (futur_time_home[k][1] - futur_time_home[k][0])*d.p_range_bat[1]*d.deltat*d.charge_eff 
+                     for k in range(u+1)) for u in range(len(futur_Emins))]
     if E_end_possible : 
         E_end_min = max(E_end_possible)
         new_params[d.name]["E_end"] = E_end_min
     else : 
         new_params[d.name]["E_end"] = E0
-    # print(f"[EV_rolling] updated params for {d.name}: E0={E0}, E_end={E_end_min}")
+        
+    print("\ndico", dico)
+    print("\nnew_params", new_params[d.name])
