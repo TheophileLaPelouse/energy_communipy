@@ -63,7 +63,7 @@ def generate_devices_profile(nb_people, deltat, equipments, build, weather, **kw
         if equipments[device]["Number"] != 0 and equipments[device].get("P") != 0 : 
             # print(f"\nDevice {device} \n")
             activation_profile, when_profile, presence_profile = device_activation_profile(profile, equipments[device], deltat, nb_people, **kwargs)
-            print(f"Activation profile for {device} : {activation_profile}, when_profile : {when_profile}")
+            # print(f"Activation profile for {device} : {activation_profile}, when_profile : {when_profile}")
             # print("Activation profile copmuted")
             spec_args = {
                 "activation_profile" : activation_profile,
@@ -112,12 +112,13 @@ def separate_horizon_futur(param, horizon) :
         typ = dico["type"]
         if typ == 'EV' : 
             time_home = dico["parameters"]["time_home"]
+            # print(time_home)
             Emins = dico["parameters"]["E_min"]
             E0s = dico["parameters"]["E0s"]
             i = 0
-            while time_home[i][1] <= horizon : 
+            while i < len(time_home) and time_home[i][1] <= horizon : 
                 i += 1
-            if time_home[i][0] < horizon : 
+            if i < len(time_home) and time_home[i][0] < horizon : 
                 time_home_horizon = time_home[:i] + [[time_home[i][0], horizon]]
                 time_home_futur = [[horizon, time_home[i][1]]] + time_home[i+1:]
             else : 

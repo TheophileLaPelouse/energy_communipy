@@ -11,6 +11,7 @@ import sys
 sys.path.append("/Users/theophilemounier/Desktop/git/projet_g3/python")
 sys.path.append("/home/theophile/Desktop/git/projet_g3/python")
 import pyomo.environ as pyo
+from pyomo.util.infeasible import find_infeasible_constraints, find_infeasible_bounds
 from pyomo.opt import SolverFactory
 
 from commu_opti.data.generate_data import generate_n_profile, create_random_agent
@@ -18,6 +19,7 @@ from commu_opti.commu_builder import define_members, define_community
 from commu_opti.generate_device_infos import generate_member_data_random, generate_devices_data, generate_devices_profile, separate_horizon_futur
 from commu_opti.data.generate_data_V2 import get_weather_data, list_locations, get_price_data
 from commu_opti.data.ev_profile import EV_profile
+from commu_opti.opti.rolling_horizon import rolling_horizon_optimization
 
 # First choose a location
 
@@ -42,7 +44,7 @@ for k in range(8) :
             possible_socio.append([k, j, i, 8-k-j-i])
             
 
-n = 2
+n = 5
 nb_of_days = 2
 
 day_number = np.random.randint(1, 365)
@@ -134,14 +136,10 @@ for k in range(n) :
     param["parameters"]["calc_ref"] = False
     param["parameters"]["id_"] = k 
     param["parameters"]["method"] = "admm"
+    param["parameters"]["debug_ref"] = True
     param["parameters"]["building"] = building
     param["parameters"]["nb_people"] = final_result['args']['nb_people']
-    param["parameters"]["time_window"] = [date, date + dt.timedelta(days=nb_of_days)]
-    param["parameters"]["horizon"] = horizon
-    param["parameters"]["devices_futur"] = devices_futur
     params.append(param)
-#%%
-members = define_members(params)
 
 
 param_commu = {
@@ -155,6 +153,7 @@ param_commu = {
         "parallel" : False,
         "eps_r" : 1e-2, 
         "eps_s" : 1e-2,
+        # "debug_ref" : True,
     }
 
 prices = get_price_data(date, date + dt.timedelta(days=nb_of_days))
@@ -186,51 +185,44 @@ price_options = {
 # Iterate optimization of the community over several hours over time horizon.
 
 
-community = define_community(members, **param_commu, **price_options)
 
+kwargs = {
+    "total_time" : horizon*nb_of_days,
+    "horizon" : horizon,
+    "deltat" : 1,
+    "date" : date,
+    "debug" : True,
+    "until" : 10
+    }
 
+with_rolling, without_rolling, debug = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
 
-n_total_time = len(weather_forecast)
-i_horizon = horizon
-for t in range(n_total_time - horizon) :
-    community.optimize_admm("gurobi", **community.kwargs)
-    if t == 0 : 
-        community.aggregate_distributed_information()
-        without_rolling = community.results.copy()
-    print("Optimization finished !", t)
-    irradiance_t = irradiance_history[t]
-    new_irradiance = [irradiance_t] + irradiance_forecast[t+1:t+horizon]
-    weather_t = weather_history[t]
-    new_weather = [weather_t] + weather_forecast[t+1:t+horizon]
-    for i in community.current_members_id : 
-        m = community.members[i]
-        m.keep_in_memory()
-        m.rolling_horizon_update(new_weather, new_irradiance)
+co = debug['community']
+d = co.members[0].devices[0]
 #%%
-for i in community.current_members_id : 
-    m = community.members[i]
-    m.objectif_from_memory()
-community.aggregate_distributed_information(from_memory=True)
-with_rolling = community.results.copy()
-        
+
+co.debug_model()
+
+# find_infeasible_constraints(co.mod)
+
 #%% Plotting 
 
 # Plot comparaison between weather and irradiance forecast and history
-plt.figure()
-plt.subplot(2, 1, 1)
-plt.plot(weather_forecast[:n_total_time], label="forecast")
-plt.plot(weather_history[:n_total_time], label="history")
-plt.title("Temperature forecast vs history")
-plt.xlabel("Time (h)")
-plt.ylabel("Temperature (°C)")
-plt.legend()
-plt.subplot(2, 1, 2)
-plt.plot(irradiance_forecast[:n_total_time], label="forecast")
-plt.plot(irradiance_history[:n_total_time], label="history")
-plt.title("Irradiance forecast vs history")
-plt.xlabel("Time (h)")
-plt.ylabel("Irradiance (W/m2)") 
-plt.legend()
+# plt.figure()
+# plt.subplot(2, 1, 1)
+# plt.plot(weather_forecast[:n_total_time], label="forecast")
+# plt.plot(weather_history[:n_total_time], label="history")
+# plt.title("Temperature forecast vs history")
+# plt.xlabel("Time (h)")
+# plt.ylabel("Temperature (°C)")
+# plt.legend()
+# plt.subplot(2, 1, 2)
+# plt.plot(irradiance_forecast[:n_total_time], label="forecast")
+# plt.plot(irradiance_history[:n_total_time], label="history")
+# plt.title("Irradiance forecast vs history")
+# plt.xlabel("Time (h)")
+# plt.ylabel("Irradiance (W/m2)") 
+# plt.legend()
 
 # Plot power of the community over time with comparison between forecast and rolling horizon optimization
 

@@ -260,7 +260,7 @@ class white_good(device) :
         if kwargs.get("last_to_change") :             
             for key in kwargs["last"] : 
                 if key == "start_pref" : 
-                    print(self.start_pref, kwargs["last"][key])
+                    # print(self.start_pref, kwargs["last"][key])
                     self.start_pref[-1] = kwargs["last"][key]
                 elif key == "cycle_length" : 
                     self.cycle_length[n_set-1] = kwargs["last"][key]
@@ -322,6 +322,7 @@ class fixed(device) :
         """
         total_time = len(power_profile)
         power_range = [[power_profile[k], power_profile[k]] for k in range(total_time)]
+        self.power_profile = power_profile[:]
         time_use = [[k, k+1] for k in range(total_time)]
         time_range = [[0, 0] for k in range(len(time_use))]
         super().__init__(power_range, time_use, time_range, **kwargs)
@@ -331,7 +332,12 @@ class fixed(device) :
         return
     
     def update_params(self, **new_params) : 
-        self.mod.power_profile.store_values({k : new_params["power_profile"][k] for k in self.mod.time_total_set})
+        if new_params.get("power_profile") :
+            self.mod.power_profile.store_values({k : new_params["power_profile"][k] for k in self.mod.time_total_set})
+        else : 
+            start, end = new_params["time_index_window"]
+            self.mod.power_profile.store_values({k - start : self.power_profile[k] for k in range(start, end+1)})
+            
 class PV(device) : 
     def __init__(self, irradiance_profile, **kwargs) :
         """PV devices model. If no surface is given in kwargs, then the surface will remain as a variable.
@@ -349,6 +355,7 @@ class PV(device) :
         eff = kwargs.get("eff", 0.2)
         surface = kwargs.get("surface", None)
         power_range = [[0, 0] for k in range(total_time)] # Not useful, just for size and fixing excess to 0.
+        self.irradiance_profile = irradiance_profile[:]
         time_use = [[k, k+1] for k in range(total_time)]
         time_range = [[0, 0] for k in range(len(time_use))]
         super().__init__(power_range, time_use, time_range, **kwargs)
@@ -370,6 +377,9 @@ class PV(device) :
     def update_params(self, **kwargs) : 
         if "irradiance_profile" in kwargs :
             self.mod.irradiance_profile.store_values({k : kwargs["irradiance_profile"][k] for k in self.mod.time_total_set})
+        else : 
+            start, end = kwargs["time_index_window"]
+            self.mod.irradiance_profile.store_values({k - start : self.irradiance_profile[k] for k in range(start, end+1)})
     
 class flex(device) : 
     def __init__(self, power_range, **kwargs) : 
@@ -400,7 +410,7 @@ class flex(device) :
     def update_params(self, **kwargs) :
         # print(kwargs)
         if hasattr(self, "heating_params") and kwargs.get("weather") and kwargs.get("presence_profile") : 
-            print("\nGoes here")
+            # print("\nGoes here")
             T_wanted = self.heating_params['T_wanted']
             T_min = self.heating_params['T_min']
             R1 = self.heating_params['R1']
@@ -414,8 +424,9 @@ class flex(device) :
             total_time = self.total_time
             deltat = self.deltat
 
-            print("weather", weather)
-            print("presence_profile", presence_profile, len(presence_profile), "total_time", total_time)
+            # print("weather", weather)
+            # print("presence_profile", presence_profile, len(presence_profile), "total_time", total_time)
+            # print(presence_profile)
             power_confort_forecast, carnot_confort = heating_power_model(T_wanted, weather, presence_profile, R1, R2, C, total_time, deltat, typ, **options)
             power_min_forecast, carnot_min = heating_power_model(T_min, weather, presence_profile, R1, R2, C, total_time, deltat, typ, **options)
             
@@ -423,7 +434,7 @@ class flex(device) :
             p_range_forecast = [(min(power_min_forecast[i], power_confort_forecast[i])/(efficiency*carnot_min[i]), 
                                 max(power_min_forecast[i], power_confort_forecast[i])/(efficiency*carnot_confort[i])) 
                                 for i in range(total_time)]
-            print("p_range_forecast", p_range_forecast)
+            # print("p_range_forecast", p_range_forecast)
             self.mod.p_range.store_values({(k, i) : p_range_forecast[k][i] for k in self.mod.t_set for i in range(2)})
             
             self.memory['comfort_temp'].append(p_range_forecast[0][1]) # Version efficace one at a time]
@@ -465,7 +476,7 @@ class AoN(device) :
         self.mod.max_factor = pyo.Param(initialize=kwargs.get('max_factor', 1), within=pyo.NonNegativeReals, mutable=True)
         
         self.mod.time_midnight = pyo.Param(initialize=total_time-1, mutable=True, within=pyo.NonNegativeReals)
-        self.mod.current_day = pyo.Param(self.mod.time_total_set, initialize={k: 1 if k <= self.mod.time_midnight.value else 0 for k in self.mod.time_total_set})
+        self.mod.current_day = pyo.Param(self.mod.time_total_set, initialize={k: 1 if k <= self.mod.time_midnight.value else 0 for k in self.mod.time_total_set}, mutable=True)
         self.mod.energy_needed_day = pyo.Param(initialize=energy_needed, within=pyo.NonNegativeReals, mutable=True)
         self.generate_spec_constraint()
         
@@ -491,10 +502,6 @@ class AoN(device) :
         
         m.pow_con = pyo.Constraint(m.t_set, rule=rule_AoN)
         
-        self.mod.p_con_l.deactivate()
-        self.mod.p_con_u.deactivate()
-        self.mod.p_excess_l.fix(0)
-        self.mod.p_excess_u.fix(0)
         return
     
     def update_params(self, **new_params) : 
@@ -506,8 +513,9 @@ class AoN(device) :
             self.mod.max_factor.set_value(new_params["max_factor"])
         if "time_midnight" in new_params : 
             self.mod.time_midnight.set_value(new_params["time_midnight"])
-            self.mod.current_day = pyo.Param(self.mod.time_total_set, initialize={k: 1 if k <= self.mod.time_midnight.value else 0 for k in self.mod.time_total_set})
-
+            # print("time_midnight", self.mod.time_midnight.value)
+            self.mod.current_day.store_values({k: 1 if k <= self.mod.time_midnight.value - 1 else 0 for k in self.mod.time_total_set})
+        # print("current_day", self.mod.current_day.extract_values())
         
 class battery(device) : 
     def __init__(self, p_range, E_range, **kwargs) : 
@@ -628,7 +636,7 @@ class EV(device) :
                 time+=1
         
         self.mod.active_time.store_values({k : 1 if k in home_set else 0 for k in self.mod.time_total_set})
-        print("active_time", {k : 1 if k in home_set else 0 for k in self.mod.time_total_set})
+        # print("active_time", {k : 1 if k in home_set else 0 for k in self.mod.time_total_set})
         
         E_return = []
         c = 0

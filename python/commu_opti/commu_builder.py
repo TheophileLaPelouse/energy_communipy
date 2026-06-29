@@ -25,7 +25,9 @@ def define_devices(list_args, **kwargs) :
         elif args["type"] == "flex" :
             devices.append(flex(**args["parameters"], **kwargs))
         elif args["type"] == "EV" :
-            devices.append(EV(**args["parameters"], **kwargs))
+            try : 
+                devices.append(EV(**args["parameters"], **kwargs))
+            except Error as e
         elif args["type"] == "fixed" :
             devices.append(fixed(**args["parameters"], **kwargs))
         elif args["type"] == "device" :

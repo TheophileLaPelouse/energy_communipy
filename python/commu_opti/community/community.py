@@ -1,6 +1,6 @@
 from . import pyo, np
 from .utils import calc_auto, calc_eco, calc_eco_total, calc_enviro, calc_invest_cost, calc_pena_pow, calc_confort
-from ..opti.solving import solve_model, treat_members_admm, set_values
+from ..opti.solving import solve_model, treat_members_admm, set_values, debug_community
 from ..plotting.plot_functions import plot_power_curves, plot_hexagon_objective
 from .constraint_functions_comm import *
 import itertools
@@ -654,6 +654,9 @@ class community :
         
         self.results['power_exchange_commu'] = [[[pyo.value(self.P_exchange[i, j, t]) for t in self.time_set] for j in self.current_members_id] for i in self.current_members_id]
 
+    def debug_model(self, folder_path=os.path.join(results_path, "debug")) : 
+        debug_community(self, folder_path=folder_path)
+    
     def plot_power_curves(self, **kwargs) :
         plot_power_curves(**kwargs)
         

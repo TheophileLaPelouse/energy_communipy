@@ -4,12 +4,15 @@ from . import pyo
 from ..commu_builder import define_members, define_community
 from ..generate_device_infos import separate_horizon_futur
 from ..data.generate_data_V2 import get_price_data
+from pyomo.contrib.iis import write_iis
+
 
 def rolling_horizon_optimization(params_member, param_commu, price_options, **kwargs) : 
     total_time = kwargs.get("total_time", 24)
     horizon = kwargs.get("horizon", 24)
     deltat = kwargs.get("deltat", 1)
     date = kwargs.get("date", dt.datetime.now())
+    debug = kwargs.get("debug", False)
     nb_of_days = int(total_time/deltat/24)
     n = len(params_member)
     irradiance_forecast = kwargs.get("irradiance_forecast", [0 for k in range(total_time)])
@@ -24,15 +27,14 @@ def rolling_horizon_optimization(params_member, param_commu, price_options, **kw
         param, devices_futur = separate_horizon_futur(param, horizon)
         param["parameters"]["time_window"] = [date, date + dt.timedelta(days=nb_of_days)]
         param["parameters"]["horizon"] = horizon
-        print(f"{devices_futur=}")
         param["parameters"]["devices_futur"] = devices_futur
 
-    members = define_members([param])
+    members = define_members(params_member)
 
     new_weather = [20 for k in range(horizon)]
 
     community = define_community(members, **param_commu, **price_options)
-
+    
     for t in range(kwargs.get("until", total_time - horizon)) :
     # for t in range(6) :
         if community.kwargs["method"] == "admm" : 
@@ -78,4 +80,6 @@ def rolling_horizon_optimization(params_member, param_commu, price_options, **kw
     community.aggregate_distributed_information(from_memory=True)
     with_rolling = community.results.copy()
     
+    if debug : 
+        return with_rolling, without_rolling, {"community" : community}
     return with_rolling, without_rolling

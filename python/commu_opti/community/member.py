@@ -1,12 +1,16 @@
 from . import pyo, dt, np
 from .utils import calc_auto, calc_eco, calc_enviro, calc_pena_pow, calc_confort, calc_eco_total, calc_invest_cost
-from ..opti.solving import solve_model
+from ..opti.solving import debug_model, solve_model
 from ..plotting.plot_functions import plot_power_curves
 from .constraint_functions_members import *
-from ..data.generate_data_V2 import generate_profile
+from ..data.generate_data_V2 import generate_profile, profile_to_presence
 from .rolling_functions import white_goods_rolling, EV_rolling
 import time
 
+import os
+import json
+path_file = os.path.dirname(os.path.abspath(__file__))
+results_path = os.path.join(path_file, "../../results")
 class member : 
     def __init__(self, devices, socio, id_, **kwargs) :
         method = kwargs.get("method", "centralized")   
@@ -80,7 +84,7 @@ class member :
             nb_of_days = int((self.time_window[1] - self.time_window[0]).total_seconds() / 3600 / 24)
             nb_of_days -= len(self.presence_profile) // int(24/self.deltat)
             for _ in range(nb_of_days) : 
-                self.presence_profile += generate_profile(self.nb_people, False, self.deltat)
+                self.presence_profile += profile_to_presence(generate_profile(self.nb_people, False, self.deltat), self.nb_people)
         
         if profile_method is None : 
             return
@@ -296,7 +300,7 @@ class member :
         
         confort_args = kwargs.get("confort", {})
         confort_args["ref"] = self.ref_values[3]
-        
+                
         self.mod_member.obj_expr = pyo.Expression(expr=calc_eco_total(self.P_grid_plus, self.P_grid_minus, self.P_exchange, self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, **eco_args)*self.socio_commu[0]
                                      + calc_enviro(self.P_grid_plus, self.P_exchange,self.P_self, **enviro_args)*self.socio_commu[1]
                                      + calc_auto(self.P_grid_plus, **auto_args)*self.socio_commu[2]
@@ -326,6 +330,12 @@ class member :
         
         return
     
+    # def prices_param(self, **kwargs) : 
+    #     deltat = kwargs.get("deltat", 1)
+    #     carbone_grid = kwargs.get("carbone_grid", 1)
+    #     carbone_commu = kwargs.get("carbone_commu", 0.5)
+    #     ref_value = kwargs.get("ref", 1)
+    
     def clear_model(self):
         # Remove all variables from the model while keeping other components like devices
         vars_to_remove = [attr for attr in dir(self.mod_member) if isinstance(getattr(self.mod_member, attr), (pyo.Var, pyo.Expression, pyo.Constraint, pyo.Objective, pyo.Set, pyo.RangeSet, pyo.Param))]
@@ -340,8 +350,12 @@ class member :
         self.commu = None
         self.ref_values = [1 for k in range(4)]
         
+        kwargs["method"] = "centralized"
         self.build_model(**kwargs)
         self.fix_device_values()
+        if kwargs.get("debug_ref", False) :
+            print("DEBUG REF")
+            self.debug_model()
         
         solver = kwargs.get("ref_solver", "gurobi")
         lp_ref = kwargs.get("ref_lp", False)
@@ -420,7 +434,7 @@ class member :
                         d.mod.on_off[t].fix(1)
                     else : 
                         d.mod.on_off[t].fix(0)
-            else : 
+            elif d.__class__.__name__ == "flex" : 
                 for t in d.mod.t_set : 
                     getattr(d.mod, "Pcons")[t].fix((d.p_range[t][1] + d.p_range[t][0])/2)
         # print("How much time for fixing :", time.time() - t0)
@@ -443,7 +457,10 @@ class member :
                     getattr(d.mod, "Pcons")[t].unfix()
                 for c in d.mod.component_objects(pyo.Constraint) :
                     c.activate()
-            else : 
+            elif d.__class__.__name__ == "AoN" :
+                for t in range(self.total_time) : 
+                    d.mod.on_off[t].unfix()
+            elif d.__class__.__name__ == "flex" :  
                 for t in d.mod.t_set : 
                     getattr(d.mod, "Pcons")[t].unfix()
                     
@@ -528,7 +545,7 @@ class member :
                 self.memory[pow] = []
             self.memory[pow].append(powers[pow][0])
             
-        print("Pcons memory:", self.memory["P_cons"])
+        # print("Pcons memory:", self.memory["P_cons"])
         
                     
     def rolling_horizon_update(self, new_weather, new_irradiance, **kwargs) : 
@@ -546,7 +563,7 @@ class member :
         new_params["general"]["time_index_window"] = self.current_time_index
         new_params["general"]["presence_profile"] = self.presence_profile[self.current_time_index[0]:self.current_time_index[1]+1]
         
-        print("\nRolling horizon update, current time index:", self.current_time_index)
+        # print("\nRolling horizon update, current time index:", self.current_time_index)
         
         for d in self.devices :
             if d.__class__.__name__ == "white_good" : 
@@ -557,8 +574,12 @@ class member :
             if d.__class__.__name__ == "AoN" : 
                 if pyo.value(d.mod.Pcons[0]) > 0 : 
                     energy_needed = d.mod.energy_needed_day.value - pyo.value(d.mod.Pcons[0])*self.deltat
+                    if energy_needed < 0 :
+                        energy_needed = 0
                     if not new_params.get(d.name):
                         new_params[d.name] = {}
+                    # print('Pcons', d.mod.Pcons.extract_values())
+                    # print("energy_needed for device", d.mod.energy_needed_day.value, "-", pyo.value(d.mod.Pcons[0])*self.deltat)
                     new_params[d.name]["energy_needed"] = energy_needed
                     
             if d.__class__.__name__ == "battery" : 
@@ -595,7 +616,7 @@ class member :
                 start_pref = d.memory.get("start_pref", [])
                 actual_starts = d.memory.get("actual_starts", [])
                 # print(start_pref, actual_starts)
-                print("start_pref", start_pref, "actual_starts", actual_starts)
+                # print("start_pref", start_pref, "actual_starts", actual_starts)
                 for k in range(len(actual_starts)) :
                     t_confort += abs(start_pref[k] - actual_starts[k])
                     
@@ -650,6 +671,10 @@ class member :
     def create_agent(self) :
         return
     
+    def debug_model(self, path=os.path.join(results_path, "debug")) : 
+        path = os.path.join(path, f"member_{self.id}")
+        debug_model(self.mod_member, file_path=path)
+        
     def self_optimize(self, solver, **options) :   
         results = solve_model(self.mod_member, solver, **options)
         return results

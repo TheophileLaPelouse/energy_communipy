@@ -1,0 +1,9 @@
+\ Model unknown_copy
+\ LP format - for model browsing. Use MPS format to capture full model detail.
+\ Signature: 0x267ae670d662c388
+Minimize
+ 
+Subject To
+ device14_pow_con(7): = -1471.979971642995
+Bounds
+End

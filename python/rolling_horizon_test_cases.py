@@ -252,3 +252,39 @@ to_plot = {
         }
     }
 plot_power_curves(**to_plot)
+
+
+#%% Case AoN
+
+AoN_device = {
+    "parameters" : {
+        "power_needed" : 10,
+        "energy_needed" : 20, 
+        "name" : "water_heater"
+        },
+    "type" : "AoN"
+}
+
+param = {"devices" : {"AoN" : AoN_device}, "parameters" : {}}
+
+param["parameters"]["socio"] = [1, 0, 0, 0]
+param["parameters"]["calc_ref"] = member_params["calc_ref"]
+param["parameters"]["id_"] = member_params["id_"]
+param["parameters"]["profile_method"] = member_params["profile_method"]
+
+params = [param]
+
+kwargs = {
+    "total_time" : total_time,
+    "horizon" : horizon,
+    "deltat" : 1,
+    "date" : date,
+    "until" : 3, 
+    "debug" : True,
+    }
+
+with_rolling, without_rolling = {}, {}
+with_rolling, without_rolling, debug = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
+co = debug['community']
+co.debug_model()
+d = co.members[0].devices[0]
