@@ -20,6 +20,7 @@ from commu_opti.generate_device_infos import generate_member_data_random, genera
 from commu_opti.data.generate_data_V2 import get_weather_data, list_locations, get_price_data
 from commu_opti.data.ev_profile import EV_profile
 from commu_opti.opti.rolling_horizon import rolling_horizon_optimization
+from commu_opti.plotting.plot_functions import plot_power_curves
 
 # First choose a location
 
@@ -31,8 +32,8 @@ from commu_opti.opti.rolling_horizon import rolling_horizon_optimization
 # PV_rate = 0.3
 # Battery_rate = 0.1
 
-EV_rate = 1
-PV_rate = 1
+EV_rate = 0
+PV_rate = 0.5
 Battery_rate = 1
 
 # generate agents data
@@ -41,11 +42,14 @@ possible_socio = []
 for k in range(8) : 
     for j in range(8-k) : 
         for i in range(8-j-k) : 
-            possible_socio.append([k, j, i, 8-k-j-i])
+            # possible_socio.append([k/8, j/8, i/8, (8-k-j-i)/8])
+            possible_socio.append([1, 1, 1, 1])
             
 
-n = 5
+n = 2
 nb_of_days = 2
+method="centralized"
+# method="admm"
 
 day_number = np.random.randint(1, 365)
 date = dt.datetime(2025, 1, 1) + dt.timedelta(days=day_number)
@@ -86,7 +90,7 @@ for k in range(n) :
     
     nb_people, deltat, equipments, build, weather = generate_devices_data(date=date, nb_of_days=nb_of_days, location=(lat, lon), deltat=deltat)
     
-    param, final_result = generate_devices_profile(nb_people, deltat, equipments, build, weather, total_time=(horizon*nb_of_days)//deltat)
+    param, final_result = generate_devices_profile(nb_people, deltat, equipments, build, weather, total_time=(horizon*nb_of_days)//deltat, one_empty_day=True)
     param, devices_futur = separate_horizon_futur(param, horizon)
     presence_profile = final_result['args']['presence_profile']
     building = final_result['args']['building']
@@ -99,20 +103,23 @@ for k in range(n) :
         P_max = EV_allocation["P_max"][np.random.randint(0, len(EV_allocation["P_max"]))]
         P_min = -P_max*(np.random.rand()>EV_allocation["proba_minus"])
         allocated = {"E": E, "power_pos": P_max, "power_neg": P_min, "name" : "EV"}
-        for k in range(3) : 
-            try : 
-                param["devices"]["EV"] = EV_profile(allocated, presence_profile, deltat, bypass=True)
-                break
-            except : 
-                continue
+        param["devices"]["EV"] = EV_profile(allocated, presence_profile, deltat, bypass=True)
+        # for k in range(3) : 
+        #     try : 
+        #         param["devices"]["EV"] = EV_profile(allocated, presence_profile, deltat, bypass=True)
+        #         break
+        #     except : 
+        #         continue
+        # if k == 2 : 
+        #     print("PAS D'EV")
         # flag_pv=True
         
     if rd_bat < Battery_rate : 
         E_max = bat_allocation["E_range"][0] + (bat_allocation["E_range"][1] - bat_allocation["E_range"][0]) * np.random.rand()
         C_max = bat_allocation["C_range"][0] + (bat_allocation["C_range"][1] - bat_allocation["C_range"][0]) * np.random.rand()
         P_max = C_max * E_max
-        E_range = [0.1*E_max, 0.9*E_max]
-        P_range = [-P_max, P_max]
+        E_range = [0.1*E_max*1000, 0.9*E_max*1000]
+        P_range = [-P_max*1000, P_max*1000]
         charge_eff = np.random.normal(bat_allocation["charge_eff"][0], bat_allocation["charge_eff"][1])
         dcharge_eff = np.random.normal(bat_allocation["dcharge_eff"][0], bat_allocation["dcharge_eff"][1])
         param["devices"]["battery"] = {
@@ -135,15 +142,16 @@ for k in range(n) :
     param["parameters"]["socio"] = possible_socio[np.random.randint(0, len(possible_socio)-1)]
     param["parameters"]["calc_ref"] = False
     param["parameters"]["id_"] = k 
-    param["parameters"]["method"] = "admm"
+    param["parameters"]["method"] = method
     param["parameters"]["debug_ref"] = True
     param["parameters"]["building"] = building
     param["parameters"]["nb_people"] = final_result['args']['nb_people']
+    param["parameters"]["presence_profile"] = presence_profile
     params.append(param)
 
 
 param_commu = {
-        "method" : "admm",
+        "method" : method,
         "deltat" : 1,
         "total_time" : horizon,
         "calc_ref" : True, 
@@ -154,14 +162,16 @@ param_commu = {
         "eps_r" : 1e-2, 
         "eps_s" : 1e-2,
         # "debug_ref" : True,
+        # "debug_admm" : True,
     }
 
-prices = get_price_data(date, date + dt.timedelta(days=nb_of_days))
+prices = get_price_data(date, date + dt.timedelta(days=nb_of_days))[:-1]/10e6
+prices[24:] = prices[:24]
 
 price_options = {
     "eco" : {
-        "cost_grid_buy" : prices[:horizon], # €/wh
-        "cost_grid_sell" : -prices[:horizon]/4,
+        "cost_grid_buy" : prices[:], # €/wh
+        "cost_grid_sell" : -prices[:]*((prices[:]>0)/4 + (prices[:]<=0)*4), # €/wh
         "cost_ex" : 0, 
         "cost_PV" : 800, # € per m2
         # "cost_PV" : 0, # per m2
@@ -184,7 +194,7 @@ price_options = {
 
 # Iterate optimization of the community over several hours over time horizon.
 
-
+#%%
 
 kwargs = {
     "total_time" : horizon*nb_of_days,
@@ -192,33 +202,44 @@ kwargs = {
     "deltat" : 1,
     "date" : date,
     "debug" : True,
-    "until" : 10
+    # "until" : 1,
+    "irradiance_history" : irradiance_history[:24] + irradiance_history[:25], 
+    "weather_history" : weather_history[:24] + weather_history[:25],
+    # "irradiance_forecast" : irradiance_forecast,
+    # "weather_forecast" : weather_forecast,
+    "irradiance_forecast" : irradiance_history[:24] + irradiance_history[:25],
+    "weather_forecast" : weather_history[:24] + weather_history[:25],
+    # "skip_params" : True
     }
 
+for param in params : 
+    param['parameters']['method'] = 'centralized'
+param_commu['method'] = 'centralized'
+
+# param_commu["ref_lp"] = True
 with_rolling, without_rolling, debug = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
 
 co = debug['community']
 d = co.members[0].devices[0]
-#%%
 
-co.debug_model()
 
-# find_infeasible_constraints(co.mod)
 
 #%% Plotting 
+
+n_compare = horizon*(nb_of_days-1)
 
 # Plot comparaison between weather and irradiance forecast and history
 # plt.figure()
 # plt.subplot(2, 1, 1)
-# plt.plot(weather_forecast[:n_total_time], label="forecast")
-# plt.plot(weather_history[:n_total_time], label="history")
+# plt.plot(weather_forecast[:n_compare], label="forecast")
+# plt.plot(weather_history[:n_compare], label="history")
 # plt.title("Temperature forecast vs history")
 # plt.xlabel("Time (h)")
 # plt.ylabel("Temperature (°C)")
 # plt.legend()
 # plt.subplot(2, 1, 2)
-# plt.plot(irradiance_forecast[:n_total_time], label="forecast")
-# plt.plot(irradiance_history[:n_total_time], label="history")
+# plt.plot(irradiance_forecast[:n_compare], label="forecast")
+# plt.plot(irradiance_history[:n_compare], label="history")
 # plt.title("Irradiance forecast vs history")
 # plt.xlabel("Time (h)")
 # plt.ylabel("Irradiance (W/m2)") 
@@ -226,5 +247,129 @@ co.debug_model()
 
 # Plot power of the community over time with comparison between forecast and rolling horizon optimization
 
+to_plot_rolling = {
+    "powers" : {
+        "P_cons" : with_rolling['aggregated_powers']["P_cons"],
+        "P_bat" : with_rolling['aggregated_powers']["P_bat"],
+        "P_prod" : with_rolling['aggregated_powers']["P_prod"],
+        "P_exchange" : with_rolling['aggregated_powers']["P_exchange"],
+        "P_grid" : with_rolling['aggregated_powers']["P_grid"], 
+        "Price" : prices[:horizon]*100,
+        "irradiance" : irradiance_history[:horizon]
+    },
+    "title" : "Community power profile with rolling horizon optimization"
+}
 
-        
+to_plot_without_rolling = {
+    "powers" : {
+        "P_cons" : without_rolling['aggregated_powers']["P_cons"],
+        "P_bat" : without_rolling['aggregated_powers']["P_bat"],
+        "P_prod" : without_rolling['aggregated_powers']["P_prod"],
+        "P_exchange" : without_rolling['aggregated_powers']["P_exchange"],
+        "P_grid" : without_rolling['aggregated_powers']["P_grid"], 
+        "Price" : prices[:horizon]*100,
+        "irradiance" : [val*10 for val in irradiance_history[:horizon]]
+    },
+    "title" : "Community power profile without rolling horizon optimization"
+}
+
+
+plot_power_curves(**to_plot_rolling)
+plot_power_curves(**to_plot_without_rolling)
+
+print("Objectif with rolling horizon : ", with_rolling['aggregated_objs']['Objective'], "price", with_rolling['aggregated_objs']['price'], "enviro", with_rolling['aggregated_objs']['enviro'], "auto", with_rolling['aggregated_objs']['auto'], "comfort", with_rolling['aggregated_objs']['comfort'])
+print("Objectif WITHOUT rolling horizon : ", without_rolling['aggregated_objs']['Objective'], "price", without_rolling['aggregated_objs']['price'], "enviro", without_rolling['aggregated_objs']['enviro'], "auto", without_rolling['aggregated_objs']['auto'], "comfort", without_rolling['aggregated_objs']['comfort'])
+
+#%% ADMM Version
+
+kwargs = {
+    "total_time" : horizon*nb_of_days,
+    "horizon" : horizon,
+    "deltat" : 1,
+    "date" : date,
+    "debug" : True,
+    "until" : 1,
+    "irradiance_history" : irradiance_history[:24] + irradiance_history[:25], 
+    "weather_history" : weather_history[:24] + weather_history[:25],
+    # "irradiance_forecast" : irradiance_forecast,
+    # "weather_forecast" : weather_forecast,
+    "irradiance_forecast" : irradiance_history[:24] + irradiance_history[:25],
+    "weather_forecast" : weather_history[:24] + weather_history[:25],
+    # "skip_params" : True
+    }
+
+for param in params : 
+    param['parameters']['method'] = 'admm'
+param_commu['method'] = 'admm'
+
+param_commu["rho"]=  10e-4
+param_commu["power_max_random"] =  10000
+param_commu["eps_r"] = 1e-2
+param_commu["eps_s"] = 1e-2
+param_commu["max_iter"] = 200
+
+with_rolling_admm, without_rolling_admm, debug_admm = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
+
+co_admm = debug['community']
+
+#%% Plot admm
+
+to_plot_rolling_admm = {
+    "powers" : {
+        "P_cons" : with_rolling_admm['aggregated_powers']["P_cons"],
+        "P_bat" : with_rolling_admm['aggregated_powers']["P_bat"],
+        "P_prod" : with_rolling_admm['aggregated_powers']["P_prod"],
+        "P_exchange" : with_rolling_admm['aggregated_powers']["P_exchange"],
+        "P_grid" : with_rolling_admm['aggregated_powers']["P_grid"], 
+        "Price" : prices[:horizon]*100,
+        "irradiance" : irradiance_history[:horizon]
+    },
+    "title" : "Community power profile with rolling horizon optimization ADMM"
+}
+
+to_plot_without_rolling_admm = {
+    "powers" : {
+        "P_cons" : without_rolling_admm['aggregated_powers']["P_cons"],
+        "P_bat" : without_rolling_admm['aggregated_powers']["P_bat"],
+        "P_prod" : without_rolling_admm['aggregated_powers']["P_prod"],
+        "P_exchange" : without_rolling_admm['aggregated_powers']["P_exchange"],
+        "P_grid" : without_rolling_admm['aggregated_powers']["P_grid"], 
+        "Price" : prices[:horizon]*100,
+        "irradiance" : [val*10 for val in irradiance_history[:horizon]]
+    },
+    "title" : "Community power profile without rolling horizon optimization ADMM"
+}
+
+
+# plot_power_curves(**to_plot_rolling_admm)
+plot_power_curves(**to_plot_without_rolling_admm)
+
+# print("Objectif with rolling horizon : ", with_rolling_admm['aggregated_objs']['Objective'], "price", with_rolling['aggregated_objs']['price'], "enviro", with_rolling['aggregated_objs']['enviro'], "auto", with_rolling['aggregated_objs']['auto'], "comfort", with_rolling['aggregated_objs']['comfort'])
+print("Objectif WITHOUT rolling horizon : ", without_rolling_admm['aggregated_objs']['Objective'], "price", without_rolling_admm['aggregated_objs']['price'], "enviro", without_rolling_admm['aggregated_objs']['enviro'], "auto", without_rolling_admm['aggregated_objs']['auto'], "comfort", without_rolling_admm['aggregated_objs']['comfort'])
+
+
+#%% Plot P cons for each device of the first member of the community
+
+devices_name = []
+for k in range(len(co.members[0].devices_name)) : 
+    # if co.members[0].devices[k].__class__.__name__ == "white_good" : 
+    #     devices_name.append(co.members[0].devices_name[k])
+    devices_name.append(co.members[0].devices_name[k])
+
+to_plot_rolling = {
+    "powers" : {
+        device : [(with_rolling['aggregated_powers']["devices"][device][k]) for k in range(horizon)] for device in devices_name
+    },
+    "title" : "With rolling horizon"
+}
+
+to_plot_without_rolling = {
+    "powers" : {
+        device : [(without_rolling['aggregated_powers']["devices"][device][k]) for k in range(horizon)] for device in devices_name
+    },
+    "title" : "Without rolling horizon"
+}
+
+plot_power_curves(**to_plot_rolling)
+
+plot_power_curves(**to_plot_without_rolling)

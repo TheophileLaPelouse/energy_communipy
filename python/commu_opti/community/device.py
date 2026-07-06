@@ -107,15 +107,16 @@ class device :
 
         mod.pow_con = pyo.Constraint(self.mod.time_total_set, rule=power_constraint_bat)
             
-        if E_end is None : 
-            mod.E_end = pyo.Param(initialize=self.E0[0], within=pyo.Reals, mutable=True)
-        else : 
-            mod.E_end = pyo.Param(initialize=E_end, within=pyo.Reals, mutable=True)
+        # if E_end is None : 
+        #     mod.E_end = pyo.Param(initialize=self.E0[0], within=pyo.Reals, mutable=True)
+        # else : 
+        #     mod.E_end = pyo.Param(initialize=E_end, within=pyo.Reals, mutable=True)
         
-        if self.E_min : 
-            mod.end_con = pyo.Constraint(self.mod.time_total_set, rule=end_constraint) # Need to fix E_min_t[-1] to E_end
-        else :   
-            mod.end_con = pyo.Constraint(rule=soc_end)
+        mod.comfort_charge = pyo.Var(self.mod.time_total_set, within=pyo.NonNegativeReals, initialize=0)
+        # if self.E_min : 
+        mod.end_con = pyo.Constraint(self.mod.time_total_set, rule=end_constraint) # Need to fix E_min_t[-1] to E_end
+        # else :   
+        #     mod.end_con = pyo.Constraint(rule=soc_end)
             
 class white_good(device) : 
     def __init__(self, start_pref, cycle_length, time_range, power_needed, **kwargs) : 
@@ -376,6 +377,7 @@ class PV(device) :
     
     def update_params(self, **kwargs) : 
         if "irradiance_profile" in kwargs :
+            # print(f"Update PV device {self.name} irradiance profile", kwargs["irradiance_profile"][:24-kwargs['current_time_index']], 'surface', self.PV_surface.value, "eff", self.mod.eff.value)
             self.mod.irradiance_profile.store_values({k : kwargs["irradiance_profile"][k] for k in self.mod.time_total_set})
         else : 
             start, end = kwargs["time_index_window"]
@@ -398,6 +400,7 @@ class flex(device) :
         if kwargs.get("heating_params") :
             self.heating_params = kwargs.get("heating_params")
         super().__init__(power_range, time_use, time_range, **kwargs)
+        self.original_power_range = power_range[:]
         self.memory['comfort_temp'] = [power_range[0][1]]
         self.memory['actual_temp'] = []
         self.generate_power_constraint()
@@ -457,6 +460,14 @@ class flex(device) :
             self.mod.p_range.store_values({(k, i) : p_range[k][i] for k in self.mod.t_set for i in range(2)})
             
             self.memory['comfort_temp'].append(p_range[0][1])
+            
+        else : 
+            if "p_range" in kwargs : 
+                self.mod.p_range.store_values({(k, i) : kwargs["p_range"][k][i] for k in self.mod.t_set for i in range(2)})
+            else : 
+                start, end = kwargs["time_index_window"]
+                self.mod.p_range.store_values({(k - start, i) : self.original_power_range[k][i] for k in range(start, end+1) for i in range(2)})
+        
         
 class AoN(device) : 
     def __init__(self, power_needed, energy_needed, **kwargs) :
@@ -486,12 +497,12 @@ class AoN(device) :
         """
         m = self.mod
         m.on_off = pyo.Var(m.t_set, within=pyo.Boolean, initialize=[0 for k in m.t_set])
-        m.sum_on_off_con_min = pyo.Constraint(expr=(sum(m.on_off[k] for k in m.t_set)*m.power_needed*self.deltat 
-                                                       >= 
-                                                       m.energy_needed))
-        m.sum_on_off_con_max = pyo.Constraint(expr=(sum(m.on_off[k] for k in m.t_set)*m.power_needed*self.deltat 
-                                                       <= 
-                                                       m.max_factor*m.power_needed*self.deltat + m.energy_needed)) # Maybe m.power_needed*self.deltat is too much
+        # m.sum_on_off_con_min = pyo.Constraint(expr=(sum(m.on_off[k] for k in m.t_set)*m.power_needed*self.deltat 
+        #                                                >= 
+        #                                                m.energy_needed))
+        # m.sum_on_off_con_max = pyo.Constraint(expr=(sum(m.on_off[k] for k in m.t_set)*m.power_needed*self.deltat 
+        #                                                <= 
+        #                                                m.max_factor*m.power_needed*self.deltat + m.energy_needed)) # Maybe m.power_needed*self.deltat is too much
 
         m.sum_on_off_con_min_day = pyo.Constraint(expr=(sum(m.on_off[k]*m.current_day[k] for k in m.t_set)*m.power_needed*self.deltat 
                                                        >= 
@@ -555,18 +566,25 @@ class battery(device) :
 
         self.mod.active_time = pyo.Param(self.mod.time_total_set, initialize={k : 1 for k in self.mod.time_total_set}, within=pyo.Boolean, mutable=True)
         self.mod.E_return = pyo.Param(self.mod.time_total_set, initialize={k : self.E0[0] if k == 0 else 0 for k in self.mod.time_total_set}, within=pyo.Reals, mutable=True)
+        self.mod.E_min_t = pyo.Param(self.mod.time_total_set, initialize={k : kwargs.get('E_end', self.E0[0]) if k == self.time_total_set[-1] else 0 for k in self.mod.time_total_set}, within=pyo.Reals, mutable=True)
         
         self.mod.E = self.E 
         self.mod.P_plus = self.P_plus
         self.mod.P_minus = self.P_minus
         self.E_min = None
-        self.generate_bat_constraint(E_end=kwargs.get('E_end', self.E0[0]))
+        self.generate_bat_constraint()
         
     def update_params(self, **new_params) :
         if "E0" in new_params : 
-            self.mod.E0.store_values(new_params["E0"])
+            self.mod.E_return[0].set_value(new_params["E0"])
+        if new_params.get("update_day_bat") : 
+            
+            if new_params["time_midnight"] > 0 : 
+                self.mod.E_min_t[new_params["time_midnight"]].set_value(self.mod.E_min_t[new_params["time_midnight"]-1].value)
+                self.mod.E_min_t[new_params["time_midnight"]-1].set_value(0)
         if "E_end" in new_params : 
-            self.mod.E_end.set_value(new_params["E_end"])
+            self.mod.E_min_t[self.total_time-1].set_value(new_params["E_end"])
+            # self.mod.E_end.set_value(new_params["E_end"])
 
 class EV(device) : 
     def __init__(self, p_range, E_range, time_home, E0s, E_min, E_end, **kwargs) : 
@@ -607,6 +625,7 @@ class EV(device) :
         
         self.mod.E_return = pyo.Param(self.mod.time_total_set, initialize={k : E_return[k] for k in self.mod.time_total_set}, within=pyo.Reals, mutable=True)
         self.mod.E_min_t = pyo.Param(self.mod.time_total_set, initialize={k : E_min_t[k] for k in self.mod.time_total_set}, within=pyo.Reals, mutable=True)
+        self.mod.E_min_t[self.total_time-1].set_value(max(self.mod.E_min_t[self.total_time-1].value, E_end))
         
         self.mod.E = self.E 
         self.mod.P_plus = self.P_plus
@@ -673,7 +692,8 @@ class EV(device) :
         if "E0" in new_params : 
             self.mod.E_return[0].set_value(new_params["E0"])
         if "E_end" in new_params : 
-            self.mod.E_end.set_value(new_params["E_end"])
+            # self.mod.E_end.set_value(new_params["E_end"])
+            self.mod.E_min_t[self.total_time-1].set_value(max(self.mod.E_min_t[self.total_time-1].value, new_params["E_end"]))
         
         
 if __name__ == '__main__' :

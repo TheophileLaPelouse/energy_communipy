@@ -55,9 +55,10 @@ class community :
                 
         calc_ref = kwargs.get("calc_ref", True)
         if calc_ref :
+            print("Computing reference values")
             self.calc_ref_values(**kwargs)
             
-            
+        print("Building community model")
         self.build_model(**kwargs)
         
     def build_model(self, **kwargs) : 
@@ -414,6 +415,8 @@ class community :
                 t_optimizer1 += time.time() - t_opti_start
             
             else : 
+                penas = 0
+                objs = 0
                 for i in self.current_members_id :
                     member = self.members[i]
                     member.update_params_admm(**member_args)
@@ -422,6 +425,12 @@ class community :
                     t_opti_start = time.time()
                     member.self_optimize(solver, options=solver_options)
                     t_optimizer1 += time.time() - t_opti_start
+                    
+                    print("Power exchange for member ", i, " : ", [pyo.value(member.P_exchange[k]) for k in range(24)])
+                    print("Active members : ", member.mod_member.active_members.extract_values())
+                    
+                    objs += pyo.value(member.mod_member.obj_expr)
+                    penas += pyo.value(member.mod_member.rho/2*member.mod_member.sqr_pena_expr)
                     
                     for_x_k_1 = member.P_exchange_repr.extract_values()
                     for_surplus = member.P_surplus.extract_values()
@@ -472,10 +481,14 @@ class community :
             self.U_exchange.store_values({(i, j, t) : U_numpy[i*len1 + j*len2 + t] for i in self.current_members_id for j in self.current_members_id for t in self.time_set})
             self.U_surplus.store_values({(i, t) : U_numpy[len3 + i*len2 + t] for i in self.current_members_id for t in self.time_set})
 
+            if kwargs.get("debug_admm", False) : 
+                self.debug_model()
             iter += 1
             # print("Surplus : ", Surplus)
-            # print("\niter, r_k, s_k : ", iter, r_k, s_k)
-            # print("rho : ", rho)
+            print("\niter, r_k, s_k : ", iter, r_k, s_k)
+            print("rho : ", rho)
+            # print("Z_k : ", z_k)
+            print("penas : ", penas, "objs : ", objs)
             
         if parallel :
             for i in self.current_members_id :
@@ -627,17 +640,28 @@ class community :
         return s
                 
     def aggregate_distributed_information(self, privacy=0, from_memory=False) : 
-        powers = {}
+        powers = {"devices" : {}}
         for i in self.current_members_id :
             member_power = self.members[i].send_power_information(privacy=privacy, from_memory=from_memory)
             self.results[f'members_{i}'] = {}
             for key, value in member_power.items() :
-                self.results[f'members_{i}'][key] = value
-                if key not in powers :
-                    powers[key] = value
-                else :
-                    for k in range(len(value)) : 
-                        powers[key][k] += value[k]
+                if key != "devices" :             
+                    self.results[f'members_{i}'][key] = value
+                    if key not in powers :
+                        powers[key] = value[:]
+                    else :
+                        for k in range(len(value)) : 
+                            powers[key][k] += value[k]
+                            
+                else : 
+                    for dev in value : 
+                        self.results[f'members_{i}'][dev] = value[dev][:]
+                        if dev not in powers["devices"] :
+                            powers["devices"][dev] = value[dev][:]
+                        else : 
+                            for k in range(len(value[dev])) : 
+                                powers["devices"][dev][k] += value[dev][k]
+                        
                         
         objs = {}
         for i in self.current_members_id :

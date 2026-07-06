@@ -56,6 +56,8 @@ def generate_devices_profile(nb_people, deltat, equipments, build, weather, **kw
         profile += generate_profile(nb_people, False, deltat)
         
     profile = profile[:int(total_time/deltat)]
+    if kwargs.get("one_empty_day", False) :
+        profile[-(int(24/deltat)):] = ['00' for k in range(int(24/deltat))]
     
     final_result = {}
     args = {}
@@ -103,7 +105,7 @@ def generate_member_data_random(**kwargs) :
     nb_people, deltat, equipments, build, weather = generate_devices_data(**kwargs)
     return generate_devices_profile(nb_people, deltat, equipments, build, weather, **kwargs)
 
-def separate_horizon_futur(param, horizon) : 
+def separate_horizon_futur(param, horizon, deltat=1) : 
     # Horizon, total_time as indices and not hours
     devices_futur = {}
     param["device_options"]["total_time"] = horizon
@@ -111,6 +113,7 @@ def separate_horizon_futur(param, horizon) :
         dico = param["devices"][dev]
         typ = dico["type"]
         if typ == 'EV' : 
+            # print("\nEV device : ", dico)
             time_home = dico["parameters"]["time_home"]
             # print(time_home)
             Emins = dico["parameters"]["E_min"]
@@ -121,15 +124,20 @@ def separate_horizon_futur(param, horizon) :
             if i < len(time_home) and time_home[i][0] < horizon : 
                 time_home_horizon = time_home[:i] + [[time_home[i][0], horizon]]
                 time_home_futur = [[horizon, time_home[i][1]]] + time_home[i+1:]
+                E0s_horizon = E0s[:i+1] # One value for each start of a home period, Not sure about this
+                E0s_futur = [0] + E0s[i+1:] # Duplicate starting energy.
+                delta_e_max = deltat * dico["parameters"]["p_range"][1]
+                Emins_horizon = Emins[:i] + [Emins[i]/((time_home[i][1] - horizon)*delta_e_max)] # Minimum energy needed for validating the futur constraint
+                Emins_futur = Emins[i:] 
             else : 
                 time_home_horizon = time_home[:i]
                 time_home_futur = time_home[i:]
+                E0s_horizon = E0s[:i] # One value for each start of a home period
+                E0s_futur = E0s[i:]
+                Emins_horizon = Emins[:i] # One value for each end of a home period. And as much not home periods as 
+                Emins_futur = Emins[i:]
             
-            Emins_horizon = Emins[:i] # One value for each end of a home period. And as much not home periods as 
-            Emins_futur = Emins[i:]
             
-            E0s_horizon = E0s[:i] # One value for each start of a home period
-            E0s_futur = E0s[i:]
                 
             devices_futur[dev] = {
                 "futur_time_home" : time_home_futur,
@@ -139,6 +147,7 @@ def separate_horizon_futur(param, horizon) :
             dico["parameters"]["time_home"] = time_home_horizon
             dico["parameters"]["E_min"] = Emins_horizon
             dico["parameters"]["E0s"] = E0s_horizon
+
   
 
         if typ == 'white_good' : 
@@ -151,10 +160,16 @@ def separate_horizon_futur(param, horizon) :
             i = 0
             while i < len(start_time) and start_time[i] + time_range[i][1] <= horizon :
                 i += 1
-            start_time_horizon = start_time[:i]
-            cycle_length_horizon = cycle_length[:i]
-            time_range_horizon = time_range[:i]
-            power_needed_horizon = power_needed[:i]
+            if i >= len(start_time) :
+                start_time_horizon = start_time[:]
+                cycle_length_horizon = cycle_length[:]
+                time_range_horizon = time_range[:]
+                power_needed_horizon = power_needed[:]
+            else :
+                start_time_horizon = start_time[:i]
+                cycle_length_horizon = cycle_length[:i]
+                time_range_horizon = time_range[:i]
+                power_needed_horizon = power_needed[:i]
             start_time_futur = start_time[i:]
             cycle_length_futur = cycle_length[i:]
             time_range_futur = time_range[i:]

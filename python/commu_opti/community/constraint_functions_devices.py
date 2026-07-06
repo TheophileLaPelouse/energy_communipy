@@ -37,7 +37,7 @@ def soc_end(mod) :
     return mod.E[mod.t_set.at(-1)] == mod.E_end
     
 def end_constraint(mod, t) : 
-    return mod.E[t] >= mod.E_min_t[t]
+    return mod.E[t] + mod.comfort_charge[t] >= mod.E_min_t[t]
 
 
 # White goods : 

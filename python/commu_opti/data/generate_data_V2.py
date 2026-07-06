@@ -497,7 +497,7 @@ def white_goods_profile(device_name, allocated, deltat, when_profile, activation
                         start_range[i] = (start, end)
                         break
         start_pref = sorted(start_range.keys())
-        time_range = [start_range[k] for k in start_pref]
+        time_range = [[start_range[k][0]-k, start_range[k][1]-k] for k in start_pref]
                 
     else :
         # We'll see later, for now no time range for these devices 
@@ -765,6 +765,7 @@ def device_power_profile(activation_profile, when_profile, presence_profile, dev
         
     if device_name in ['washing_machine', 'dishwasher', 'dryer', 'plaque_electrique', 'hoven'] : 
         params = white_goods_profile(device_name, allocated, deltat, when_profile, activation_profile)
+        # print("params white goods", device_name, params)
     
     if device_name in ['toaster', 'boiler', 'small_object_charge', 'microwave'] : 
         params = small_white_goods_profile(allocated, deltat, total_time, activation_profile)

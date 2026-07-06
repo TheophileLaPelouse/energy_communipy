@@ -21,22 +21,27 @@ def rolling_horizon_optimization(params_member, param_commu, price_options, **kw
     weather_forecast = kwargs.get("weather_forecast", [0 for k in range(total_time)])
     weather_history = kwargs.get("weather_history", [0 for k in range(total_time)])
     
-    for param in params_member : 
-        param["device_options"] = {"total_time" : total_time, "deltat" : deltat}
+    if not kwargs.get("skip_params", False) : 
+    
+        for param in params_member : 
+            param["device_options"] = {"total_time" : total_time, "deltat" : deltat}
 
-        param, devices_futur = separate_horizon_futur(param, horizon)
-        param["parameters"]["time_window"] = [date, date + dt.timedelta(days=nb_of_days)]
-        param["parameters"]["horizon"] = horizon
-        param["parameters"]["devices_futur"] = devices_futur
+            param, devices_futur = separate_horizon_futur(param, horizon, deltat=deltat)
+            param["parameters"]["time_window"] = [date, date + dt.timedelta(days=nb_of_days)]
+            param["parameters"]["horizon"] = horizon
+            param["parameters"]["devices_futur"] = devices_futur
+            if "PV" in param["devices"] : 
+                param["devices"]["PV"]["parameters"]["irradiance_profile"] = [irradiance_history[0]] + irradiance_forecast[1:horizon]
 
+    
     members = define_members(params_member)
 
     new_weather = [20 for k in range(horizon)]
 
     community = define_community(members, **param_commu, **price_options)
-    
+    new_irradiance=[]
     for t in range(kwargs.get("until", total_time - horizon)) :
-    # for t in range(6) :
+        print("Starting optimization for time step", t)
         if community.kwargs["method"] == "admm" : 
             community.optimize_admm("gurobi", **community.kwargs)
         else : 
@@ -44,10 +49,11 @@ def rolling_horizon_optimization(params_member, param_commu, price_options, **kw
         if t == 0 : 
             community.aggregate_distributed_information()
             without_rolling = community.results.copy()
+            print(community.ref_values)
         print("\nOptimization finished !", t)
         
         i = 0
-        d = community.members[0].devices[0]
+        # d = community.members[0].devices[0]
         # pv = community.members[0].devices[1]
         # while i < 24 and pyo.value(d.mod.bin_t0[0, i])*d.mod.available_time_set[0, i].value != 1:
         #     i += 1
@@ -63,22 +69,31 @@ def rolling_horizon_optimization(params_member, param_commu, price_options, **kw
         # print("Pcons", [pyo.value(d.mod.Pcons[k]) for k in range(24)])
         # print("E_return", [pyo.value(d.mod.E_return[k]) for k in range(24)])
         # print("E_min_t", [pyo.value(d.mod.E_min_t[k]) for k in range(24)])
-        
-        irradiance_t = irradiance_history[t]
-        new_irradiance = [irradiance_t] + irradiance_forecast[t+1:t+horizon]
+        # print("new_irradiance1", new_irradiance)
+        irradiance_t = irradiance_history[t+1]
+        new_irradiance = [irradiance_t] + irradiance_forecast[t+2:t+1+horizon]
+        # print("new_irradiance2", new_irradiance)
         weather_t = weather_history[t]
         new_weather = [weather_t] + weather_forecast[t+1:t+horizon]
+        new_price_buy = price_options["eco"]["cost_grid_buy"][t+1:t+1+horizon]
+        print(len(new_price_buy), len(price_options["eco"]["cost_grid_buy"]))
+        new_price_sell = price_options["eco"]["cost_grid_sell"][t+1:t+1+horizon]
+        new_prices = {"price_buy" : new_price_buy, "price_sell" : new_price_sell}
 
         for i in community.current_members_id : 
             m = community.members[i]
             m.keep_in_memory()
-            m.rolling_horizon_update(new_weather, new_irradiance)
+            m.rolling_horizon_update(new_weather, new_irradiance, new_prices)
 
-    for i in community.current_members_id : 
-        m = community.members[i]
-        m.objectif_from_memory()
-    community.aggregate_distributed_information(from_memory=True)
-    with_rolling = community.results.copy()
+    if kwargs.get("until", total_time - horizon) > 0 : 
+        for i in community.current_members_id : 
+            m = community.members[i]
+            m.objectif_from_memory()
+        community.aggregate_distributed_information(from_memory=True)
+        with_rolling = community.results.copy()
+    else : 
+        with_rolling = None
+        without_rolling = None
     
     if debug : 
         return with_rolling, without_rolling, {"community" : community}

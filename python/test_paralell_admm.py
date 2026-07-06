@@ -41,7 +41,7 @@ def test_complexity(agents, method, test_calc_ref=False, calc_ref=True, max_iter
     n = len(agents)
     
     t2 = time()
-    total_time = 72
+    total_time = 24
     members_params = []
     for i, agent in enumerate(agents) :
         param = {"devices" : agent, "device_options" : {"total_time" : total_time, "deltat" : 1}, 
@@ -64,23 +64,24 @@ def test_complexity(agents, method, test_calc_ref=False, calc_ref=True, max_iter
     print(f"members defined in {t3 - t2} seconds \n")
     
     param_commu = {
-        "method" : method,
-        "deltat" : 1,
-        "total_time" : total_time,
-        "calc_ref" : calc_ref, 
-        "ref_values" : [1, 1, 1, 1],
-        "max_iter" : max_iter,
-        "rho" : 0.001/n, 
-        "power_max_random" : 0,
-        "parallel" : parallel,
-        "eps_r" : eps_r, 
-        "eps_s" : eps_s,
-    }
+            "method" : method,
+            "deltat" : 1,
+            "total_time" : total_time,
+            "calc_ref" : True, 
+            "max_iter" : 50,
+            "rho" : 0.001/n, 
+            "power_max_random" : 0,
+            "parallel" : parallel,
+            "eps_r" : 1e-2, 
+            "eps_s" : 1e-2,
+            # "debug_ref" : True,
+            # "debug_admm" : True,
+        }
 
     price_options = {
         "eco" : {
-            "cost_grid_buy" : 0.0003, # €/wh
-            "cost_grid_sell" : -0.00003,
+            "cost_grid_buy" : [0.0003 for k in range(total_time)], # €/wh
+            "cost_grid_sell" : [-0.0003 for k in range(total_time)],
             "cost_ex" : 0, 
             "cost_PV" : 800, # € per m2
             # "cost_PV" : 0, # per m2
@@ -124,11 +125,18 @@ def test_complexity(agents, method, test_calc_ref=False, calc_ref=True, max_iter
     return (t7 - t6, t7-t2, community, members_params, state)
 
 def compare_admm_centralized(admm_param, centralized_param, n) : 
-    admm_param["calc_ref"] = False
-    centralized_param["calc_ref"] = False
-    admm_param["max_iter"] = 100
     
-    agents = generate_test_data(n)
+    flag = True
+    c = 0
+    while flag : 
+        try : 
+            agents = generate_test_data(n)
+            flag =False
+        except :
+            c+=1
+            if c> 5 : 
+                return(None, None, None, None, None, None)
+        
     
     results_admm = test_complexity(agents, "admm", **admm_param)
     results_centralized = test_complexity(agents, "centralized", **centralized_param)
@@ -140,20 +148,21 @@ def compare_admm_centralized(admm_param, centralized_param, n) :
     obj_admm = co_admm.results["aggregated_objs"]["price"] + co_admm.results["aggregated_objs"]["enviro"] + co_admm.results["aggregated_objs"]["auto"] + co_admm.results["aggregated_objs"]["confort"]
     obj_centralized = co_centralized.results["aggregated_objs"]["price"] + co_centralized.results["aggregated_objs"]["enviro"] + co_centralized.results["aggregated_objs"]["auto"] + co_centralized.results["aggregated_objs"]["confort"]
     obj_diff = obj_admm - obj_centralized
+    print(co_centralized.results.keys())
     time_centralized = co_centralized.results["centralized"]["Times"]["self_optimize"]
     time_admm_global = co_admm.results["admm"]["Times"]["global_optimizer"]
     time_admm_local = co_admm.results["admm"]["Times"]["local_optimizer"]
     return (obj_diff, time_centralized, time_admm_global, time_admm_local, co_admm, co_centralized)
 
-def plot_comparaison() : 
-    n = range(1,6)
+def plot_comparaison(parallel=False) : 
+    n = range(1, 40, 1)
     obj_diffs = []
     time_centralizeds = []
     time_admm_globals = []
     time_admm_locals = []
     for k in n : 
         print(f"\nComparing ADMM and centralized for {k} members...\n")
-        admm_param = {}
+        admm_param = {"parallel" : parallel}
         centralized_param = {}
         res = compare_admm_centralized(admm_param, centralized_param, k)
         obj_diffs.append(res[0])
@@ -198,43 +207,43 @@ if __name__ == "__main__" :
     #     default_args["n"] = int(args[0])
     # retur = test_complexity(**default_args)
     # co = retur[2]
-    # plot_comparaison()
+    plot_comparaison(parallel=False)
     
-    eps_r = 5
-    eps_s = 5
-    obj_diffs = []
-    for k in range(6) :
-        eps_r /= (k%2)*5 + (k+1)%2*2
-        eps_s /= (k%2)*5 + (k+1)%2*2
-        diffs = []
-        for j in range(5) : 
-            n=5
-            args_admm = {
-                    "method" : "admm",
-                    "test_calc_ref" : False,
-                    "calc_ref" : False,
-                    "max_iter" : 50, 
-                    'parallel' : False, 
-                    'eps_r' : eps_r,
-                    'eps_s' : eps_s
-                }
+    # eps_r = 5
+    # eps_s = 5
+    # obj_diffs = []
+    # for k in range(6) :
+    #     eps_r /= (k%2)*5 + (k+1)%2*2
+    #     eps_s /= (k%2)*5 + (k+1)%2*2
+    #     diffs = []
+    #     for j in range(5) : 
+    #         n=5
+    #         args_admm = {
+    #                 "method" : "admm",
+    #                 "test_calc_ref" : False,
+    #                 "calc_ref" : False,
+    #                 "max_iter" : 50, 
+    #                 'parallel' : False, 
+    #                 'eps_r' : eps_r,
+    #                 'eps_s' : eps_s
+    #             }
         
-            args_centralized = {
-                    "method" : "centralized",
-                    "calc_ref" : False
-            }
+    #         args_centralized = {
+    #                 "method" : "centralized",
+    #                 "calc_ref" : False
+    #         }
         
-            agents = generate_test_data(n)
-            retur1 = test_complexity(agents, **args_admm)
-            retur2 = test_complexity(agents, **args_centralized)
-            coa = retur1[2]
-            coc = retur2[2]
-            obj_admm = coa.results["aggregated_objs"]["price"] + coa.results["aggregated_objs"]["enviro"] + coa.results["aggregated_objs"]["confort"]
-            obj_centr = coc.results["aggregated_objs"]["price"] + coc.results["aggregated_objs"]["enviro"] + coc.results["aggregated_objs"]["confort"]
-            relative_diff = abs(obj_admm - obj_centr) / (obj_admm + 1e-8)
-            diffs.append(relative_diff)
-        average_diff = sum(diffs) / len(diffs)
-        obj_diffs.append(average_diff)
+    #         agents = generate_test_data(n)
+    #         retur1 = test_complexity(agents, **args_admm)
+    #         retur2 = test_complexity(agents, **args_centralized)
+    #         coa = retur1[2]
+    #         coc = retur2[2]
+    #         obj_admm = coa.results["aggregated_objs"]["price"] + coa.results["aggregated_objs"]["enviro"] + coa.results["aggregated_objs"]["confort"]
+    #         obj_centr = coc.results["aggregated_objs"]["price"] + coc.results["aggregated_objs"]["enviro"] + coc.results["aggregated_objs"]["confort"]
+    #         relative_diff = abs(obj_admm - obj_centr) / (obj_admm + 1e-8)
+    #         diffs.append(relative_diff)
+    #     average_diff = sum(diffs) / len(diffs)
+    #     obj_diffs.append(average_diff)
 
     # to_plot = {
     #     "powers" : {

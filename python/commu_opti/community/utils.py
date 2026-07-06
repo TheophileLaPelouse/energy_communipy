@@ -20,19 +20,17 @@ def calc_auto(Pgrid, **kwargs) :
     ref_value = kwargs.get("ref", 1)
     return sum(Pgrid[k]*deltat*coef_auto for k in range(len(Pgrid)))/ref_value
 
-def calc_eco(Pgrid_plus, Pgrid_minus, Pex, **kwargs) : 
+def calc_eco(Pgrid_plus, Pgrid_minus, Pex, price_buy, price_sell, **kwargs) : 
     deltat = kwargs.get("deltat", 1)
-    cost_grid_buy = kwargs.get("cost_grid_buy", [1 for k in range(len(Pgrid_plus))])
-    cost_grid_sell = kwargs.get("cost_grid_sell", [-0.25 for k in range(len(Pgrid_minus))])
     cost_ex = kwargs.get("cost_ex", 0)
     ref_value = kwargs.get("ref", 1)
     taxes_buy = kwargs.get("turpe_buy", 1)
     taxes_sell = kwargs.get("turpe_sell", 1)
     
     return (
-        sum(Pgrid_plus[k]*deltat*cost_grid_buy[k]*taxes_buy for k in range(len(Pgrid_plus))) 
+        sum(Pgrid_plus[k]*deltat*price_buy[k]*taxes_buy for k in range(len(Pgrid_plus))) 
         + sum(Pex[k]*deltat*cost_ex*taxes_sell for k in range(len(Pex)))
-        + sum(Pgrid_minus[k]*deltat*cost_grid_sell[k]*taxes_sell for k in range(len(Pgrid_minus)))
+        + sum(Pgrid_minus[k]*deltat*price_sell[k]*taxes_sell for k in range(len(Pgrid_minus)))
         )/ref_value
 
 def calc_pena_pow(excess_l, excess_u, **pena_args) : 
@@ -40,12 +38,13 @@ def calc_pena_pow(excess_l, excess_u, **pena_args) :
     ref_value = pena_args.get("ref", 1)
     return sum(excess_l[t] + excess_u[t] for t in range(len(excess_l)))*coef/ref_value
 
-def calc_confort(p_confort, t_confort, **kwargs) : 
+def calc_confort(p_confort, t_confort, charge_confort, **kwargs) : 
     coef_p = kwargs.get("coef_p", 1)
     coef_t = kwargs.get("coef_t", 1)
+    coef_c = kwargs.get("coef_c", 1)
     ref_value = kwargs.get("ref", 1)
     return (sum(p_confort[t]*coef_p  for t in range(len(p_confort))) 
-            + t_confort*coef_t*len(p_confort))/ref_value
+            + t_confort*coef_t*len(p_confort) + sum(charge_confort[t]*coef_c for t in range(len(charge_confort))))/ref_value
 
 def calc_invest_cost(PV_cap, PV_present, bat_cap, bat_present, **kwargs) : 
     cost_PV = kwargs.get("cost_PV", 1000)
@@ -61,8 +60,8 @@ def calc_invest_cost(PV_cap, PV_present, bat_cap, bat_present, **kwargs) :
     bat_price = invest_cost(cost_bat*bat_cap + bat_present*cost_bat_min, discount_rate, lifetime)
     return (PV_price + bat_price)/ref_value*(simul_time/8760)
 
-def calc_eco_total(Pgrid_plus, Pgrid_minus, Pex, PV_cap, PV_present, bat_cap, bat_present, **kwargs) :
-    eco = calc_eco(Pgrid_plus, Pgrid_minus, Pex, **kwargs)
+def calc_eco_total(Pgrid_plus, Pgrid_minus, Pex, PV_cap, PV_present, bat_cap, bat_present, price_buy, price_sell, **kwargs) :
+    eco = calc_eco(Pgrid_plus, Pgrid_minus, Pex, price_buy, price_sell, **kwargs)
     invest = calc_invest_cost(PV_cap, PV_present, bat_cap, bat_present, **kwargs)
     return (eco + invest)
     

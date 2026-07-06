@@ -21,13 +21,20 @@ def define_devices(list_args, **kwargs) :
         args["parameters"]["name"] = name
         
         if args["type"] == "white_good" : 
-            devices.append(white_good(**args["parameters"], **kwargs))
+            # devices.append(white_good(**args["parameters"], **kwargs))
+            try : 
+                devices.append(white_good(**args["parameters"], **kwargs))
+            except Exception as e : 
+                print("Parameters:", args["parameters"])
+                raise e
         elif args["type"] == "flex" :
             devices.append(flex(**args["parameters"], **kwargs))
         elif args["type"] == "EV" :
             try : 
                 devices.append(EV(**args["parameters"], **kwargs))
-            except Error as e
+            except Exception as e : 
+                print("Parameters:", args["parameters"])
+                raise e
         elif args["type"] == "fixed" :
             devices.append(fixed(**args["parameters"], **kwargs))
         elif args["type"] == "device" :

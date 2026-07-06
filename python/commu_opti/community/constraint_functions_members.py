@@ -32,12 +32,21 @@ def rule_p_confort(m, t) :
         if hasattr(d, "p_confort_lvl") : 
             confort += d.p_confort_lvl[t]
     return confort
+
 def rule_t_confort(m) : 
     confort = 0
     for i in m.device_set : 
         d = getattr(m, f"device{i}")
         if hasattr(d, "t_confort_lvl") : 
             confort += d.t_confort_lvl
+    return confort
+
+def rule_charge_confort(m, t) :
+    confort = 0
+    for i in m.device_set : 
+        d = getattr(m, f"device{i}")
+        if hasattr(d, "comfort_charge") : 
+            confort += d.comfort_charge[t]
     return confort
 
 def rule_PV_surface(m) : 

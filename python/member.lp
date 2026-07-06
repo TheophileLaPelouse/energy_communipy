@@ -79,6 +79,30 @@ obj:
 -1 device1_allocated_power(23)
 +24 device0_starting_time_plus(0)
 +24 device0_starting_time_minus(0)
++1 device3_comfort_charge(0)
++1 device3_comfort_charge(1)
++1 device3_comfort_charge(2)
++1 device3_comfort_charge(3)
++1 device3_comfort_charge(4)
++1 device3_comfort_charge(5)
++1 device3_comfort_charge(6)
++1 device3_comfort_charge(7)
++1 device3_comfort_charge(8)
++1 device3_comfort_charge(9)
++1 device3_comfort_charge(10)
++1 device3_comfort_charge(11)
++1 device3_comfort_charge(12)
++1 device3_comfort_charge(13)
++1 device3_comfort_charge(14)
++1 device3_comfort_charge(15)
++1 device3_comfort_charge(16)
++1 device3_comfort_charge(17)
++1 device3_comfort_charge(18)
++1 device3_comfort_charge(19)
++1 device3_comfort_charge(20)
++1 device3_comfort_charge(21)
++1 device3_comfort_charge(22)
++1 device3_comfort_charge(23)
 
 s.t.
 
@@ -778,68 +802,15 @@ c_e_P_grid_con(23)_:
 ]
 = 0
 
-c_l_device0_p_con_l(0)_:
-+1 device0_allocated_power(0)
->= 20.0
-
-c_u_device0_p_con_u(0)_:
-+1 device0_allocated_power(0)
-<= 20.0
-
 c_e_device0_pow_con(0)_:
 -1 device0_Pcons(0)
 +20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(1)_:
 -1 device0_Pcons(1)
 +20.0 device0_bin_t0(0_0)
 +20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(2)_:
@@ -847,591 +818,153 @@ c_e_device0_pow_con(2)_:
 +20.0 device0_bin_t0(0_0)
 +20.0 device0_bin_t0(0_1)
 +20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(3)_:
 -1 device0_Pcons(3)
-+20.0 device0_bin_t0(0_0)
 +20.0 device0_bin_t0(0_1)
 +20.0 device0_bin_t0(0_2)
 +20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(4)_:
 -1 device0_Pcons(4)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
 +20.0 device0_bin_t0(0_2)
 +20.0 device0_bin_t0(0_3)
 +20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(5)_:
 -1 device0_Pcons(5)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
 +20.0 device0_bin_t0(0_3)
 +20.0 device0_bin_t0(0_4)
 +20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(6)_:
 -1 device0_Pcons(6)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
 +20.0 device0_bin_t0(0_4)
 +20.0 device0_bin_t0(0_5)
 +20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(7)_:
 -1 device0_Pcons(7)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
 +20.0 device0_bin_t0(0_5)
 +20.0 device0_bin_t0(0_6)
 +20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(8)_:
 -1 device0_Pcons(8)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
 +20.0 device0_bin_t0(0_6)
 +20.0 device0_bin_t0(0_7)
 +20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(9)_:
 -1 device0_Pcons(9)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
 +20.0 device0_bin_t0(0_7)
 +20.0 device0_bin_t0(0_8)
 +20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(10)_:
 -1 device0_Pcons(10)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
 +20.0 device0_bin_t0(0_8)
 +20.0 device0_bin_t0(0_9)
 +20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(11)_:
 -1 device0_Pcons(11)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
 +20.0 device0_bin_t0(0_9)
 +20.0 device0_bin_t0(0_10)
 +20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(12)_:
 -1 device0_Pcons(12)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
 +20.0 device0_bin_t0(0_10)
 +20.0 device0_bin_t0(0_11)
 +20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(13)_:
 -1 device0_Pcons(13)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
 +20.0 device0_bin_t0(0_11)
 +20.0 device0_bin_t0(0_12)
 +20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(14)_:
 -1 device0_Pcons(14)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
 +20.0 device0_bin_t0(0_12)
 +20.0 device0_bin_t0(0_13)
 +20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(15)_:
 -1 device0_Pcons(15)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
 +20.0 device0_bin_t0(0_13)
 +20.0 device0_bin_t0(0_14)
 +20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(16)_:
 -1 device0_Pcons(16)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
 +20.0 device0_bin_t0(0_14)
 +20.0 device0_bin_t0(0_15)
 +20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(17)_:
 -1 device0_Pcons(17)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
 +20.0 device0_bin_t0(0_15)
 +20.0 device0_bin_t0(0_16)
 +20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(18)_:
 -1 device0_Pcons(18)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
 +20.0 device0_bin_t0(0_16)
 +20.0 device0_bin_t0(0_17)
 +20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(19)_:
 -1 device0_Pcons(19)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
 +20.0 device0_bin_t0(0_17)
 +20.0 device0_bin_t0(0_18)
 +20.0 device0_bin_t0(0_19)
-+20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(20)_:
 -1 device0_Pcons(20)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
 +20.0 device0_bin_t0(0_18)
 +20.0 device0_bin_t0(0_19)
 +20.0 device0_bin_t0(0_20)
-+20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(21)_:
 -1 device0_Pcons(21)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
 +20.0 device0_bin_t0(0_19)
 +20.0 device0_bin_t0(0_20)
 +20.0 device0_bin_t0(0_21)
-+20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(22)_:
 -1 device0_Pcons(22)
-+20.0 device0_bin_t0(0_0)
-+20.0 device0_bin_t0(0_1)
-+20.0 device0_bin_t0(0_2)
-+20.0 device0_bin_t0(0_3)
-+20.0 device0_bin_t0(0_4)
-+20.0 device0_bin_t0(0_5)
-+20.0 device0_bin_t0(0_6)
-+20.0 device0_bin_t0(0_7)
-+20.0 device0_bin_t0(0_8)
-+20.0 device0_bin_t0(0_9)
-+20.0 device0_bin_t0(0_10)
-+20.0 device0_bin_t0(0_11)
-+20.0 device0_bin_t0(0_12)
-+20.0 device0_bin_t0(0_13)
-+20.0 device0_bin_t0(0_14)
-+20.0 device0_bin_t0(0_15)
-+20.0 device0_bin_t0(0_16)
-+20.0 device0_bin_t0(0_17)
-+20.0 device0_bin_t0(0_18)
-+20.0 device0_bin_t0(0_19)
 +20.0 device0_bin_t0(0_20)
 +20.0 device0_bin_t0(0_21)
 +20.0 device0_bin_t0(0_22)
-+20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_pow_con(23)_:
 -1 device0_Pcons(23)
++20.0 device0_bin_t0(0_21)
++20.0 device0_bin_t0(0_22)
++20.0 device0_bin_t0(0_23)
 = 0
 
 c_e_device0_time_con(0)_:
@@ -1457,7 +990,6 @@ c_e_device0_time_con(0)_:
 +1 device0_bin_t0(0_19)
 +1 device0_bin_t0(0_20)
 +1 device0_bin_t0(0_21)
-+1 device0_bin_t0(0_22)
 = 1
 
 c_u_device0_starting_time_con_plus(0)_:
@@ -1513,6 +1045,45 @@ c_u_device0_starting_time_con_minus(0)_:
 -22 device0_bin_t0(0_22)
 -23 device0_bin_t0(0_23)
 <= -21
+
+c_u_device0_time_con2(0)_:
++1 device0_bin_t0(0_0)
++1 device0_bin_t0(0_1)
++1 device0_bin_t0(0_2)
++1 device0_bin_t0(0_3)
++1 device0_bin_t0(0_4)
++1 device0_bin_t0(0_5)
++1 device0_bin_t0(0_6)
++1 device0_bin_t0(0_7)
++1 device0_bin_t0(0_8)
++1 device0_bin_t0(0_9)
++1 device0_bin_t0(0_10)
++1 device0_bin_t0(0_11)
++1 device0_bin_t0(0_12)
++1 device0_bin_t0(0_13)
++1 device0_bin_t0(0_14)
++1 device0_bin_t0(0_15)
++1 device0_bin_t0(0_16)
++1 device0_bin_t0(0_17)
++1 device0_bin_t0(0_18)
++1 device0_bin_t0(0_19)
++1 device0_bin_t0(0_20)
++1 device0_bin_t0(0_21)
++1 device0_bin_t0(0_22)
++1 device0_bin_t0(0_23)
+<= 1
+
+c_u_device0_time_con2(1)_:
++0 ONE_VAR_CONSTANT
+<= 1
+
+c_u_device0_time_con2(2)_:
++0 ONE_VAR_CONSTANT
+<= 1
+
+c_u_device0_time_con2(3)_:
++0 ONE_VAR_CONSTANT
+<= 1
 
 c_l_device1_p_con_l(0)_:
 +1 device1_allocated_power(0)
@@ -1826,198 +1397,6 @@ c_e_device1_pow_con(23)_:
 +1 device1_Pcons(23)
 = 0
 
-c_l_device2_p_con_l(0)_:
-+1 device2_allocated_power(0)
->= 0
-
-c_l_device2_p_con_l(1)_:
-+1 device2_allocated_power(1)
->= 0
-
-c_l_device2_p_con_l(2)_:
-+1 device2_allocated_power(2)
->= 0
-
-c_l_device2_p_con_l(3)_:
-+1 device2_allocated_power(3)
->= 0
-
-c_l_device2_p_con_l(4)_:
-+1 device2_allocated_power(4)
->= 0
-
-c_l_device2_p_con_l(5)_:
-+1 device2_allocated_power(5)
->= 0
-
-c_l_device2_p_con_l(6)_:
-+1 device2_allocated_power(6)
->= 0
-
-c_l_device2_p_con_l(7)_:
-+1 device2_allocated_power(7)
->= 0
-
-c_l_device2_p_con_l(8)_:
-+1 device2_allocated_power(8)
->= 0
-
-c_l_device2_p_con_l(9)_:
-+1 device2_allocated_power(9)
->= 0
-
-c_l_device2_p_con_l(10)_:
-+1 device2_allocated_power(10)
->= 0
-
-c_l_device2_p_con_l(11)_:
-+1 device2_allocated_power(11)
->= 0
-
-c_l_device2_p_con_l(12)_:
-+1 device2_allocated_power(12)
->= 0
-
-c_l_device2_p_con_l(13)_:
-+1 device2_allocated_power(13)
->= 0
-
-c_l_device2_p_con_l(14)_:
-+1 device2_allocated_power(14)
->= 0
-
-c_l_device2_p_con_l(15)_:
-+1 device2_allocated_power(15)
->= 0
-
-c_l_device2_p_con_l(16)_:
-+1 device2_allocated_power(16)
->= 0
-
-c_l_device2_p_con_l(17)_:
-+1 device2_allocated_power(17)
->= 0
-
-c_l_device2_p_con_l(18)_:
-+1 device2_allocated_power(18)
->= 0
-
-c_l_device2_p_con_l(19)_:
-+1 device2_allocated_power(19)
->= 0
-
-c_l_device2_p_con_l(20)_:
-+1 device2_allocated_power(20)
->= 0
-
-c_l_device2_p_con_l(21)_:
-+1 device2_allocated_power(21)
->= 0
-
-c_l_device2_p_con_l(22)_:
-+1 device2_allocated_power(22)
->= 0
-
-c_l_device2_p_con_l(23)_:
-+1 device2_allocated_power(23)
->= 0
-
-c_u_device2_p_con_u(0)_:
-+1 device2_allocated_power(0)
-<= 0
-
-c_u_device2_p_con_u(1)_:
-+1 device2_allocated_power(1)
-<= 0
-
-c_u_device2_p_con_u(2)_:
-+1 device2_allocated_power(2)
-<= 0
-
-c_u_device2_p_con_u(3)_:
-+1 device2_allocated_power(3)
-<= 0
-
-c_u_device2_p_con_u(4)_:
-+1 device2_allocated_power(4)
-<= 0
-
-c_u_device2_p_con_u(5)_:
-+1 device2_allocated_power(5)
-<= 0
-
-c_u_device2_p_con_u(6)_:
-+1 device2_allocated_power(6)
-<= 0
-
-c_u_device2_p_con_u(7)_:
-+1 device2_allocated_power(7)
-<= 0
-
-c_u_device2_p_con_u(8)_:
-+1 device2_allocated_power(8)
-<= 0
-
-c_u_device2_p_con_u(9)_:
-+1 device2_allocated_power(9)
-<= 0
-
-c_u_device2_p_con_u(10)_:
-+1 device2_allocated_power(10)
-<= 0
-
-c_u_device2_p_con_u(11)_:
-+1 device2_allocated_power(11)
-<= 0
-
-c_u_device2_p_con_u(12)_:
-+1 device2_allocated_power(12)
-<= 0
-
-c_u_device2_p_con_u(13)_:
-+1 device2_allocated_power(13)
-<= 0
-
-c_u_device2_p_con_u(14)_:
-+1 device2_allocated_power(14)
-<= 0
-
-c_u_device2_p_con_u(15)_:
-+1 device2_allocated_power(15)
-<= 0
-
-c_u_device2_p_con_u(16)_:
-+1 device2_allocated_power(16)
-<= 0
-
-c_u_device2_p_con_u(17)_:
-+1 device2_allocated_power(17)
-<= 0
-
-c_u_device2_p_con_u(18)_:
-+1 device2_allocated_power(18)
-<= 0
-
-c_u_device2_p_con_u(19)_:
-+1 device2_allocated_power(19)
-<= 0
-
-c_u_device2_p_con_u(20)_:
-+1 device2_allocated_power(20)
-<= 0
-
-c_u_device2_p_con_u(21)_:
-+1 device2_allocated_power(21)
-<= 0
-
-c_u_device2_p_con_u(22)_:
-+1 device2_allocated_power(22)
-<= 0
-
-c_u_device2_p_con_u(23)_:
-+1 device2_allocated_power(23)
-<= 0
-
 c_e_device2_pow_con(0)_:
 +1 device2_Pcons(0)
 = 0
@@ -2122,198 +1501,6 @@ c_e_device2_pow_con(23)_:
 +1 device2_Pcons(23)
 = 0
 
-c_l_device3_p_con_l(0)_:
-+1 device3_allocated_power(0)
->= -10
-
-c_l_device3_p_con_l(1)_:
-+1 device3_allocated_power(1)
->= -10
-
-c_l_device3_p_con_l(2)_:
-+1 device3_allocated_power(2)
->= -10
-
-c_l_device3_p_con_l(3)_:
-+1 device3_allocated_power(3)
->= -10
-
-c_l_device3_p_con_l(4)_:
-+1 device3_allocated_power(4)
->= -10
-
-c_l_device3_p_con_l(5)_:
-+1 device3_allocated_power(5)
->= -10
-
-c_l_device3_p_con_l(6)_:
-+1 device3_allocated_power(6)
->= -10
-
-c_l_device3_p_con_l(7)_:
-+1 device3_allocated_power(7)
->= -10
-
-c_l_device3_p_con_l(8)_:
-+1 device3_allocated_power(8)
->= -10
-
-c_l_device3_p_con_l(9)_:
-+1 device3_allocated_power(9)
->= -10
-
-c_l_device3_p_con_l(10)_:
-+1 device3_allocated_power(10)
->= -10
-
-c_l_device3_p_con_l(11)_:
-+1 device3_allocated_power(11)
->= -10
-
-c_l_device3_p_con_l(12)_:
-+1 device3_allocated_power(12)
->= -10
-
-c_l_device3_p_con_l(13)_:
-+1 device3_allocated_power(13)
->= -10
-
-c_l_device3_p_con_l(14)_:
-+1 device3_allocated_power(14)
->= -10
-
-c_l_device3_p_con_l(15)_:
-+1 device3_allocated_power(15)
->= -10
-
-c_l_device3_p_con_l(16)_:
-+1 device3_allocated_power(16)
->= -10
-
-c_l_device3_p_con_l(17)_:
-+1 device3_allocated_power(17)
->= -10
-
-c_l_device3_p_con_l(18)_:
-+1 device3_allocated_power(18)
->= -10
-
-c_l_device3_p_con_l(19)_:
-+1 device3_allocated_power(19)
->= -10
-
-c_l_device3_p_con_l(20)_:
-+1 device3_allocated_power(20)
->= -10
-
-c_l_device3_p_con_l(21)_:
-+1 device3_allocated_power(21)
->= -10
-
-c_l_device3_p_con_l(22)_:
-+1 device3_allocated_power(22)
->= -10
-
-c_l_device3_p_con_l(23)_:
-+1 device3_allocated_power(23)
->= -10
-
-c_u_device3_p_con_u(0)_:
-+1 device3_allocated_power(0)
-<= 10
-
-c_u_device3_p_con_u(1)_:
-+1 device3_allocated_power(1)
-<= 10
-
-c_u_device3_p_con_u(2)_:
-+1 device3_allocated_power(2)
-<= 10
-
-c_u_device3_p_con_u(3)_:
-+1 device3_allocated_power(3)
-<= 10
-
-c_u_device3_p_con_u(4)_:
-+1 device3_allocated_power(4)
-<= 10
-
-c_u_device3_p_con_u(5)_:
-+1 device3_allocated_power(5)
-<= 10
-
-c_u_device3_p_con_u(6)_:
-+1 device3_allocated_power(6)
-<= 10
-
-c_u_device3_p_con_u(7)_:
-+1 device3_allocated_power(7)
-<= 10
-
-c_u_device3_p_con_u(8)_:
-+1 device3_allocated_power(8)
-<= 10
-
-c_u_device3_p_con_u(9)_:
-+1 device3_allocated_power(9)
-<= 10
-
-c_u_device3_p_con_u(10)_:
-+1 device3_allocated_power(10)
-<= 10
-
-c_u_device3_p_con_u(11)_:
-+1 device3_allocated_power(11)
-<= 10
-
-c_u_device3_p_con_u(12)_:
-+1 device3_allocated_power(12)
-<= 10
-
-c_u_device3_p_con_u(13)_:
-+1 device3_allocated_power(13)
-<= 10
-
-c_u_device3_p_con_u(14)_:
-+1 device3_allocated_power(14)
-<= 10
-
-c_u_device3_p_con_u(15)_:
-+1 device3_allocated_power(15)
-<= 10
-
-c_u_device3_p_con_u(16)_:
-+1 device3_allocated_power(16)
-<= 10
-
-c_u_device3_p_con_u(17)_:
-+1 device3_allocated_power(17)
-<= 10
-
-c_u_device3_p_con_u(18)_:
-+1 device3_allocated_power(18)
-<= 10
-
-c_u_device3_p_con_u(19)_:
-+1 device3_allocated_power(19)
-<= 10
-
-c_u_device3_p_con_u(20)_:
-+1 device3_allocated_power(20)
-<= 10
-
-c_u_device3_p_con_u(21)_:
-+1 device3_allocated_power(21)
-<= 10
-
-c_u_device3_p_con_u(22)_:
-+1 device3_allocated_power(22)
-<= 10
-
-c_u_device3_p_con_u(23)_:
-+1 device3_allocated_power(23)
-<= 10
-
 c_e_device3_soc_con(0)_:
 +1 device3_E(0)
 = 0.0
@@ -2321,355 +1508,403 @@ c_e_device3_soc_con(0)_:
 c_e_device3_soc_con(1)_:
 -1 device3_E(0)
 +1 device3_E(1)
--0.98 device3_P_plus(1)
-+1.0204081632653061 device3_P_minus(1)
+-0.95 device3_P_plus(0)
++1.0526315789473684 device3_P_minus(0)
 = 0
 
 c_e_device3_soc_con(2)_:
 -1 device3_E(1)
 +1 device3_E(2)
--0.98 device3_P_plus(2)
-+1.0204081632653061 device3_P_minus(2)
+-0.95 device3_P_plus(1)
++1.0526315789473684 device3_P_minus(1)
 = 0
 
 c_e_device3_soc_con(3)_:
 -1 device3_E(2)
 +1 device3_E(3)
--0.98 device3_P_plus(3)
-+1.0204081632653061 device3_P_minus(3)
+-0.95 device3_P_plus(2)
++1.0526315789473684 device3_P_minus(2)
 = 0
 
 c_e_device3_soc_con(4)_:
 -1 device3_E(3)
 +1 device3_E(4)
--0.98 device3_P_plus(4)
-+1.0204081632653061 device3_P_minus(4)
+-0.95 device3_P_plus(3)
++1.0526315789473684 device3_P_minus(3)
 = 0
 
 c_e_device3_soc_con(5)_:
 -1 device3_E(4)
 +1 device3_E(5)
--0.98 device3_P_plus(5)
-+1.0204081632653061 device3_P_minus(5)
+-0.95 device3_P_plus(4)
++1.0526315789473684 device3_P_minus(4)
 = 0
 
 c_e_device3_soc_con(6)_:
 -1 device3_E(5)
 +1 device3_E(6)
--0.98 device3_P_plus(6)
-+1.0204081632653061 device3_P_minus(6)
+-0.95 device3_P_plus(5)
++1.0526315789473684 device3_P_minus(5)
 = 0
 
 c_e_device3_soc_con(7)_:
 -1 device3_E(6)
 +1 device3_E(7)
--0.98 device3_P_plus(7)
-+1.0204081632653061 device3_P_minus(7)
+-0.95 device3_P_plus(6)
++1.0526315789473684 device3_P_minus(6)
 = 0
 
 c_e_device3_soc_con(8)_:
 -1 device3_E(7)
 +1 device3_E(8)
--0.98 device3_P_plus(8)
-+1.0204081632653061 device3_P_minus(8)
+-0.95 device3_P_plus(7)
++1.0526315789473684 device3_P_minus(7)
 = 0
 
 c_e_device3_soc_con(9)_:
 -1 device3_E(8)
 +1 device3_E(9)
--0.98 device3_P_plus(9)
-+1.0204081632653061 device3_P_minus(9)
+-0.95 device3_P_plus(8)
++1.0526315789473684 device3_P_minus(8)
 = 0
 
 c_e_device3_soc_con(10)_:
 -1 device3_E(9)
 +1 device3_E(10)
--0.98 device3_P_plus(10)
-+1.0204081632653061 device3_P_minus(10)
+-0.95 device3_P_plus(9)
++1.0526315789473684 device3_P_minus(9)
 = 0
 
 c_e_device3_soc_con(11)_:
 -1 device3_E(10)
 +1 device3_E(11)
--0.98 device3_P_plus(11)
-+1.0204081632653061 device3_P_minus(11)
+-0.95 device3_P_plus(10)
++1.0526315789473684 device3_P_minus(10)
 = 0
 
 c_e_device3_soc_con(12)_:
 -1 device3_E(11)
 +1 device3_E(12)
--0.98 device3_P_plus(12)
-+1.0204081632653061 device3_P_minus(12)
+-0.95 device3_P_plus(11)
++1.0526315789473684 device3_P_minus(11)
 = 0
 
 c_e_device3_soc_con(13)_:
 -1 device3_E(12)
 +1 device3_E(13)
--0.98 device3_P_plus(13)
-+1.0204081632653061 device3_P_minus(13)
+-0.95 device3_P_plus(12)
++1.0526315789473684 device3_P_minus(12)
 = 0
 
 c_e_device3_soc_con(14)_:
 -1 device3_E(13)
 +1 device3_E(14)
--0.98 device3_P_plus(14)
-+1.0204081632653061 device3_P_minus(14)
+-0.95 device3_P_plus(13)
++1.0526315789473684 device3_P_minus(13)
 = 0
 
 c_e_device3_soc_con(15)_:
 -1 device3_E(14)
 +1 device3_E(15)
--0.98 device3_P_plus(15)
-+1.0204081632653061 device3_P_minus(15)
+-0.95 device3_P_plus(14)
++1.0526315789473684 device3_P_minus(14)
 = 0
 
 c_e_device3_soc_con(16)_:
 -1 device3_E(15)
 +1 device3_E(16)
--0.98 device3_P_plus(16)
-+1.0204081632653061 device3_P_minus(16)
+-0.95 device3_P_plus(15)
++1.0526315789473684 device3_P_minus(15)
 = 0
 
 c_e_device3_soc_con(17)_:
 -1 device3_E(16)
 +1 device3_E(17)
--0.98 device3_P_plus(17)
-+1.0204081632653061 device3_P_minus(17)
+-0.95 device3_P_plus(16)
++1.0526315789473684 device3_P_minus(16)
 = 0
 
 c_e_device3_soc_con(18)_:
 -1 device3_E(17)
 +1 device3_E(18)
--0.98 device3_P_plus(18)
-+1.0204081632653061 device3_P_minus(18)
+-0.95 device3_P_plus(17)
++1.0526315789473684 device3_P_minus(17)
 = 0
 
 c_e_device3_soc_con(19)_:
 -1 device3_E(18)
 +1 device3_E(19)
--0.98 device3_P_plus(19)
-+1.0204081632653061 device3_P_minus(19)
+-0.95 device3_P_plus(18)
++1.0526315789473684 device3_P_minus(18)
 = 0
 
 c_e_device3_soc_con(20)_:
 -1 device3_E(19)
 +1 device3_E(20)
--0.98 device3_P_plus(20)
-+1.0204081632653061 device3_P_minus(20)
+-0.95 device3_P_plus(19)
++1.0526315789473684 device3_P_minus(19)
 = 0
 
 c_e_device3_soc_con(21)_:
 -1 device3_E(20)
 +1 device3_E(21)
--0.98 device3_P_plus(21)
-+1.0204081632653061 device3_P_minus(21)
+-0.95 device3_P_plus(20)
++1.0526315789473684 device3_P_minus(20)
 = 0
 
 c_e_device3_soc_con(22)_:
 -1 device3_E(21)
 +1 device3_E(22)
--0.98 device3_P_plus(22)
-+1.0204081632653061 device3_P_minus(22)
+-0.95 device3_P_plus(21)
++1.0526315789473684 device3_P_minus(21)
 = 0
 
 c_e_device3_soc_con(23)_:
 -1 device3_E(22)
 +1 device3_E(23)
--0.98 device3_P_plus(23)
-+1.0204081632653061 device3_P_minus(23)
+-0.95 device3_P_plus(22)
++1.0526315789473684 device3_P_minus(22)
 = 0
 
 c_u_device3_soc_max_con(0)_:
+-0.9 device3_capacity
 +1 device3_E(0)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(1)_:
+-0.9 device3_capacity
 +1 device3_E(1)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(2)_:
+-0.9 device3_capacity
 +1 device3_E(2)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(3)_:
+-0.9 device3_capacity
 +1 device3_E(3)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(4)_:
+-0.9 device3_capacity
 +1 device3_E(4)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(5)_:
+-0.9 device3_capacity
 +1 device3_E(5)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(6)_:
+-0.9 device3_capacity
 +1 device3_E(6)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(7)_:
+-0.9 device3_capacity
 +1 device3_E(7)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(8)_:
+-0.9 device3_capacity
 +1 device3_E(8)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(9)_:
+-0.9 device3_capacity
 +1 device3_E(9)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(10)_:
+-0.9 device3_capacity
 +1 device3_E(10)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(11)_:
+-0.9 device3_capacity
 +1 device3_E(11)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(12)_:
+-0.9 device3_capacity
 +1 device3_E(12)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(13)_:
+-0.9 device3_capacity
 +1 device3_E(13)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(14)_:
+-0.9 device3_capacity
 +1 device3_E(14)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(15)_:
+-0.9 device3_capacity
 +1 device3_E(15)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(16)_:
+-0.9 device3_capacity
 +1 device3_E(16)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(17)_:
+-0.9 device3_capacity
 +1 device3_E(17)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(18)_:
+-0.9 device3_capacity
 +1 device3_E(18)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(19)_:
+-0.9 device3_capacity
 +1 device3_E(19)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(20)_:
+-0.9 device3_capacity
 +1 device3_E(20)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(21)_:
+-0.9 device3_capacity
 +1 device3_E(21)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(22)_:
+-0.9 device3_capacity
 +1 device3_E(22)
-<= 0.0
+<= 0
 
 c_u_device3_soc_max_con(23)_:
+-0.9 device3_capacity
 +1 device3_E(23)
-<= 0.0
+<= 0
 
-c_l_device3_soc_min_con(0)_:
-+1 device3_E(0)
->= 0.0
+c_u_device3_soc_min_con(0)_:
++0.1 device3_capacity
+-1 device3_E(0)
+<= 0
 
-c_l_device3_soc_min_con(1)_:
-+1 device3_E(1)
->= 0.0
+c_u_device3_soc_min_con(1)_:
++0.1 device3_capacity
+-1 device3_E(1)
+<= 0
 
-c_l_device3_soc_min_con(2)_:
-+1 device3_E(2)
->= 0.0
+c_u_device3_soc_min_con(2)_:
++0.1 device3_capacity
+-1 device3_E(2)
+<= 0
 
-c_l_device3_soc_min_con(3)_:
-+1 device3_E(3)
->= 0.0
+c_u_device3_soc_min_con(3)_:
++0.1 device3_capacity
+-1 device3_E(3)
+<= 0
 
-c_l_device3_soc_min_con(4)_:
-+1 device3_E(4)
->= 0.0
+c_u_device3_soc_min_con(4)_:
++0.1 device3_capacity
+-1 device3_E(4)
+<= 0
 
-c_l_device3_soc_min_con(5)_:
-+1 device3_E(5)
->= 0.0
+c_u_device3_soc_min_con(5)_:
++0.1 device3_capacity
+-1 device3_E(5)
+<= 0
 
-c_l_device3_soc_min_con(6)_:
-+1 device3_E(6)
->= 0.0
+c_u_device3_soc_min_con(6)_:
++0.1 device3_capacity
+-1 device3_E(6)
+<= 0
 
-c_l_device3_soc_min_con(7)_:
-+1 device3_E(7)
->= 0.0
+c_u_device3_soc_min_con(7)_:
++0.1 device3_capacity
+-1 device3_E(7)
+<= 0
 
-c_l_device3_soc_min_con(8)_:
-+1 device3_E(8)
->= 0.0
+c_u_device3_soc_min_con(8)_:
++0.1 device3_capacity
+-1 device3_E(8)
+<= 0
 
-c_l_device3_soc_min_con(9)_:
-+1 device3_E(9)
->= 0.0
+c_u_device3_soc_min_con(9)_:
++0.1 device3_capacity
+-1 device3_E(9)
+<= 0
 
-c_l_device3_soc_min_con(10)_:
-+1 device3_E(10)
->= 0.0
+c_u_device3_soc_min_con(10)_:
++0.1 device3_capacity
+-1 device3_E(10)
+<= 0
 
-c_l_device3_soc_min_con(11)_:
-+1 device3_E(11)
->= 0.0
+c_u_device3_soc_min_con(11)_:
++0.1 device3_capacity
+-1 device3_E(11)
+<= 0
 
-c_l_device3_soc_min_con(12)_:
-+1 device3_E(12)
->= 0.0
+c_u_device3_soc_min_con(12)_:
++0.1 device3_capacity
+-1 device3_E(12)
+<= 0
 
-c_l_device3_soc_min_con(13)_:
-+1 device3_E(13)
->= 0.0
+c_u_device3_soc_min_con(13)_:
++0.1 device3_capacity
+-1 device3_E(13)
+<= 0
 
-c_l_device3_soc_min_con(14)_:
-+1 device3_E(14)
->= 0.0
+c_u_device3_soc_min_con(14)_:
++0.1 device3_capacity
+-1 device3_E(14)
+<= 0
 
-c_l_device3_soc_min_con(15)_:
-+1 device3_E(15)
->= 0.0
+c_u_device3_soc_min_con(15)_:
++0.1 device3_capacity
+-1 device3_E(15)
+<= 0
 
-c_l_device3_soc_min_con(16)_:
-+1 device3_E(16)
->= 0.0
+c_u_device3_soc_min_con(16)_:
++0.1 device3_capacity
+-1 device3_E(16)
+<= 0
 
-c_l_device3_soc_min_con(17)_:
-+1 device3_E(17)
->= 0.0
+c_u_device3_soc_min_con(17)_:
++0.1 device3_capacity
+-1 device3_E(17)
+<= 0
 
-c_l_device3_soc_min_con(18)_:
-+1 device3_E(18)
->= 0.0
+c_u_device3_soc_min_con(18)_:
++0.1 device3_capacity
+-1 device3_E(18)
+<= 0
 
-c_l_device3_soc_min_con(19)_:
-+1 device3_E(19)
->= 0.0
+c_u_device3_soc_min_con(19)_:
++0.1 device3_capacity
+-1 device3_E(19)
+<= 0
 
-c_l_device3_soc_min_con(20)_:
-+1 device3_E(20)
->= 0.0
+c_u_device3_soc_min_con(20)_:
++0.1 device3_capacity
+-1 device3_E(20)
+<= 0
 
-c_l_device3_soc_min_con(21)_:
-+1 device3_E(21)
->= 0.0
+c_u_device3_soc_min_con(21)_:
++0.1 device3_capacity
+-1 device3_E(21)
+<= 0
 
-c_l_device3_soc_min_con(22)_:
-+1 device3_E(22)
->= 0.0
+c_u_device3_soc_min_con(22)_:
++0.1 device3_capacity
+-1 device3_E(22)
+<= 0
 
-c_l_device3_soc_min_con(23)_:
-+1 device3_E(23)
->= 0.0
+c_u_device3_soc_min_con(23)_:
++0.1 device3_capacity
+-1 device3_E(23)
+<= 0
 
 c_u_device3_P_plus_max_con(0)_:
 +1 device3_P_plus(0)
@@ -2865,6 +2100,8 @@ c_u_device3_P_minus_max_con(23)_:
 
 c_e_device3_pow_con(0)_:
 +1 device3_Pcons(0)
+-1 device3_P_plus(0)
++1 device3_P_minus(0)
 = 0
 
 c_e_device3_pow_con(1)_:
@@ -3005,9 +2242,125 @@ c_e_device3_pow_con(23)_:
 +1 device3_P_minus(23)
 = 0
 
-c_e_device3_end_con_:
+c_l_device3_end_con(0)_:
++1 device3_comfort_charge(0)
++1 device3_E(0)
+>= 0
+
+c_l_device3_end_con(1)_:
++1 device3_comfort_charge(1)
++1 device3_E(1)
+>= 0
+
+c_l_device3_end_con(2)_:
++1 device3_comfort_charge(2)
++1 device3_E(2)
+>= 0
+
+c_l_device3_end_con(3)_:
++1 device3_comfort_charge(3)
++1 device3_E(3)
+>= 0
+
+c_l_device3_end_con(4)_:
++1 device3_comfort_charge(4)
++1 device3_E(4)
+>= 0
+
+c_l_device3_end_con(5)_:
++1 device3_comfort_charge(5)
++1 device3_E(5)
+>= 0
+
+c_l_device3_end_con(6)_:
++1 device3_comfort_charge(6)
++1 device3_E(6)
+>= 0
+
+c_l_device3_end_con(7)_:
++1 device3_comfort_charge(7)
++1 device3_E(7)
+>= 0
+
+c_l_device3_end_con(8)_:
++1 device3_comfort_charge(8)
++1 device3_E(8)
+>= 0
+
+c_l_device3_end_con(9)_:
++1 device3_comfort_charge(9)
++1 device3_E(9)
+>= 0
+
+c_l_device3_end_con(10)_:
++1 device3_comfort_charge(10)
++1 device3_E(10)
+>= 0
+
+c_l_device3_end_con(11)_:
++1 device3_comfort_charge(11)
++1 device3_E(11)
+>= 0
+
+c_l_device3_end_con(12)_:
++1 device3_comfort_charge(12)
++1 device3_E(12)
+>= 0
+
+c_l_device3_end_con(13)_:
++1 device3_comfort_charge(13)
++1 device3_E(13)
+>= 0
+
+c_l_device3_end_con(14)_:
++1 device3_comfort_charge(14)
++1 device3_E(14)
+>= 0
+
+c_l_device3_end_con(15)_:
++1 device3_comfort_charge(15)
++1 device3_E(15)
+>= 0
+
+c_l_device3_end_con(16)_:
++1 device3_comfort_charge(16)
++1 device3_E(16)
+>= 0
+
+c_l_device3_end_con(17)_:
++1 device3_comfort_charge(17)
++1 device3_E(17)
+>= 0
+
+c_l_device3_end_con(18)_:
++1 device3_comfort_charge(18)
++1 device3_E(18)
+>= 0
+
+c_l_device3_end_con(19)_:
++1 device3_comfort_charge(19)
++1 device3_E(19)
+>= 0
+
+c_l_device3_end_con(20)_:
++1 device3_comfort_charge(20)
++1 device3_E(20)
+>= 0
+
+c_l_device3_end_con(21)_:
++1 device3_comfort_charge(21)
++1 device3_E(21)
+>= 0
+
+c_l_device3_end_con(22)_:
++1 device3_comfort_charge(22)
++1 device3_E(22)
+>= 0
+
+c_l_device3_end_con(23)_:
++1 device3_comfort_charge(23)
 +1 device3_E(23)
-= 0.0
+>= 0.0
 
 bounds
    1 <= ONE_VAR_CONSTANT <= 1
@@ -3087,6 +2440,30 @@ bounds
    -inf <= device1_allocated_power(23) <= +inf
    0 <= device0_starting_time_plus(0) <= +inf
    0 <= device0_starting_time_minus(0) <= +inf
+   0 <= device3_comfort_charge(0) <= +inf
+   0 <= device3_comfort_charge(1) <= +inf
+   0 <= device3_comfort_charge(2) <= +inf
+   0 <= device3_comfort_charge(3) <= +inf
+   0 <= device3_comfort_charge(4) <= +inf
+   0 <= device3_comfort_charge(5) <= +inf
+   0 <= device3_comfort_charge(6) <= +inf
+   0 <= device3_comfort_charge(7) <= +inf
+   0 <= device3_comfort_charge(8) <= +inf
+   0 <= device3_comfort_charge(9) <= +inf
+   0 <= device3_comfort_charge(10) <= +inf
+   0 <= device3_comfort_charge(11) <= +inf
+   0 <= device3_comfort_charge(12) <= +inf
+   0 <= device3_comfort_charge(13) <= +inf
+   0 <= device3_comfort_charge(14) <= +inf
+   0 <= device3_comfort_charge(15) <= +inf
+   0 <= device3_comfort_charge(16) <= +inf
+   0 <= device3_comfort_charge(17) <= +inf
+   0 <= device3_comfort_charge(18) <= +inf
+   0 <= device3_comfort_charge(19) <= +inf
+   0 <= device3_comfort_charge(20) <= +inf
+   0 <= device3_comfort_charge(21) <= +inf
+   0 <= device3_comfort_charge(22) <= +inf
+   0 <= device3_comfort_charge(23) <= +inf
    -inf <= device3_Pcons(0) <= +inf
    -inf <= device3_Pcons(1) <= +inf
    -inf <= device3_Pcons(2) <= +inf
@@ -3279,7 +2656,6 @@ bounds
    -inf <= device1_Pcons(21) <= +inf
    -inf <= device1_Pcons(22) <= +inf
    -inf <= device1_Pcons(23) <= +inf
-   -inf <= device0_allocated_power(0) <= +inf
    0 <= device0_bin_t0(0_0) <= 1
    0 <= device0_bin_t0(0_1) <= 1
    0 <= device0_bin_t0(0_2) <= 1
@@ -3304,54 +2680,6 @@ bounds
    0 <= device0_bin_t0(0_21) <= 1
    0 <= device0_bin_t0(0_22) <= 1
    0 <= device0_bin_t0(0_23) <= 1
-   -inf <= device2_allocated_power(0) <= +inf
-   -inf <= device2_allocated_power(1) <= +inf
-   -inf <= device2_allocated_power(2) <= +inf
-   -inf <= device2_allocated_power(3) <= +inf
-   -inf <= device2_allocated_power(4) <= +inf
-   -inf <= device2_allocated_power(5) <= +inf
-   -inf <= device2_allocated_power(6) <= +inf
-   -inf <= device2_allocated_power(7) <= +inf
-   -inf <= device2_allocated_power(8) <= +inf
-   -inf <= device2_allocated_power(9) <= +inf
-   -inf <= device2_allocated_power(10) <= +inf
-   -inf <= device2_allocated_power(11) <= +inf
-   -inf <= device2_allocated_power(12) <= +inf
-   -inf <= device2_allocated_power(13) <= +inf
-   -inf <= device2_allocated_power(14) <= +inf
-   -inf <= device2_allocated_power(15) <= +inf
-   -inf <= device2_allocated_power(16) <= +inf
-   -inf <= device2_allocated_power(17) <= +inf
-   -inf <= device2_allocated_power(18) <= +inf
-   -inf <= device2_allocated_power(19) <= +inf
-   -inf <= device2_allocated_power(20) <= +inf
-   -inf <= device2_allocated_power(21) <= +inf
-   -inf <= device2_allocated_power(22) <= +inf
-   -inf <= device2_allocated_power(23) <= +inf
-   -inf <= device3_allocated_power(0) <= +inf
-   -inf <= device3_allocated_power(1) <= +inf
-   -inf <= device3_allocated_power(2) <= +inf
-   -inf <= device3_allocated_power(3) <= +inf
-   -inf <= device3_allocated_power(4) <= +inf
-   -inf <= device3_allocated_power(5) <= +inf
-   -inf <= device3_allocated_power(6) <= +inf
-   -inf <= device3_allocated_power(7) <= +inf
-   -inf <= device3_allocated_power(8) <= +inf
-   -inf <= device3_allocated_power(9) <= +inf
-   -inf <= device3_allocated_power(10) <= +inf
-   -inf <= device3_allocated_power(11) <= +inf
-   -inf <= device3_allocated_power(12) <= +inf
-   -inf <= device3_allocated_power(13) <= +inf
-   -inf <= device3_allocated_power(14) <= +inf
-   -inf <= device3_allocated_power(15) <= +inf
-   -inf <= device3_allocated_power(16) <= +inf
-   -inf <= device3_allocated_power(17) <= +inf
-   -inf <= device3_allocated_power(18) <= +inf
-   -inf <= device3_allocated_power(19) <= +inf
-   -inf <= device3_allocated_power(20) <= +inf
-   -inf <= device3_allocated_power(21) <= +inf
-   -inf <= device3_allocated_power(22) <= +inf
-   -inf <= device3_allocated_power(23) <= +inf
    0 <= device3_E(0) <= +inf
    0 <= device3_E(1) <= +inf
    0 <= device3_E(2) <= +inf

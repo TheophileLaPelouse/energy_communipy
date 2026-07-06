@@ -40,7 +40,7 @@ def possible_travels(presence_profile, deltat) :
                 start -= 1
                 
     if start > 0 : 
-        possible_travels.append((-1, len(presence_profile)//deltat)+1)
+        possible_travels.append((-1, len(presence_profile)//deltat+1))
                 
     # How much travels is possible is decided by the number of following end and start.
     
@@ -264,7 +264,7 @@ def EV_profile(allocated, presence_profile, deltat, bypass=False) :
         #             }, 
         #             "type" : "EV"
         
-        p_range = [allocated["power_neg"], allocated["power_pos"]] # If can't discharge put 0 at power min. Otherwise only positive values are wanted.
+        p_range = [allocated["power_neg"]*1000, allocated["power_pos"]*1000] # If can't discharge put 0 at power min. Otherwise only positive values are wanted.
         E_range = [0.2*E*1000, 0.8*E*1000] 
         
         E_min_min = 0.2*E*1000*(1 + 0.2) 
@@ -280,11 +280,15 @@ def EV_profile(allocated, presence_profile, deltat, bypass=False) :
             else : 
                 power = power_avg*1000
             power = -power # It was computed on the vehicle side, here it is on the house side.
+            if power*length > (E_range[1] - E_range[0]) : 
+                power = (E_range[1] - E_range[0])/length*0.9
             energy_travels.append(power*length)
             
+        
         Emin = [min(energy_travels[k] + E_min_min, E_range[1]) for k in range(len(energy_travels))] # fill with the energy needed for the travels with a minimum of 20% of the capa
         E0s = [0.5*E*1000] + [-energy_travels[k] for k in range(len(energy_travels))] 
         E_end = [E0s[0]] # Look at the definitions
+        # print("energy_travels", energy_travels, "E0s", E0s, "Emin", Emin)
         
         time_home = []
         for k in range(len(travels)) :

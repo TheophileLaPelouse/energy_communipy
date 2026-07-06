@@ -87,7 +87,7 @@ EV_load = {
     "p_range" : [-10, 10], 
     "E_range" : [8, 40],
     "time_home" : [[4, 10], [18, 24]], 
-    "E0s" : [25, -13],
+    "E0s" : [25, -13, -10],
     "E_min" : [20, 25], 
     "E_end" : 20
 }
@@ -202,8 +202,8 @@ test_cases = {
 member_options = {
     "calc_ref" : False, 
     "eco" : {
-        "cost_grid_buy" : 1000, 
-        "cost_grid_sell" : 0,
+        "cost_grid_buy" : [1000 for k in range(24)], 
+        "cost_grid_sell" : [0 for k in range(24)],
         "cost_ex" : 0, 
         "cost_PV" : 100, 
         "PV_min" : 0,
@@ -352,8 +352,8 @@ members_dico = {
 
 coef_options = {
     "eco" : {
-        "cost_grid_buy" : 10, 
-        "cost_grid_sell" : -2.5,
+        "cost_grid_buy" : [10 for k in range(options["total_time"])], 
+        "cost_grid_sell" : [-2.5 for k in range(options["total_time"])],
         "cost_ex" : 0, 
     },
     "enviro" : {
@@ -432,7 +432,7 @@ to_plot = {
     }
 }
     
-co1.plot_power_curves(**to_plot)
+co1.plot_power_curves(**to_plot, **options1)
         
 # to_plot_hex = {
 #     "values" : {
