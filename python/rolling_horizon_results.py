@@ -33,8 +33,8 @@ from commu_opti.plotting.plot_functions import plot_power_curves
 # Battery_rate = 0.1
 
 EV_rate = 0
-PV_rate = 0.5
-Battery_rate = 1
+PV_rate = 0.2
+Battery_rate = 0.2
 
 # generate agents data
 
@@ -43,10 +43,10 @@ for k in range(8) :
     for j in range(8-k) : 
         for i in range(8-j-k) : 
             # possible_socio.append([k/8, j/8, i/8, (8-k-j-i)/8])
-            possible_socio.append([1, 1, 1, 1])
+            possible_socio.append([0, 1, 1, 1])
             
 
-n = 2
+n = 5
 nb_of_days = 2
 method="centralized"
 # method="admm"
@@ -83,6 +83,7 @@ bat_allocation = {
     "dcharge_eff" : [0.93, 0.02], # average
 }
 params = []
+n_PV = 0
 for k in range(n) : 
     rd_EV = np.random.rand()
     rd_PV = np.random.rand()
@@ -127,9 +128,10 @@ for k in range(n) :
             "type" : "battery"
             }
 
-        flag_pv=True
+        # flag_pv=True
         
     if rd_PV < PV_rate or flag_pv : 
+        n_PV += 1
         irradiance = weather["forecast"]["irradiance"][:horizon]
         eff = np.random.normal(PV_allocation["eff"][0], PV_allocation["eff"][1])
         surface = PV_allocation["portion_surf"] * building["surface"] if PV_allocation["portion_surf"] is not None else None
@@ -149,6 +151,7 @@ for k in range(n) :
     param["parameters"]["presence_profile"] = presence_profile
     params.append(param)
 
+print("Nombre de panneaux solaire", n_PV)
 
 param_commu = {
         "method" : method,
@@ -189,12 +192,20 @@ price_options = {
     },
     "pena" : {
         "coef_pena" : 1
-    }
+    }, 
+    "confort" : {
+        "coef_p" : 10e-3, 
+        "coef_t" : 1, 
+        "coef_c" : 10e-3,
+    },
 }
 
 # Iterate optimization of the community over several hours over time horizon.
 
 #%%
+
+socio = [1, 1, 1, 1]
+bat_exchange = False
 
 kwargs = {
     "total_time" : horizon*nb_of_days,
@@ -202,7 +213,7 @@ kwargs = {
     "deltat" : 1,
     "date" : date,
     "debug" : True,
-    # "until" : 1,
+    "until" : 1,
     "irradiance_history" : irradiance_history[:24] + irradiance_history[:25], 
     "weather_history" : weather_history[:24] + weather_history[:25],
     # "irradiance_forecast" : irradiance_forecast,
@@ -214,6 +225,8 @@ kwargs = {
 
 for param in params : 
     param['parameters']['method'] = 'centralized'
+    param['parameters']['socio'] = socio
+    param['parameters']['bat_exchange'] = bat_exchange
 param_commu['method'] = 'centralized'
 
 # param_commu["ref_lp"] = True
@@ -254,7 +267,7 @@ to_plot_rolling = {
         "P_prod" : with_rolling['aggregated_powers']["P_prod"],
         "P_exchange" : with_rolling['aggregated_powers']["P_exchange"],
         "P_grid" : with_rolling['aggregated_powers']["P_grid"], 
-        "Price" : prices[:horizon]*100,
+        "Price" : prices[:horizon]*100*1000,
         "irradiance" : irradiance_history[:horizon]
     },
     "title" : "Community power profile with rolling horizon optimization"
@@ -267,18 +280,49 @@ to_plot_without_rolling = {
         "P_prod" : without_rolling['aggregated_powers']["P_prod"],
         "P_exchange" : without_rolling['aggregated_powers']["P_exchange"],
         "P_grid" : without_rolling['aggregated_powers']["P_grid"], 
-        "Price" : prices[:horizon]*100,
+        "Price" : prices[:horizon]*100*1000,
         "irradiance" : [val*10 for val in irradiance_history[:horizon]]
     },
     "title" : "Community power profile without rolling horizon optimization"
 }
 
 
-plot_power_curves(**to_plot_rolling)
+# plot_power_curves(**to_plot_rolling)
 plot_power_curves(**to_plot_without_rolling)
 
-print("Objectif with rolling horizon : ", with_rolling['aggregated_objs']['Objective'], "price", with_rolling['aggregated_objs']['price'], "enviro", with_rolling['aggregated_objs']['enviro'], "auto", with_rolling['aggregated_objs']['auto'], "comfort", with_rolling['aggregated_objs']['comfort'])
+# print("Objectif with rolling horizon : ", with_rolling['aggregated_objs']['Objective'], "price", with_rolling['aggregated_objs']['price'], "enviro", with_rolling['aggregated_objs']['enviro'], "auto", with_rolling['aggregated_objs']['auto'], "comfort", with_rolling['aggregated_objs']['comfort'])
 print("Objectif WITHOUT rolling horizon : ", without_rolling['aggregated_objs']['Objective'], "price", without_rolling['aggregated_objs']['price'], "enviro", without_rolling['aggregated_objs']['enviro'], "auto", without_rolling['aggregated_objs']['auto'], "comfort", without_rolling['aggregated_objs']['comfort'])
+
+#%% plot first 2 members 
+
+to_plot1 = {
+    "powers" : {
+        "P_cons" : without_rolling['members_0']["P_cons"],
+        "P_bat" : without_rolling['members_0']["P_bat"],
+        "P_prod" : without_rolling['members_0']["P_prod"],
+        "P_exchange" : without_rolling['members_0']["P_exchange"],
+        "P_grid" : without_rolling['members_0']["P_grid"], 
+        "P_surplus" : without_rolling['members_0']["P_surplus"],
+        "irradiance" : irradiance_history[:horizon]
+    },
+    "title" : "Member 0 power profile without rolling horizon optimization"
+}
+
+to_plot2 = {
+    "powers" : {
+        "P_cons" : without_rolling['members_1']["P_cons"],
+        "P_bat" : without_rolling['members_1']["P_bat"],
+        "P_prod" : without_rolling['members_1']["P_prod"],
+        "P_exchange" : without_rolling['members_1']["P_exchange"],
+        "P_grid" : without_rolling['members_1']["P_grid"], 
+        "P_surplus" : without_rolling['members_1']["P_surplus"],
+        "irradiance" : irradiance_history[:horizon]
+    },
+    "title" : "Member 1 power profile without rolling horizon optimization"
+}
+
+plot_power_curves(**to_plot1)
+plot_power_curves(**to_plot2)
 
 #%% ADMM Version
 
@@ -288,7 +332,7 @@ kwargs = {
     "deltat" : 1,
     "date" : date,
     "debug" : True,
-    "until" : 1,
+    "until" : 2,
     "irradiance_history" : irradiance_history[:24] + irradiance_history[:25], 
     "weather_history" : weather_history[:24] + weather_history[:25],
     # "irradiance_forecast" : irradiance_forecast,
@@ -298,15 +342,23 @@ kwargs = {
     # "skip_params" : True
     }
 
+help_admm = False
+help_admm2 = False
 for param in params : 
     param['parameters']['method'] = 'admm'
+    param['parameters']['socio'] = socio
+    param['parameters']['bat_exchange'] = bat_exchange
+    param['parameters']['help_surplus_admm'] = help_admm
+    param['parameters']['help_surplus_admm2'] = help_admm2
 param_commu['method'] = 'admm'
+param_commu['help_surplus_admm'] = help_admm
+param_commu['help_surplus_admm2'] = help_admm2
 
-param_commu["rho"]=  10e-4
+param_commu["rho"]=  1e-8
 param_commu["power_max_random"] =  10000
 param_commu["eps_r"] = 1e-2
 param_commu["eps_s"] = 1e-2
-param_commu["max_iter"] = 200
+param_commu["max_iter"] = 500
 
 with_rolling_admm, without_rolling_admm, debug_admm = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
 
@@ -321,7 +373,7 @@ to_plot_rolling_admm = {
         "P_prod" : with_rolling_admm['aggregated_powers']["P_prod"],
         "P_exchange" : with_rolling_admm['aggregated_powers']["P_exchange"],
         "P_grid" : with_rolling_admm['aggregated_powers']["P_grid"], 
-        "Price" : prices[:horizon]*100,
+        "Price" : prices[:horizon]*1e8,
         "irradiance" : irradiance_history[:horizon]
     },
     "title" : "Community power profile with rolling horizon optimization ADMM"
@@ -334,7 +386,7 @@ to_plot_without_rolling_admm = {
         "P_prod" : without_rolling_admm['aggregated_powers']["P_prod"],
         "P_exchange" : without_rolling_admm['aggregated_powers']["P_exchange"],
         "P_grid" : without_rolling_admm['aggregated_powers']["P_grid"], 
-        "Price" : prices[:horizon]*100,
+        "Price" : prices[:horizon]*1e8,
         "irradiance" : [val*10 for val in irradiance_history[:horizon]]
     },
     "title" : "Community power profile without rolling horizon optimization ADMM"
@@ -344,9 +396,40 @@ to_plot_without_rolling_admm = {
 # plot_power_curves(**to_plot_rolling_admm)
 plot_power_curves(**to_plot_without_rolling_admm)
 
-# print("Objectif with rolling horizon : ", with_rolling_admm['aggregated_objs']['Objective'], "price", with_rolling['aggregated_objs']['price'], "enviro", with_rolling['aggregated_objs']['enviro'], "auto", with_rolling['aggregated_objs']['auto'], "comfort", with_rolling['aggregated_objs']['comfort'])
+# print("Objectif with rolling horizon : ", with_rolling_admm['aggregated_objs']['Objective'], "price", with_rolling_admm['aggregated_objs']['price'], "enviro", with_rolling_admm['aggregated_objs']['enviro'], "auto", with_rolling_admm['aggregated_objs']['auto'], "comfort", with_rolling_admm['aggregated_objs']['comfort'])
 print("Objectif WITHOUT rolling horizon : ", without_rolling_admm['aggregated_objs']['Objective'], "price", without_rolling_admm['aggregated_objs']['price'], "enviro", without_rolling_admm['aggregated_objs']['enviro'], "auto", without_rolling_admm['aggregated_objs']['auto'], "comfort", without_rolling_admm['aggregated_objs']['comfort'])
 
+
+#%% Plot first 2 members 
+
+to_plot1 = {
+    "powers" : {
+        "P_cons" : without_rolling_admm['members_0']["P_cons"],
+        "P_bat" : without_rolling_admm['members_0']["P_bat"],
+        "P_prod" : without_rolling_admm['members_0']["P_prod"],
+        "P_exchange" : without_rolling_admm['members_0']["P_exchange"],
+        "P_grid" : without_rolling_admm['members_0']["P_grid"], 
+        "P_surplus" : without_rolling_admm['members_0']["P_surplus"],
+        "irradiance" : irradiance_history[:horizon]
+    },
+    "title" : "Member 0 power profile without rolling horizon optimization"
+}
+
+to_plot2 = {
+    "powers" : {
+        "P_cons" : without_rolling_admm['members_1']["P_cons"],
+        "P_bat" : without_rolling_admm['members_1']["P_bat"],
+        "P_prod" : without_rolling_admm['members_1']["P_prod"],
+        "P_exchange" : without_rolling_admm['members_1']["P_exchange"],
+        "P_grid" : without_rolling_admm['members_1']["P_grid"], 
+        "P_surplus" : without_rolling_admm['members_1']["P_surplus"],
+        "irradiance" : irradiance_history[:horizon]
+    },
+    "title" : "Member 1 power profile without rolling horizon optimization"
+}
+
+plot_power_curves(**to_plot1)
+plot_power_curves(**to_plot2)
 
 #%% Plot P cons for each device of the first member of the community
 

@@ -170,6 +170,9 @@ class member :
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_admm)
             self.mod_member.P_exchange = self.P_exchange
             
+            if kwargs.get("help_surplus_admm", False) :
+                self.mod_member.exchange_surplus = pyo.Constraint(self.time_index, rule=surplus_or_exchange_admm)
+            
     def build_objective(self, **kwargs) :
         method = kwargs.get("method", "centralized")
         if method == "centralized" :
@@ -198,7 +201,11 @@ class member :
                                                     + sum((self.P_surplus[t] - m.z2_k[id_, t] + m.u2_k[id_, t])**2 
                                                           for t in self.time_index)
                                                     )
-            m.obj = pyo.Objective(expr=m.obj_expr + m.rho/2*m.sqr_pena_expr, sense=pyo.minimize)
+            if kwargs.get("help_surplus_admm2", False) : 
+                m.pena_exchange = pyo.Expression(expr=1e-6*sum(m.P_exchange[t]*m.P_surplus[t] for t in self.time_index))
+                m.obj = pyo.Objective(expr=m.obj_expr + m.rho/2*m.sqr_pena_expr + m.pena_exchange, sense=pyo.minimize)
+            else : 
+                m.obj = pyo.Objective(expr=m.obj_expr + m.rho/2*m.sqr_pena_expr, sense=pyo.minimize)
 
     def update_params_admm(self, **kwargs) :
         self.mod_member.rho.set_value(kwargs.get("rho", 1))
@@ -239,6 +246,11 @@ class member :
         
         # print("ADDING DEVICES DONE")
         
+        self.P_surplus = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
+        self.P_self = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
+        self.mod_member.P_surplus = self.P_surplus
+        self.mod_member.P_self = self.P_self
+        
         self.fetch_P_exchange(**kwargs)
                 
         # print("FETCH EXCHANGES DONE")
@@ -246,11 +258,6 @@ class member :
         self.calc_profile()
         
         # print("CALC PROFILE")
-        
-        self.P_surplus = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
-        self.P_self = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
-        self.mod_member.P_surplus = self.P_surplus
-        self.mod_member.P_self = self.P_self
         
         if self.commu is None : 
             for t in self.time_index :
@@ -321,7 +328,7 @@ class member :
         
         self.mod_member.obj_expr = pyo.Expression(expr=calc_eco_total(self.P_grid_plus, self.P_grid_minus, self.P_exchange, self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, self.mod_member.price_buy, self.mod_member.price_sell, **eco_args)*self.socio_commu[0]
                                      + calc_enviro(self.P_grid_plus, self.P_exchange,self.P_self, **enviro_args)*self.socio_commu[1]
-                                     + calc_auto(self.P_grid_plus, **auto_args)*self.socio_commu[2]
+                                     + calc_auto(self.P_grid_plus, self.P_grid_minus, **auto_args)*self.socio_commu[2]
                                      + calc_confort(self.mod_member.p_confort, self.mod_member.t_confort, self.mod_member.charge_comfort, **confort_args)*self.socio_commu[3]
                                      + sum(f(self.P_cons, self.P_bat, self.P_exchange, self.P_grid_plus, self.P_grid_minus) for f in functions)/self.ref_values[-1]
                                     #  + calc_pena_pow(self.mod_member.p_excess_l, self.mod_member.p_excess_u, **pena_args)
@@ -335,7 +342,7 @@ class member :
         self.price_operation = pyo.Expression(expr=calc_eco(self.P_grid_plus, self.P_grid_minus, self.P_exchange, self.mod_member.price_buy, self.mod_member.price_sell, **eco_args))
         self.price_invest = pyo.Expression(expr=calc_invest_cost(self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, **eco_args))
         self.enviro = pyo.Expression(expr=calc_enviro(self.P_grid_plus, self.P_exchange,self.P_self, **enviro_args))
-        self.auto = pyo.Expression(expr=calc_auto(self.P_grid_plus, **auto_args))
+        self.auto = pyo.Expression(expr=calc_auto(self.P_grid_plus, self.P_grid_minus, **auto_args))
         self.confort = pyo.Expression(expr=calc_confort(self.mod_member.p_confort, self.mod_member.t_confort, self.mod_member.charge_comfort, **confort_args))
         
         self.mod_member.price = self.price
@@ -705,7 +712,7 @@ class member :
         price_operation = pyo.value(calc_eco(pow["P_grid_plus"], pow["P_grid_minus"], pow["P_exchange"], price_buy, price_sell, **eco_args))
         price_invest = pyo.value(calc_invest_cost(self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, **eco_args))
         enviro = pyo.value(calc_enviro(pow["P_grid_plus"], pow["P_exchange"], pow["P_self"], **enviro_args))
-        auto = pyo.value(calc_auto(pow["P_grid_plus"], **auto_args))
+        auto = pyo.value(calc_auto(pow["P_grid_plus"], pow["P_grid_minus"], **auto_args))
         confort = (power_confort*confort_args.get("coef_p", 1) + t_confort*confort_args.get("coef_t", 1) + charge_comfort*confort_args.get("coef_c", 1))/confort_args.get("ref", 1)
         
         obj = price*self.socio[0] + enviro*self.socio[1] + auto*self.socio[2] + confort*self.socio[3]
@@ -741,7 +748,8 @@ class member :
         path = os.path.join(path, f"member_{self.id}")
         debug_model(self.mod_member, file_path=path)
         
-    def self_optimize(self, solver, **options) :   
+    def self_optimize(self, solver, **options) : 
+        # self.mod_member.P_exchange_repr.pprint()
         results = solve_model(self.mod_member, solver, **options)
         return results
     

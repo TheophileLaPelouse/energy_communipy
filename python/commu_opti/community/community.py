@@ -284,18 +284,19 @@ class community :
 
         if hasattr(self.mod, "sqr_pena_expr") :
             del self.mod.sqr_pena_expr
-        self.mod.sqr_pena_expr = pyo.Expression(expr=sum((x_k_1[i, j, t] - self.P_exchange[i, j, t]+ self.U_exchange[i, j, t])**2*self.mod.active_members[i]*self.mod.active_members[j]  
+        self.mod.sqr_pena_expr1 = pyo.Expression(expr=sum((x_k_1[i, j, t] - self.P_exchange[i, j, t]+ self.U_exchange[i, j, t])**2*self.mod.active_members[i]*self.mod.active_members[j]  
                                                     for t in self.time_set 
                                                     for i in self.mod.member_set 
                                                     for j in self.mod.member_set)
-                                                    + sum((Surplus_k_1[i, t] - self.Surplus_repr[i, t]+ self.U_surplus[i, t])**2*self.mod.active_members[i]
+                                                 )
+        self.mod.sqr_pena_expr2 = pyo.Expression(expr=sum((Surplus_k_1[i, t] - self.Surplus_repr[i, t]+ self.U_surplus[i, t])**2*self.mod.active_members[i]
                                                           for t in self.time_set 
                                                           for i in self.mod.member_set)
                                                 )
         
         if hasattr(self.mod, "obj") :
             del self.mod.obj
-        self.mod.obj = pyo.Objective(expr=self.mod.rho/2*self.mod.sqr_pena_expr, sense=pyo.minimize)
+        self.mod.obj = pyo.Objective(expr=self.mod.rho/2*(self.mod.sqr_pena_expr1 + self.mod.sqr_pena_expr2), sense=pyo.minimize)
         
     # def update_params_admm(self, **kwargs) :
     #     self.mod.rho.set_value(kwargs.get("rho", 1))
@@ -321,9 +322,9 @@ class community :
         max_iter = kwargs.get("max_iter", 100)
         iter = 0
         
-        solver_options = kwargs.get("solver_options", {"MIPGap" : 1e-2, 
-                                                       "FeasibilityTol" : 1e-2,
-                                                       "OptimalityTol" : 1e-2, 
+        solver_options = kwargs.get("solver_options", {"MIPGap" : 1e-6, 
+                                                       "FeasibilityTol" : 1e-6,
+                                                       "OptimalityTol" : 1e-6, 
                                                     #    "Threads": 1
                                                        })
         
@@ -363,6 +364,9 @@ class community :
         
         print("\nStart ADMM iteration")
         t_start = time.time()
+        list_objs = []
+        list_penas = []
+        wait = 0
         while (r_k > eps_r or s_k > eps_s) and iter < max_iter :
             
             # Save argmin local 
@@ -426,11 +430,11 @@ class community :
                     member.self_optimize(solver, options=solver_options)
                     t_optimizer1 += time.time() - t_opti_start
                     
-                    print("Power exchange for member ", i, " : ", [pyo.value(member.P_exchange[k]) for k in range(24)])
-                    print("Active members : ", member.mod_member.active_members.extract_values())
+                    # print("Power exchange for member ", i, " : ", [pyo.value(member.P_exchange[k]) for k in range(24)])
+                    # print("Active members : ", member.mod_member.active_members.extract_values())
                     
                     objs += pyo.value(member.mod_member.obj_expr)
-                    penas += pyo.value(member.mod_member.rho/2*member.mod_member.sqr_pena_expr)
+                    penas += pyo.value(member.mod_member.rho/2*(member.mod_member.sqr_pena_expr))
                     
                     for_x_k_1 = member.P_exchange_repr.extract_values()
                     for_surplus = member.P_surplus.extract_values()
@@ -440,15 +444,14 @@ class community :
                         self.mod.Surplus_k_1[i, t].set_value(for_surplus[t])
             
             self.mod.rho.set_value(rho)
-            
+            list_objs.append(objs)
+            list_penas.append(penas)
             # self.mod.pprint()
             
             t_opti_start = time.time()
             self.optimize(solver, options=solver_options)
             t_optimizer2 += time.time() - t_opti_start
 
-            r_k = 0
-            s_k = 0
             Surplus_repr_values = self.Surplus_repr.extract_values()
             Surplus_k_1_values = self.mod.Surplus_k_1.extract_values()
             P_exchange_values = self.P_exchange.extract_values()
@@ -462,7 +465,7 @@ class community :
             dico_to_numpy(z_k_1_values, z_k_1_numpy)
             
             r_k = np.linalg.norm(x_k_1_numpy - z_k_1_numpy)
-            s_k = np.linalg.norm(z_k_numpy - z_k_1_numpy)*rho
+            s_k = np.linalg.norm(z_k_numpy - z_k_1_numpy)
             
             U_numpy = U_numpy + x_k_1_numpy - z_k_1_numpy
 
@@ -471,10 +474,20 @@ class community :
             
             
             old_rho = rho
-            if r_k > mu*s_k :
-                rho *= tau_incr
-            elif s_k > mu*r_k :
-                rho /= tau_decr
+            if wait > 20 : 
+                if r_k > mu*s_k :
+                    rho *= tau_incr
+                elif s_k > mu*r_k :
+                    rho /= tau_decr
+
+            # if wait >= 10 and np.var(list_objs[-10:]) < 1e-3 : 
+            #     rho *= tau_incr
+            #     wait = 0
+            # if wait >= 10 and np.var(list_penas[-10:]) < 1e-3 : 
+            #     wait = 0
+            #     rho /= tau_decr
+            wait += 1
+            
             if rho != old_rho :
                 U_numpy = U_numpy * old_rho/rho
                 
@@ -488,7 +501,8 @@ class community :
             print("\niter, r_k, s_k : ", iter, r_k, s_k)
             print("rho : ", rho)
             # print("Z_k : ", z_k)
-            print("penas : ", penas, "objs : ", objs)
+            print("penas : ", penas, "objs : ", objs, "var : ", np.var(list_objs[-10:]))
+            print("pena_commu : ", pyo.value(self.mod.obj))
             
         if parallel :
             for i in self.current_members_id :

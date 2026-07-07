@@ -82,6 +82,9 @@ def simple_power_exchange_sum_admm(m, t) :
     
 def no_self_exchange(m, t) :
     return m.P_exchange_repr[m.id.value, t] == 0
+
+def surplus_or_exchange_admm(m, t) : 
+    return m.P_exchange[t]*m.P_surplus[t] == 0
     
 # Power balance 
 

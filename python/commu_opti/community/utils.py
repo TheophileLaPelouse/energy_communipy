@@ -14,11 +14,11 @@ def calc_enviro(Pgrid, Pex, Pself, **kwargs) :
         + sum(Pself[k]*deltat*carbone_commu for k in range(len(Pself)))
         )/ref_value
 
-def calc_auto(Pgrid, **kwargs) : 
+def calc_auto(Pgrid_plus, Pgrid_minus, **kwargs) : 
     deltat = kwargs.get("deltat", 1)
     coef_auto = kwargs.get("coef_auto", 1)
     ref_value = kwargs.get("ref", 1)
-    return sum(Pgrid[k]*deltat*coef_auto for k in range(len(Pgrid)))/ref_value
+    return sum((Pgrid_plus[k]+Pgrid_minus[k])*deltat*coef_auto for k in range(len(Pgrid_plus)))/ref_value
 
 def calc_eco(Pgrid_plus, Pgrid_minus, Pex, price_buy, price_sell, **kwargs) : 
     deltat = kwargs.get("deltat", 1)
