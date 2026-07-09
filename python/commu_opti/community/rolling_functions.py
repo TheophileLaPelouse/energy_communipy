@@ -105,11 +105,11 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
     # print("\nIn rolling function:", new_params.get(d.name, {}))
 
         
-def EV_rolling(current_time_index, dico, new_params, d) :
+def EV_rolling(current_time_index, dico, new_params, d, **kwargs) :
     # print(f"[EV_rolling] {d.name=} {current_time_index=}")
     if not new_params.get(d.name):
         new_params[d.name] = {}
-    E0 = pyo.value(d.mod.E[1])
+    E0 = kwargs.get('E0', pyo.value(d.mod.E[1]))
     
     # time_home, E0s, E_min
     

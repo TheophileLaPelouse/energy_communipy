@@ -518,7 +518,7 @@ class community :
     
     
         
-    def optimize_selves(self, solver, **options) :
+    def optimize_selves(self, solver, **kwargs) :
         
         self.mod.obj.deactivate()
         members_gains = []
@@ -526,14 +526,31 @@ class community :
         members_comfort = []
         members_eco = []
         
+        method = kwargs.get("method", "centralized")
+        
         for i in self.current_members_id : 
             for j in self.current_members_id : 
                 self.P_exchange[i, j, :].fix(0)
         
+        
+        
+        if method == "admm" :
+            z_k = kwargs.get("z_k", {(i, j, t) : 0 for t in self.time_set for i in self.current_members_id for j in self.current_members_id})
+            z2_k = kwargs.get("z2_k", {(i, t) : 0 for t in self.time_set for i in self.current_members_id})
+            member_args = {"rho" : 0, "z_k" : z_k, "z2_k" : z2_k, "u_k" : self.U_exchange, "u2_k" : self.U_surplus}
+            member_args["active_members"] = {k : 1 if k == i else 0 for k in self.members_id}
+        
         for i in self.current_members_id :
-            self.members[i].mod_member.obj.activate()
-            self.members[i].self_optimize(solver, **options)
-            self.members[i].mod_member.obj.deactivate()
+            member = self.members[i]
+            if method == "admm" : 
+                member.update_params_admm(**member_args)
+                self.members[i].self_optimize(solver, **kwargs.get("solver_options", {}))
+                
+            else : 
+                self.members[i].mod_member.obj.activate()
+                self.members[i].self_optimize(solver, **kwargs.get("solver_options", {}))
+                self.members[i].mod_member.obj.deactivate()
+                
             member_obj = pyo.value(self.members[i].mod_member.obj)
             member_price = pyo.value(self.members[i].mod_member.price)
             members_gains.append(member_obj)
@@ -546,7 +563,8 @@ class community :
             for j in self.current_members_id : 
                 self.P_exchange[i, j, :].unfix()
         
-        return {"gains" : members_gains, "price" : members_price, "comfort" : members_comfort, "enviro" : members_eco}
+        if kwargs.get("return_val", True) : 
+            return {"gains" : members_gains, "price" : members_price, "comfort" : members_comfort, "enviro" : members_eco}
     
     def calc_gains(self, solver, **options) :
         self.current_members_id = self.members_id[:]

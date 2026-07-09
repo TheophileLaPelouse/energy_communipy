@@ -145,6 +145,13 @@ class white_good(device) :
         time_use = [[start_pref[k], start_pref[k] + cycle_length[k]] for k in range(len(start_pref))]
         self.n_set = len(start_pref)
         self.max_set = 4
+        
+        self.memory['original'] = {
+            "start_pref" : start_pref,
+            "cycle_length" : cycle_length,
+            "time_range" : time_range,
+            "power_needed" : power_needed
+        }
         # print("time_use", time_use)
         super().__init__(power_range, time_use, time_range, **kwargs)
         for times in time_use : 
@@ -324,6 +331,9 @@ class fixed(device) :
         total_time = len(power_profile)
         power_range = [[power_profile[k], power_profile[k]] for k in range(total_time)]
         self.power_profile = power_profile[:]
+        self.memory['original'] = {
+            "power_profile" : power_profile[:]
+        }
         time_use = [[k, k+1] for k in range(total_time)]
         time_range = [[0, 0] for k in range(len(time_use))]
         super().__init__(power_range, time_use, time_range, **kwargs)
@@ -564,6 +574,8 @@ class battery(device) :
         self.P_plus = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=0)
         self.P_minus = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=0)
 
+        self.memory['original'] = {"E0": self.E0[0]}
+
         self.mod.active_time = pyo.Param(self.mod.time_total_set, initialize={k : 1 for k in self.mod.time_total_set}, within=pyo.Boolean, mutable=True)
         self.mod.E_return = pyo.Param(self.mod.time_total_set, initialize={k : self.E0[0] if k == 0 else 0 for k in self.mod.time_total_set}, within=pyo.Reals, mutable=True)
         self.mod.E_min_t = pyo.Param(self.mod.time_total_set, initialize={k : kwargs.get('E_end', self.E0[0]) if k == self.time_total_set[-1] else 0 for k in self.mod.time_total_set}, within=pyo.Reals, mutable=True)
@@ -578,7 +590,6 @@ class battery(device) :
         if "E0" in new_params : 
             self.mod.E_return[0].set_value(new_params["E0"])
         if new_params.get("update_day_bat") : 
-            
             if new_params["time_midnight"] > 0 : 
                 self.mod.E_min_t[new_params["time_midnight"]].set_value(self.mod.E_min_t[new_params["time_midnight"]-1].value)
                 self.mod.E_min_t[new_params["time_midnight"]-1].set_value(0)
@@ -610,6 +621,13 @@ class EV(device) :
         self.E_end = E_end
         self.p_range_bat = p_range
         
+        
+        self.memory['original'] = {
+            "E0s" : E0s[:],
+            "E_min" : E_min[:],
+            "E_end" : E_end, 
+            "time_home" : time_home[:]
+        }
         self.charge_eff = kwargs.get('charge_eff', 0.92)
         self.dcharge_eff = kwargs.get('dcharge_eff', 0.92)
         self.E0 = E0s

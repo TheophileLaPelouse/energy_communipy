@@ -44,6 +44,8 @@ def rolling_horizon_optimization(params_member, param_commu, price_options, **kw
         print("Starting optimization for time step", t)
         if community.kwargs["method"] == "admm" : 
             community.optimize_admm("gurobi", **community.kwargs)
+        elif community.kwargs["method"] == "selves" : 
+            community.optimize_selves("gurobi", **community.kwargs)
         else : 
             community.optimize("gurobi")
         if t == 0 : 

@@ -57,12 +57,14 @@ class member :
             self.time_window_index = [t for t in range(self.total_time_window)]
         self.current_time_index = [0, self.horizon - 1]
         self.device_futur = {}
+        self.device_futur_memo = {}
         self.time_midnight = self.horizon
         self.presence_profile = kwargs.get("presence_profile", []) 
         
         self.generate_presence_profile(**kwargs)
             
         self.generate_device_futur(**kwargs)
+        
         
         self.P_exchange_repr = None # Only used for admm
         # print("START BUILDING")
@@ -99,9 +101,13 @@ class member :
         if device_method == "given" : 
             for d in self.devices : 
                 self.device_futur[d.name] = kwargs.get(f"devices_futur", {}).get(d.name, {})
-        # if profile_method == "random" : 
-        #     for d in self.devices : 
-        #         if d.__class__.__name__ == "white_good" : 
+                for key, val in self.device_futur[d.name].items() : 
+                    if isinstance(val, list) : 
+                        self.device_futur[d.name][key] = val[:]
+                    elif isinstance(val, dict) : 
+                        self.device_futur[d.name][key] = val.copy()
+                    else : 
+                        self.device_futur[d.name][key] = val
                     
             
     
@@ -213,6 +219,8 @@ class member :
         self.mod_member.u_k.store_values(kwargs.get("u_k"))
         self.mod_member.z2_k.store_values(kwargs.get("z2_k"))
         self.mod_member.u2_k.store_values(kwargs.get("u2_k"))
+        if kwargs.get("active_members") : 
+            self.mod_member.active_members.store_values(kwargs.get("active_members"))
         
     # def update_devices(self, **kwargs) :
     #     for dev in self.devices : 
@@ -660,6 +668,61 @@ class member :
             
             # if d.__class__.__name__ == "flex" :
                 
+    def reset_horizon(self, weather, irradiance, prices, **kwargs) :
+        new_params = {"general" : {
+            "weather" : weather,
+            "irradiance_profile" : irradiance,
+            }}
+        self.time_midnight = (self.horizon - 1) % self.horizon
+        new_params['general']["time_midnight"] = self.time_midnight
+        self.current_time_index = [0, self.horizon - 1]
+        self.current_window = [self.time_window[0], self.time_window[0] + dt.timedelta(hours=self.horizon*self.deltat)]
+        new_params["general"]["current_time_index"] = self.current_time_index[0]
+        new_params["general"]["time_index_window"] = self.current_time_index
+        new_params["general"]["presence_profile"] = self.presence_profile[self.current_time_index[0]:self.current_time_index[1]+1]
+        
+        price_buy = prices.get("price_buy", self.mod_member.price_buy.extract_values())
+        price_sell = prices.get("price_sell", self.mod_member.price_sell.extract_values())
+        self.mod_member.price_buy.store_values({t: price_buy[t] for t in self.time_index})
+        self.mod_member.price_sell.store_values({t: price_sell[t] for t in self.time_index})
+        
+        self.generate_device_futur(device_method="given", devices_futur=self.device_futur_memo)
+        
+        for d in self.devices :
+            if d.__class__.__name__ == "white_good" : 
+                kwargs[d.name] = {}
+                for key, value in d.memory['original'].items():
+                    kwargs[d.name][key] = value[:]
+                white_goods_rolling(self.device_futur[d.name], self.total_time, self.current_time_index, d, new_params, remember=(self.current_time_index[0]%24==0), **kwargs)
+                
+            if d.__class__.__name__ == "AoN" : 
+                if pyo.value(d.mod.Pcons[0]) > 0 : 
+                    energy_needed = d.mod.energy_needed_day.value
+                    if energy_needed < 0 :
+                        energy_needed = 0
+                    if not new_params.get(d.name):
+                        new_params[d.name] = {}
+                    new_params[d.name]["energy_needed"] = energy_needed
+                    
+            if d.__class__.__name__ == "battery" : 
+                E0 = d.memory['original']["E0"]
+                if not new_params.get(d.name):
+                    new_params[d.name] = {}
+                new_params[d.name]["E0"] = E0
+                new_params[d.name]["update_day_bat"] = kwargs.get("update_day_bat", True)
+            
+            if d.__class__.__name__ == "PV" : 
+                if not new_params.get(d.name):
+                    new_params[d.name] = {}
+                # new_params[d.name]["irradiance_profile"] = new_irradiance
+                
+            if d.__class__.__name__ == "EV" : 
+                new_params[d.name]["time_home"] = d.memory['original']["time_home"][:]
+                new_params[d.name]["E0s"] = d.memory['original']["E0s"][:]
+                new_params[d.name]["E_min"] = d.memory['original']["E_min"][:]
+                new_params[d.name]["E_end"] = d.memory['original']["E_end"]
+                
+        d.update_params(**new_params["general"], **new_params.get(d.name, {}))
                 
     def objectif_from_memory(self) :
         # Get last value that was not recovered in the updates.
