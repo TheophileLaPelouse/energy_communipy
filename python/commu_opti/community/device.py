@@ -507,12 +507,12 @@ class AoN(device) :
         """
         m = self.mod
         m.on_off = pyo.Var(m.t_set, within=pyo.Boolean, initialize=[0 for k in m.t_set])
-        # m.sum_on_off_con_min = pyo.Constraint(expr=(sum(m.on_off[k] for k in m.t_set)*m.power_needed*self.deltat 
-        #                                                >= 
-        #                                                m.energy_needed))
-        # m.sum_on_off_con_max = pyo.Constraint(expr=(sum(m.on_off[k] for k in m.t_set)*m.power_needed*self.deltat 
-        #                                                <= 
-        #                                                m.max_factor*m.power_needed*self.deltat + m.energy_needed)) # Maybe m.power_needed*self.deltat is too much
+        m.sum_on_off_con_min = pyo.Constraint(expr=(sum(m.on_off[k] for k in m.t_set)*m.power_needed*self.deltat 
+                                                       >= 
+                                                       m.energy_needed))
+        m.sum_on_off_con_max = pyo.Constraint(expr=(sum(m.on_off[k] for k in m.t_set)*m.power_needed*self.deltat 
+                                                       <= 
+                                                       m.max_factor*m.power_needed*self.deltat + m.energy_needed)) # Maybe m.power_needed*self.deltat is too much
 
         m.sum_on_off_con_min_day = pyo.Constraint(expr=(sum(m.on_off[k]*m.current_day[k] for k in m.t_set)*m.power_needed*self.deltat 
                                                        >= 
