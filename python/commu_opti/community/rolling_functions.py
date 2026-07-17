@@ -4,6 +4,7 @@ from . import np, pyo
 def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **kwargs) :
     
     previous_to_change = False
+    old_dico = dico.copy()
     if dico.get('length', 0) > 0 : 
         to_supply = dico['to_supply']
         length = dico['length']
@@ -102,7 +103,8 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
     if previous_to_change :
         new_params[d.name]["previous_cycle"] = dico['to_supply']
         
-    # print("\nIn rolling function:", new_params.get(d.name, {}))
+    # print("\nIn rolling function:", d.name, new_params.get(d.name, {}))
+    # print("Old dico:", old_dico, "New dico:", dico)
 
         
 def EV_rolling(current_time_index, dico, new_params, d, **kwargs) :

@@ -1,0 +1,9 @@
+\ Model unknown_copy
+\ LP format - for model browsing. Use MPS format to capture full model detail.
+\ Signature: 0x267ae670d662c388
+Minimize
+ 
+Subject To
+ member_3_device8_time_con(0): = 1
+Bounds
+End

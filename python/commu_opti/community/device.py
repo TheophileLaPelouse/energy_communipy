@@ -68,24 +68,6 @@ class device :
         # Memory will be used if needed during rolling horizon
         self.memory = {}
         
-
-
- 
-
-        
-    def generate_power_constraint(self) : 
-        # excesses 
-        self.mod.allocated_power = pyo.Var(self.t_set, within=pyo.Reals, initialize=0)
-        self.mod.p_excess_l = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=[0 for t in self.t_set])
-        self.mod.p_excess_u = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=[0 for t in self.t_set])
-        # For now we fix the excess to 0, we will see later if we add a penalization for it or not.
-        for k in self.mod.t_set : 
-            self.mod.p_excess_l[k].fix(0)
-            self.mod.p_excess_u[k].fix(0)
-        self.mod.p_con_l = pyo.Constraint(self.mod.t_set, rule=power_constraint_lower)
-        self.mod.p_con_u = pyo.Constraint(self.mod.t_set, rule=power_constraint_upper)
-        
-        
     def generate_bat_constraint(self, E_end=None) : 
         mod = self.mod
         # Initialization of the parameters
@@ -106,17 +88,10 @@ class device :
         mod.P_minus_max_con = pyo.Constraint(self.mod.time_total_set, rule=P_minus_max)
 
         mod.pow_con = pyo.Constraint(self.mod.time_total_set, rule=power_constraint_bat)
-            
-        # if E_end is None : 
-        #     mod.E_end = pyo.Param(initialize=self.E0[0], within=pyo.Reals, mutable=True)
-        # else : 
-        #     mod.E_end = pyo.Param(initialize=E_end, within=pyo.Reals, mutable=True)
         
         mod.comfort_charge = pyo.Var(self.mod.time_total_set, within=pyo.NonNegativeReals, initialize=0)
-        # if self.E_min : 
+
         mod.end_con = pyo.Constraint(self.mod.time_total_set, rule=end_constraint) # Need to fix E_min_t[-1] to E_end
-        # else :   
-        #     mod.end_con = pyo.Constraint(rule=soc_end)
             
 class white_good(device) : 
     def __init__(self, start_pref, cycle_length, time_range, power_needed, **kwargs) : 
@@ -142,18 +117,18 @@ class white_good(device) :
         self.time_range = time_range
         self.cycle_length = cycle_length
         self.power_needed = power_needed
+        print(kwargs.get('name'), cycle_length)
         time_use = [[start_pref[k], start_pref[k] + cycle_length[k]] for k in range(len(start_pref))]
         self.n_set = len(start_pref)
         self.max_set = 4
         
+        # print("time_use", time_use)
+        super().__init__(power_range, time_use, time_range, **kwargs)
         self.memory['original'] = {
             "start_pref" : start_pref,
-            "cycle_length" : cycle_length,
             "time_range" : time_range,
             "power_needed" : power_needed
         }
-        # print("time_use", time_use)
-        super().__init__(power_range, time_use, time_range, **kwargs)
         for times in time_use : 
             if times[1] > self.total_time : 
                 print("Warning : cycle length too long for the total time, it will be reduced to fit the total time")
@@ -180,6 +155,7 @@ class white_good(device) :
         available_time_set = pyo.Param(self.mod.max_set, self.mod.time_total_set, within=pyo.Boolean, initialize=0, mutable=True)
         
         self.t_min, self.t_max, self.cycle_length = t_min, t_max, cycle_length
+        self.memory['original']['cycle_length'] = cycle_length[:]
         self.mod.available_time, self.mod.available_time_set = available_time, available_time_set
         
         t_set = 0
@@ -248,6 +224,7 @@ class white_good(device) :
             self.cycle_length = [self.cycle_length[k+1] for k in range(self.max_set-1)] + [0]
             n_set -= 1
         
+        # For changing all the list
         if kwargs.get("other_changes") : 
             if kwargs["other_changes"].get("start_pref") :
                 self.start_pref = kwargs["other_changes"]["start_pref"]
@@ -279,7 +256,7 @@ class white_good(device) :
 
         self.n_set = n_set
         # print(f"\nUpdate {self.start_pref=}, {self.cycle_length=}, {self.time_range=}, {self.power_needed=}")
-        time_use = [[self.start_pref[k], self.start_pref[k] + self.cycle_length[k]] for k in range(len(self.start_pref))]
+        time_use = [[self.start_pref[k], self.start_pref[k] + self.cycle_length[k]+1] for k in range(len(self.start_pref))] # Plus 1 because there is -1 before in the definition of cycle length
         index_window = kwargs.get("time_index_window", [0, 24])
 
         # print(time_use, index_window)
@@ -289,15 +266,13 @@ class white_good(device) :
         self.t_min = [max(index_window[0], time_use[k][0] + self.time_range[k][0]) if k in used_set else index_window[0] for k in self.mod.max_set]
         self.t_max = [min(index_window[1]+1, time_use[k][1] + self.time_range[k][1]+1) if k in used_set else index_window[1]+1 for k in self.mod.max_set]
         # print("tmin", self.t_min, "tmax", self.t_max, "cycle_length", self.cycle_length, "time_range", self.time_range)
-        # self.cycle_length = [self.cycle_length[k] if k in used_set else 0 for k in self.mod.time_total_set]
-
         m.t_wanted.store_values({k : max(time_use[k][0], index_window[0]) - index_window[0] if k in used_set else 0 for k in m.max_set})
         m.used_time.store_values({k : 1 if k in used_set else 0 for k in m.max_set})
                 
         self.mod.p_range_wg.store_values({(k, t) : self.power_needed[k] if k in used_set and t <= self.cycle_length[k] else 0 for k in m.max_set for t in m.double_set})
         
         available_time_set_dico = {(t_set, t) : 0 for t_set in m.max_set for t in m.time_total_set}
-        
+        # Compute available time set as in the initialization
         for t_set in m.time_total_set :
             if t_set in m.t_set :
                 for t in range(self.t_min[t_set], self.t_max[t_set]-self.cycle_length[t_set]) : 
@@ -331,12 +306,12 @@ class fixed(device) :
         total_time = len(power_profile)
         power_range = [[power_profile[k], power_profile[k]] for k in range(total_time)]
         self.power_profile = power_profile[:]
-        self.memory['original'] = {
-            "power_profile" : power_profile[:]
-        }
         time_use = [[k, k+1] for k in range(total_time)]
         time_range = [[0, 0] for k in range(len(time_use))]
         super().__init__(power_range, time_use, time_range, **kwargs)
+        self.memory['original'] = {
+            "power_profile" : power_profile[:]
+        }
         total_t_index = pyo.RangeSet(0, self.total_time//self.deltat - 1)
         self.mod.power_profile = pyo.Param(total_t_index, initialize={k : power_profile[k] for k in total_t_index}, within=pyo.Reals, mutable=True)
         self.mod.pow_con = pyo.Constraint(total_t_index, rule=rule_fixed)
@@ -345,7 +320,7 @@ class fixed(device) :
     def update_params(self, **new_params) : 
         if new_params.get("power_profile") :
             self.mod.power_profile.store_values({k : new_params["power_profile"][k] for k in self.mod.time_total_set})
-        else : 
+        elif new_params.get("time_index_window") : 
             start, end = new_params["time_index_window"]
             self.mod.power_profile.store_values({k - start : self.power_profile[k] for k in range(start, end+1)})
             
@@ -389,7 +364,7 @@ class PV(device) :
         if "irradiance_profile" in kwargs :
             # print(f"Update PV device {self.name} irradiance profile", kwargs["irradiance_profile"][:24-kwargs['current_time_index']], 'surface', self.PV_surface.value, "eff", self.mod.eff.value)
             self.mod.irradiance_profile.store_values({k : kwargs["irradiance_profile"][k] for k in self.mod.time_total_set})
-        else : 
+        elif kwargs.get("time_index_window") : 
             start, end = kwargs["time_index_window"]
             self.mod.irradiance_profile.store_values({k - start : self.irradiance_profile[k] for k in range(start, end+1)})
     
@@ -413,15 +388,26 @@ class flex(device) :
         self.original_power_range = power_range[:]
         self.memory['comfort_temp'] = [power_range[0][1]]
         self.memory['actual_temp'] = []
-        self.generate_power_constraint()
         self.generate_spec_constraint()
 
     def generate_spec_constraint(self) : 
+        self.mod.allocated_power = pyo.Var(self.t_set, within=pyo.Reals, initialize=0)
+        self.mod.p_excess_l = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=[0 for t in self.t_set])
+        self.mod.p_excess_u = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=[0 for t in self.t_set])
+        # For now we fix the excess to 0, we will see later if we add a penalization for it or not.
+        for k in self.mod.t_set : 
+            self.mod.p_excess_l[k].fix(0)
+            self.mod.p_excess_u[k].fix(0)
+        self.mod.p_con_l = pyo.Constraint(self.mod.t_set, rule=power_constraint_lower)
+        self.mod.p_con_u = pyo.Constraint(self.mod.t_set, rule=power_constraint_upper)
+        
         self.mod.pow_con = pyo.Constraint(self.mod.t_set, rule=rule_flex)
         self.mod.p_confort_lvl = pyo.Expression(self.t_set, rule=confort_rule_flex)
         
     def update_params(self, **kwargs) :
         # print(kwargs)
+        
+        # Either heating system or climatisation, so we need to compute new power range as in the data generation.
         if hasattr(self, "heating_params") and kwargs.get("weather") and kwargs.get("presence_profile") : 
             # print("\nGoes here")
             T_wanted = self.heating_params['T_wanted']
@@ -471,10 +457,10 @@ class flex(device) :
             
             self.memory['comfort_temp'].append(p_range[0][1])
             
-        else : 
+        else : # Maybe one day
             if "p_range" in kwargs : 
                 self.mod.p_range.store_values({(k, i) : kwargs["p_range"][k][i] for k in self.mod.t_set for i in range(2)})
-            else : 
+            elif kwargs.get("time_index_window") : 
                 start, end = kwargs["time_index_window"]
                 self.mod.p_range.store_values({(k - start, i) : self.original_power_range[k][i] for k in range(start, end+1) for i in range(2)})
         
@@ -507,6 +493,8 @@ class AoN(device) :
         """
         m = self.mod
         m.on_off = pyo.Var(m.t_set, within=pyo.Boolean, initialize=[0 for k in m.t_set])
+        
+        # Energy constraints for the next horizon
         m.sum_on_off_con_min = pyo.Constraint(expr=(sum(m.on_off[k] for k in m.t_set)*m.power_needed*self.deltat 
                                                        >= 
                                                        m.energy_needed))
@@ -514,6 +502,7 @@ class AoN(device) :
                                                        <= 
                                                        m.max_factor*m.power_needed*self.deltat + m.energy_needed)) # Maybe m.power_needed*self.deltat is too much
 
+        # Energy constraints for the current day
         m.sum_on_off_con_min_day = pyo.Constraint(expr=(sum(m.on_off[k]*m.current_day[k] for k in m.t_set)*m.power_needed*self.deltat 
                                                        >= 
                                                        m.energy_needed_day))
@@ -535,7 +524,7 @@ class AoN(device) :
         if "time_midnight" in new_params : 
             self.mod.time_midnight.set_value(new_params["time_midnight"])
             # print("time_midnight", self.mod.time_midnight.value)
-            self.mod.current_day.store_values({k: 1 if k <= self.mod.time_midnight.value - 1 else 0 for k in self.mod.time_total_set})
+            self.mod.current_day.store_values({k: 1 if k <= self.mod.time_midnight.value else 0 for k in self.mod.time_total_set})
         # print("current_day", self.mod.current_day.extract_values())
         
 class battery(device) : 
@@ -574,7 +563,7 @@ class battery(device) :
         self.P_plus = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=0)
         self.P_minus = pyo.Var(self.t_set, within=pyo.NonNegativeReals, initialize=0)
 
-        self.memory['original'] = {"E0": self.E0[0]}
+        self.memory['original'] = {"E0": self.E0[0], "E_end": kwargs.get('E_end', self.E0[0])}
 
         self.mod.active_time = pyo.Param(self.mod.time_total_set, initialize={k : 1 for k in self.mod.time_total_set}, within=pyo.Boolean, mutable=True)
         self.mod.E_return = pyo.Param(self.mod.time_total_set, initialize={k : self.E0[0] if k == 0 else 0 for k in self.mod.time_total_set}, within=pyo.Reals, mutable=True)

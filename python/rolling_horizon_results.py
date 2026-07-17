@@ -28,11 +28,11 @@ from commu_opti.plotting.plot_functions import plot_power_curves
 
 # choose penetration rate of PV, EV and battery
 
-# EV_rate = 0.2
-# PV_rate = 0.3
-# Battery_rate = 0.1
+# EV_rate = 1
+# PV_rate = 1
+# Battery_rate = 1
 
-EV_rate = 0
+EV_rate = 0.3
 PV_rate = 0.2
 Battery_rate = 0.2
 
@@ -213,7 +213,7 @@ kwargs = {
     "deltat" : 1,
     "date" : date,
     "debug" : True,
-    "until" : 1,
+    "until" : 1, 
     "irradiance_history" : irradiance_history[:24] + irradiance_history[:25], 
     "weather_history" : weather_history[:24] + weather_history[:25],
     # "irradiance_forecast" : irradiance_forecast,
@@ -235,6 +235,20 @@ with_rolling, without_rolling, debug = rolling_horizon_optimization(params, para
 co = debug['community']
 d = co.members[0].devices[0]
 
+print("Objectif WITHOUT rolling horizon : ", without_rolling['aggregated_objs']['Objective'], "price", without_rolling['aggregated_objs']['price'], "enviro", without_rolling['aggregated_objs']['enviro'], "auto", without_rolling['aggregated_objs']['auto'], "comfort", without_rolling['aggregated_objs']['comfort'])
+
+
+#%%
+old_price_buy = price_options["eco"]["cost_grid_buy"][:horizon]
+old_price_sell = price_options["eco"]["cost_grid_sell"][:horizon]
+for m in co.members : 
+    m.reset_horizon(kwargs['weather_forecast'], kwargs['irradiance_forecast'], {"price_buy" : old_price_buy, "price_sell" : old_price_sell})
+
+co.optimize("gurobi")
+co.aggregate_distributed_information()
+without_rolling_reset = co.results.copy()
+
+print("Objectif WITHOUT rolling horizon after reset: ", without_rolling_reset['aggregated_objs']['Objective'], "price", without_rolling_reset['aggregated_objs']['price'], "enviro", without_rolling_reset['aggregated_objs']['enviro'], "auto", without_rolling_reset['aggregated_objs']['auto'], "comfort", without_rolling_reset['aggregated_objs']['comfort'])
 
 
 #%% Plotting 

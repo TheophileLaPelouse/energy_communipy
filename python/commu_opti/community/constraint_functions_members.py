@@ -88,6 +88,8 @@ def surplus_or_exchange_admm(m, t) :
     
 # Power balance 
 
+# Bat exchange = false => The battery cannot exhcange its energy with the grid directly, one flow yet is that energy exchanged can be sold.
+
 def P_bat_con_false(mod, t) :
     return (mod.P_bat[t] == mod.P_bat_p[t] - mod.P_bat_m[t])
 

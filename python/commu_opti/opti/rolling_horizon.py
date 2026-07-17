@@ -36,10 +36,20 @@ def rolling_horizon_optimization(params_member, param_commu, price_options, **kw
     
     members = define_members(params_member)
 
-    new_weather = [20 for k in range(horizon)]
+    
 
     community = define_community(members, **param_commu, **price_options)
-    new_irradiance=[]
+    new_weather = [weather_history[0]] + weather_forecast[1:horizon]
+    new_irradiance = [irradiance_history[0]] + irradiance_forecast[1:horizon]
+    new_price_buy = price_options["eco"]["cost_grid_buy"][:horizon]
+    new_price_sell = price_options["eco"]["cost_grid_sell"][:horizon]
+    new_prices = {"price_buy" : new_price_buy, "price_sell" : new_price_sell}
+    
+    for i in community.current_members_id : 
+        m = community.members[i]
+        # m.rolling_horizon_update(new_weather, new_irradiance, new_prices, general_only=False)
+        m.reset_horizon(new_weather, new_irradiance, new_prices)
+    
     for t in range(kwargs.get("until", total_time - horizon)) :
         print("Starting optimization for time step", t)
         if community.kwargs["method"] == "admm" : 

@@ -51,7 +51,7 @@ class member :
         self.time_window = kwargs.get("time_window", None)
         self.horizon = kwargs.get("horizon", 24)
         # print(self.deltat, self.horizon)
-        if self.time_window is not None : 
+        if self.time_window is not None : # Keep track of time for rolling horizon optimization
             self.current_window = [self.time_window[0], self.time_window[0] + dt.timedelta(hours=self.horizon*self.deltat)]
             self.total_time_window = int((self.time_window[1] - self.time_window[0]).total_seconds() / 3600 / self.deltat)
             self.time_window_index = [t for t in range(self.total_time_window)]
@@ -109,12 +109,13 @@ class member :
                     else : 
                         self.device_futur[d.name][key] = val
                     
+        # Other methods could be implemented here in the future.
             
     
     def add_to_community(self, commu, id_, method=None) :
         if hasattr(self.mod_member, 'commu'):
             self.mod_member.commu.set_value(1)
-        if method == "admm" : 
+        if method == "admm" : # No direct link with the python object community. In the future there should be a better communication method
             self.commu = {
                 "members_id" : commu.members_id[:],
                 "member_set" : set(commu.member_set),
@@ -124,7 +125,7 @@ class member :
         
         else : 
             self.commu = commu  
-            self.full_commu = commu
+            self.full_commu = commu # Used for being able to optimize the member without a community and recover it after.
         self.socio_commu = commu.socio  
         self.id=id_
     
@@ -138,15 +139,16 @@ class member :
         self.PV_surface = pyo.Expression(rule=rule_PV_surface)
         self.bat_cap = pyo.Expression(rule=bat_cap_rule)
         self.P_prod = pyo.Expression(self.time_index, rule=rule_p_prod)
-        self.mod_member.P_cons = self.P_cons 
-        self.mod_member.P_bat = self.P_bat
-        self.mod_member.PV_surface = self.PV_surface
-        self.mod_member.bat_cap = self.bat_cap
-        self.mod_member.P_prod = self.P_prod
+        m = self.mod_member
+        m.P_cons = self.P_cons 
+        m.P_bat = self.P_bat
+        m.PV_surface = self.PV_surface
+        m.bat_cap = self.bat_cap
+        m.P_prod = self.P_prod
         
-        self.mod_member.p_confort = pyo.Expression(self.time_index, rule=rule_p_confort)
-        self.mod_member.t_confort = pyo.Expression(rule=rule_t_confort)
-        self.mod_member.charge_comfort = pyo.Expression(self.time_index, rule=rule_charge_confort)
+        m.p_confort = pyo.Expression(self.time_index, rule=rule_p_confort)
+        m.t_confort = pyo.Expression(rule=rule_t_confort)
+        m.charge_comfort = pyo.Expression(self.time_index, rule=rule_charge_confort)
         
         
     def fetch_P_exchange(self, **kwargs) :
@@ -154,10 +156,11 @@ class member :
         Fetch the power coming from the grid   
         """
         method = kwargs.get("method", "centralized")
+        m = self.mod_member
         if method == "centralized" : 
             
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_centralized)
-            self.mod_member.P_exchange = self.P_exchange
+            m.P_exchange = self.P_exchange
             
         elif method=="admm" : 
             if self.commu is None : 
@@ -167,17 +170,17 @@ class member :
                 members_id = self.commu["members_id"]
                 current_members_id = self.commu["current_members_id"]
                 
-            self.mod_member.member_set = pyo.Set(initialize=members_id)
-            self.mod_member.active_members = pyo.Param(members_id, initialize={i : 1 if i in current_members_id else 0 for i in members_id}, mutable=True)
-            self.P_exchange_repr = pyo.Var(self.mod_member.member_set, self.time_index, within=pyo.NonNegativeReals, initialize=0)
-            self.mod_member.P_exchange_repr = self.P_exchange_repr
-            self.mod_member.no_self_exchange = pyo.Constraint(self.time_index, rule=no_self_exchange)
+            m.member_set = pyo.Set(initialize=members_id)
+            m.active_members = pyo.Param(members_id, initialize={i : 1 if i in current_members_id else 0 for i in members_id}, mutable=True)
+            self.P_exchange_repr = pyo.Var(m.member_set, self.time_index, within=pyo.NonNegativeReals, initialize=0)
+            m.P_exchange_repr = self.P_exchange_repr
+            m.no_self_exchange = pyo.Constraint(self.time_index, rule=no_self_exchange)
 
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_admm)
-            self.mod_member.P_exchange = self.P_exchange
+            m.P_exchange = self.P_exchange
             
             if kwargs.get("help_surplus_admm", False) :
-                self.mod_member.exchange_surplus = pyo.Constraint(self.time_index, rule=surplus_or_exchange_admm)
+                m.exchange_surplus = pyo.Constraint(self.time_index, rule=surplus_or_exchange_admm)
             
     def build_objective(self, **kwargs) :
         method = kwargs.get("method", "centralized")
@@ -236,9 +239,11 @@ class member :
         
         self.clear_model()
         
-        self.mod_member.time_index = self.time_index
-        self.mod_member.commu = pyo.Param(initialize=(int(self.commu is None) + 1)%2, within=pyo.Binary, mutable=True)
-        self.mod_member.id = pyo.Param(initialize=self.id, mutable=True)
+        m = self.mod_member
+        
+        m.time_index = self.time_index
+        m.commu = pyo.Param(initialize=(int(self.commu is None) + 1)%2, within=pyo.Binary, mutable=True)
+        m.id = pyo.Param(initialize=self.id, mutable=True)
         
         for k in range(len(self.devices)) : 
             if self.devices[k].__class__.__name__ == "PV" and self.def_irradiance : 
@@ -247,17 +252,17 @@ class member :
             if self.devices[k].__class__.__name__ == "battery" :
                 self.bat_present = True
             
-            setattr(self.mod_member, f"device{k}", self.devices[k].mod)
+            setattr(m, f"device{k}", self.devices[k].mod)
             
-        self.mod_member.device_set = pyo.RangeSet(0, len(self.devices)-1)
+        m.device_set = pyo.RangeSet(0, len(self.devices)-1)
             
         
         # print("ADDING DEVICES DONE")
         
         self.P_surplus = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
         self.P_self = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
-        self.mod_member.P_surplus = self.P_surplus
-        self.mod_member.P_self = self.P_self
+        m.P_surplus = self.P_surplus
+        m.P_self = self.P_self
         
         self.fetch_P_exchange(**kwargs)
                 
@@ -273,37 +278,37 @@ class member :
                 
         self.P_grid_plus = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
         self.P_grid_minus = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
-        self.mod_member.P_grid_plus = self.P_grid_plus
-        self.mod_member.P_grid_minus = self.P_grid_minus
+        m.P_grid_plus = self.P_grid_plus
+        m.P_grid_minus = self.P_grid_minus
         
         # print("bat_exchange", kwargs.get("bat_exchange", False))
         if kwargs.get("bat_exchange", False) : 
             self.charging = pyo.Var(self.time_index, within=pyo.Boolean, initialize=[0 for t in self.time_index])
             self.P_bat_plus = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
             self.P_bat_minus = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
-            self.mod_member.charging = self.charging
-            self.mod_member.P_bat_plus = self.P_bat_plus
-            self.mod_member.P_bat_minus = self.P_bat_minus
+            m.charging = self.charging
+            m.P_bat_plus = self.P_bat_plus
+            m.P_bat_minus = self.P_bat_minus
             
             self.P_bat_p = pyo.Expression(self.time_index, rule=lambda m, t : self.P_bat_plus[t]*self.charging[t])
             self.P_bat_m = pyo.Expression(self.time_index, rule=lambda m, t : self.P_bat_minus[t]*(1 - self.charging[t]))
-            self.mod_member.P_bat_p = self.P_bat_p
-            self.mod_member.P_bat_m = self.P_bat_m
+            m.P_bat_p = self.P_bat_p
+            m.P_bat_m = self.P_bat_m
             
-            self.mod_member.P_bat_con = pyo.Constraint(self.time_index, rule=P_bat_con_false)
-            self.mod_member.P_prod_con = pyo.Constraint(self.time_index, rule=P_prod_constraint_false)
-            self.mod_member.P_grid_con = pyo.Constraint(self.time_index, rule=P_grid_constraint_false)
+            m.P_bat_con = pyo.Constraint(self.time_index, rule=P_bat_con_false)
+            m.P_prod_con = pyo.Constraint(self.time_index, rule=P_prod_constraint_false)
+            m.P_grid_con = pyo.Constraint(self.time_index, rule=P_grid_constraint_false)
 
             self.P_self_prod = pyo.Expression(self.time_index, rule=P_self_prod_con_false)
-            self.mod_member.P_self_prod = self.P_self_prod
+            m.P_self_prod = self.P_self_prod
             
         else : 
 
             self.P_self_prod = pyo.Expression(self.time_index, rule=P_self_prod_con_true)  
-            self.mod_member.P_self_prod = self.P_self_prod
+            m.P_self_prod = self.P_self_prod
             
-            self.mod_member.P_prod_con = pyo.Constraint(self.time_index, rule=P_prod_constraint_true)
-            self.mod_member.P_grid_con = pyo.Constraint(self.time_index, rule=P_grid_constraint_true)
+            m.P_prod_con = pyo.Constraint(self.time_index, rule=P_prod_constraint_true)
+            m.P_grid_con = pyo.Constraint(self.time_index, rule=P_grid_constraint_true)
         # Warning : works onlly if selling price lower than buying price
         
         # print("PGRID + and - DEFINED")
@@ -315,8 +320,8 @@ class member :
         eco_args["ref"] = self.ref_values[0]
         price_buy = eco_args.get("cost_grid_buy", [1 for k in range(self.total_time)])
         price_sell = eco_args.get("cost_grid_sell", [-0.25 for k in range(self.total_time)])
-        self.mod_member.price_buy = pyo.Param(self.time_index, initialize={t : price_buy[t] for t in self.time_index}, mutable=True)
-        self.mod_member.price_sell = pyo.Param(self.time_index, initialize={t : price_sell[t] for t in self.time_index}, mutable=True)
+        m.price_buy = pyo.Param(self.time_index, initialize={t : price_buy[t] for t in self.time_index}, mutable=True)
+        m.price_sell = pyo.Param(self.time_index, initialize={t : price_sell[t] for t in self.time_index}, mutable=True)
         
         
         
@@ -334,31 +339,31 @@ class member :
         self.prices_args["auto"] = auto_args
         self.prices_args["confort"] = confort_args
         
-        self.mod_member.obj_expr = pyo.Expression(expr=calc_eco_total(self.P_grid_plus, self.P_grid_minus, self.P_exchange, self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, self.mod_member.price_buy, self.mod_member.price_sell, **eco_args)*self.socio_commu[0]
-                                     + calc_enviro(self.P_grid_plus, self.P_exchange,self.P_self, **enviro_args)*self.socio_commu[1]
-                                     + calc_auto(self.P_grid_plus, self.P_grid_minus, **auto_args)*self.socio_commu[2]
-                                     + calc_confort(self.mod_member.p_confort, self.mod_member.t_confort, self.mod_member.charge_comfort, **confort_args)*self.socio_commu[3]
+        m.obj_expr = pyo.Expression(expr=calc_eco_total(self.P_grid_plus, self.P_grid_minus, self.P_exchange, self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, m.price_buy, m.price_sell, **eco_args)*self.socio[0]
+                                     + calc_enviro(self.P_grid_plus, self.P_exchange,self.P_self, **enviro_args)*self.socio[1]
+                                     + calc_auto(self.P_grid_plus, self.P_grid_minus, **auto_args)*self.socio[2]
+                                     + calc_confort(m.p_confort, m.t_confort, m.charge_comfort, **confort_args)*self.socio[3]
                                      + sum(f(self.P_cons, self.P_bat, self.P_exchange, self.P_grid_plus, self.P_grid_minus) for f in functions)/self.ref_values[-1]
-                                    #  + calc_pena_pow(self.mod_member.p_excess_l, self.mod_member.p_excess_u, **pena_args)
+                                    #  + calc_pena_pow(m.p_excess_l, m.p_excess_u, **pena_args)
                                      )
         
         self.build_objective(**kwargs)
         
-        # self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr, sense=pyo.minimize)
+        # m.obj = pyo.Objective(expr=m.obj_expr, sense=pyo.minimize)
         
-        self.price = pyo.Expression(expr=calc_eco_total(self.P_grid_plus, self.P_grid_minus, self.P_exchange, self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, self.mod_member.price_buy, self.mod_member.price_sell, **eco_args))
-        self.price_operation = pyo.Expression(expr=calc_eco(self.P_grid_plus, self.P_grid_minus, self.P_exchange, self.mod_member.price_buy, self.mod_member.price_sell, **eco_args))
+        self.price = pyo.Expression(expr=calc_eco_total(self.P_grid_plus, self.P_grid_minus, self.P_exchange, self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, m.price_buy, m.price_sell, **eco_args))
+        self.price_operation = pyo.Expression(expr=calc_eco(self.P_grid_plus, self.P_grid_minus, self.P_exchange, m.price_buy, m.price_sell, **eco_args))
         self.price_invest = pyo.Expression(expr=calc_invest_cost(self.PV_surface, self.PV_present, self.bat_cap, self.bat_present, **eco_args))
         self.enviro = pyo.Expression(expr=calc_enviro(self.P_grid_plus, self.P_exchange,self.P_self, **enviro_args))
         self.auto = pyo.Expression(expr=calc_auto(self.P_grid_plus, self.P_grid_minus, **auto_args))
-        self.confort = pyo.Expression(expr=calc_confort(self.mod_member.p_confort, self.mod_member.t_confort, self.mod_member.charge_comfort, **confort_args))
+        self.confort = pyo.Expression(expr=calc_confort(m.p_confort, m.t_confort, m.charge_comfort, **confort_args))
         
-        self.mod_member.price = self.price
-        self.mod_member.price_operation = self.price_operation
-        self.mod_member.price_invest = self.price_invest
-        self.mod_member.enviro = self.enviro
-        self.mod_member.auto = self.auto
-        self.mod_member.confort = self.confort
+        m.price = self.price
+        m.price_operation = self.price_operation
+        m.price_invest = self.price_invest
+        m.enviro = self.enviro
+        m.auto = self.auto
+        m.confort = self.confort
         
         
         return
@@ -584,7 +589,9 @@ class member :
                     d.memory["actual_starts"].append(self.current_time_index[0])
                     
             if d.__class__.__name__ == "EV" : 
-                d.memory['comfort_charge_pena'].append(pyo.value(d.mod.comfort_charge_pena[0]))
+                if not d.memory.get('comfort_charge_pena') : 
+                    d.memory['comfort_charge_pena'] = []
+                d.memory['comfort_charge_pena'].append(pyo.value(d.mod.comfort_charge[0]))
                     
         powers = self.send_power_information(until=1)
         for pow in powers : 
@@ -611,18 +618,20 @@ class member :
                     
     def rolling_horizon_update(self, new_weather, new_irradiance, new_prices, **kwargs) : 
         # Fix the values needed for each devices 
+        general_only = kwargs.get("general_only", False)
         new_params = {"general" : {
             "weather" : new_weather,
             "irradiance_profile" : new_irradiance,
             }}
         
-        self.time_midnight = (self.time_midnight - 1) % self.horizon
-        new_params['general']["time_midnight"] = self.time_midnight
-        self.current_window = [self.current_window[0] + dt.timedelta(hours=self.deltat), self.current_window[1] + dt.timedelta(hours=self.deltat)]
-        self.current_time_index = [self.current_time_index[0] + 1, self.current_time_index[1] + 1]
-        new_params["general"]["current_time_index"] = self.current_time_index[0]
-        new_params["general"]["time_index_window"] = self.current_time_index
-        new_params["general"]["presence_profile"] = self.presence_profile[self.current_time_index[0]:self.current_time_index[1]+1]
+        if not general_only :
+            self.time_midnight = (self.time_midnight - 1) % self.horizon
+            new_params['general']["time_midnight"] = self.time_midnight
+            self.current_window = [self.current_window[0] + dt.timedelta(hours=self.deltat), self.current_window[1] + dt.timedelta(hours=self.deltat)]
+            self.current_time_index = [self.current_time_index[0] + 1, self.current_time_index[1] + 1]
+            new_params["general"]["current_time_index"] = self.current_time_index[0]
+            new_params["general"]["time_index_window"] = self.current_time_index
+            new_params["general"]["presence_profile"] = self.presence_profile[self.current_time_index[0]:self.current_time_index[1]+1]
         
         # print("\nRolling horizon update, current time index:", self.current_time_index)
         price_buy = new_prices.get("price_buy", self.mod_member.price_buy.extract_values())
@@ -631,12 +640,12 @@ class member :
         self.mod_member.price_sell.store_values({t: price_sell[t] for t in self.time_index})
 
         for d in self.devices :
-            if d.__class__.__name__ == "white_good" : 
+            if d.__class__.__name__ == "white_good" and not general_only : 
                 # print("Avant", new_params.get(d.name, {}))
                 white_goods_rolling(self.device_futur[d.name], self.total_time, self.current_time_index, d, new_params, remember=(self.current_time_index[0]%24==0), **kwargs)
                 # print("APRès", new_params.get(d.name, {}))
                 
-            if d.__class__.__name__ == "AoN" : 
+            if d.__class__.__name__ == "AoN" and not general_only : 
                 if pyo.value(d.mod.Pcons[0]) > 0 : 
                     energy_needed = d.mod.energy_needed_day.value - pyo.value(d.mod.Pcons[0])*self.deltat
                     if energy_needed < 0 :
@@ -647,7 +656,7 @@ class member :
                     # print("energy_needed for device", d.mod.energy_needed_day.value, "-", pyo.value(d.mod.Pcons[0])*self.deltat)
                     new_params[d.name]["energy_needed"] = energy_needed
                     
-            if d.__class__.__name__ == "battery" : 
+            if d.__class__.__name__ == "battery" and not general_only : 
                 E0 = pyo.value(d.mod.E[1])
                 print("E0, E1 for battery", pyo.value(d.mod.E[0]), E0, "Power at t=0", pyo.value(d.mod.Pcons[0]))
                 # For now no Eend as we will be on 24 hours so make sense to begin and end at the same level, but should be changed in due time
@@ -661,10 +670,13 @@ class member :
                     new_params[d.name] = {}
                 # new_params[d.name]["irradiance_profile"] = new_irradiance
                 
-            if d.__class__.__name__ == "EV" : 
+            if d.__class__.__name__ == "EV" and not general_only : 
                 EV_rolling(self.current_time_index, self.device_futur[d.name], new_params, d)
-                
-            d.update_params(**new_params["general"], **new_params.get(d.name, {}))
+            
+            if general_only :
+                d.update_params(**new_params["general"])
+            else :
+                d.update_params(**new_params["general"], **new_params.get(d.name, {}))
             
             # if d.__class__.__name__ == "flex" :
                 
@@ -709,6 +721,7 @@ class member :
                 if not new_params.get(d.name):
                     new_params[d.name] = {}
                 new_params[d.name]["E0"] = E0
+                new_params[d.name]["E_end"] = d.memory['original']["E_end"]
                 new_params[d.name]["update_day_bat"] = kwargs.get("update_day_bat", True)
             
             if d.__class__.__name__ == "PV" : 
@@ -717,12 +730,14 @@ class member :
                 # new_params[d.name]["irradiance_profile"] = new_irradiance
                 
             if d.__class__.__name__ == "EV" : 
+                if not new_params.get(d.name):
+                    new_params[d.name] = {}
                 new_params[d.name]["time_home"] = d.memory['original']["time_home"][:]
                 new_params[d.name]["E0s"] = d.memory['original']["E0s"][:]
                 new_params[d.name]["E_min"] = d.memory['original']["E_min"][:]
                 new_params[d.name]["E_end"] = d.memory['original']["E_end"]
                 
-        d.update_params(**new_params["general"], **new_params.get(d.name, {}))
+            d.update_params(**new_params["general"], **new_params.get(d.name, {}))
                 
     def objectif_from_memory(self) :
         # Get last value that was not recovered in the updates.
