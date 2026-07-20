@@ -1,6 +1,8 @@
 import math
 from functools import reduce
+from pyexpat import model
 from . import pyo
+from . import SolverFactory
 
 def calc_enviro(Pgrid, Pex, Pself, **kwargs) : 
     # Peut être ajouter test pour si viens d'un modèle pyomo ou pas 
@@ -99,3 +101,48 @@ def extract_values(m, dico) :
     return dico
 
     
+def nucleolus(vs, n_player, solver="gurobi", solver_options=None) :
+    """Compute nucleolus
+
+    Args:
+        vs (list): [set S of the coalition, value of the coalition] for all coalitions
+        n_player (int): Number of players to consider 
+    """
+    
+    if not solver_options.get("solver_io") : 
+        solver = SolverFactory(solver)
+    else : 
+        solver = SolverFactory(solver, solver_options.pop("solver_io"))
+    
+    for key in solver_options : 
+        solver.options[key] = solver_options[key]
+            
+    to_deactivate = set(range(len(vs)))
+    while to_deactivate : 
+        mod = pyo.ConcreteModel()
+        mod.x = pyo.Var(range(n_player), domain=pyo.Reals)
+        mod.eps = pyo.Var(domain=pyo.Reals)
+        mod.obj = pyo.Objective(expr=mod.eps, sense=pyo.minimize)
+        
+        mod.coal_index = pyo.RangeSet(0, len(vs) - 1)
+        mod.constraints_basic = pyo.Constraint(mod.coal_index, rule=lambda mod, i: sum(mod.x[j] for j in vs[i][0]) + mod.surplus[i] == vs[i][1])
+        mod.constraints = pyo.ConstraintList()
+        results = solver.solve(model)
+        x_val = mod.x.extract_values()
+        eps_opti = pyo.value(mod.eps)
+        
+        to_pop = set()
+        for k in to_deactivate :
+            S, v = vs[k]
+            if v - eps_opti == sum(x_val[i] for i in S) : 
+                mod.constraints.add(sum(mod.x[i] for i in S) == v - eps_opti)
+                mod.constraints_basic[k].deactivate()
+                to_pop.add(k)
+        
+        to_deactivate = to_deactivate - to_pop
+        
+    return x_val
+        
+        
+        
+        

@@ -8,8 +8,8 @@ from time import time
 import datetime as dt
 
 import sys
-sys.path.append("/Users/theophilemounier/Desktop/git/projet_g3/python")
-sys.path.append("/home/theophile/Desktop/git/projet_g3/python")
+sys.path.append("/Users/theophilemounier/Desktop/git/energy_communipy/python")
+sys.path.append("/home/theophile/Desktop/git/energy_communipy/python")
 import pyomo.environ as pyo
 from pyomo.util.infeasible import find_infeasible_constraints, find_infeasible_bounds
 from pyomo.opt import SolverFactory
@@ -221,6 +221,7 @@ kwargs = {
     "irradiance_forecast" : irradiance_history[:24] + irradiance_history[:25],
     "weather_forecast" : weather_history[:24] + weather_history[:25],
     # "skip_params" : True
+    "compare_selves" : True
     }
 
 for param in params : 
@@ -230,12 +231,13 @@ for param in params :
 param_commu['method'] = 'centralized'
 
 # param_commu["ref_lp"] = True
-with_rolling, without_rolling, debug = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
+with_rolling, without_rolling, wrs, w_rs, debug = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
 
 co = debug['community']
 d = co.members[0].devices[0]
 
 print("Objectif WITHOUT rolling horizon : ", without_rolling['aggregated_objs']['Objective'], "price", without_rolling['aggregated_objs']['price'], "enviro", without_rolling['aggregated_objs']['enviro'], "auto", without_rolling['aggregated_objs']['auto'], "comfort", without_rolling['aggregated_objs']['comfort'])
+print("Objectif WITHOUT rolling horizon : ", w_rs['aggregated_objs']['Objective'], "price", w_rs['aggregated_objs']['price'], "enviro", w_rs['aggregated_objs']['enviro'], "auto", w_rs['aggregated_objs']['auto'], "comfort", w_rs['aggregated_objs']['comfort'])
 
 
 #%%
@@ -244,12 +246,11 @@ old_price_sell = price_options["eco"]["cost_grid_sell"][:horizon]
 for m in co.members : 
     m.reset_horizon(kwargs['weather_forecast'], kwargs['irradiance_forecast'], {"price_buy" : old_price_buy, "price_sell" : old_price_sell})
 
-co.optimize("gurobi")
-co.aggregate_distributed_information()
-without_rolling_reset = co.results.copy()
+# co.optimize("gurobi")
+# co.aggregate_distributed_information()
+# without_rolling_reset = co.results.copy()
 
-print("Objectif WITHOUT rolling horizon after reset: ", without_rolling_reset['aggregated_objs']['Objective'], "price", without_rolling_reset['aggregated_objs']['price'], "enviro", without_rolling_reset['aggregated_objs']['enviro'], "auto", without_rolling_reset['aggregated_objs']['auto'], "comfort", without_rolling_reset['aggregated_objs']['comfort'])
-
+# print("Objectif WITHOUT rolling horizon after reset: ", without_rolling_reset['aggregated_objs']['Objective'], "price", without_rolling_reset['aggregated_objs']['price'], "enviro", without_rolling_reset['aggregated_objs']['enviro'], "auto", without_rolling_reset['aggregated_objs']['auto'], "comfort", without_rolling_reset['aggregated_objs']['comfort'])
 
 #%% Plotting 
 
@@ -300,11 +301,38 @@ to_plot_without_rolling = {
     "title" : "Community power profile without rolling horizon optimization"
 }
 
+# to_plot_rolling = {
+#     "powers" : {
+#         "P_cons" : with_rolling['aggregated_powers']["P_cons"],
+#         "P_bat" : with_rolling['aggregated_powers']["P_bat"],
+#         "P_prod" : with_rolling['aggregated_powers']["P_prod"],
+#         "P_exchange" : with_rolling['aggregated_powers']["P_exchange"],
+#         "P_grid" : with_rolling['aggregated_powers']["P_grid"], 
+#         "Price" : prices[:horizon]*100*1000,
+#         "irradiance" : irradiance_history[:horizon]
+#     },
+#     "title" : "Community power profile with rolling horizon optimization"
+# }
+
+to_plot_w_rs = {
+    "powers" : {
+        "P_cons" : w_rs['aggregated_powers']["P_cons"],
+        "P_bat" : w_rs['aggregated_powers']["P_bat"],
+        "P_prod" : w_rs['aggregated_powers']["P_prod"],
+        "P_exchange" : w_rs['aggregated_powers']["P_exchange"],
+        "P_grid" : w_rs['aggregated_powers']["P_grid"], 
+        "Price" : prices[:horizon]*100*1000,
+        "irradiance" : [val*10 for val in irradiance_history[:horizon]]
+    },
+    "title" : "Individuals power profile without rolling horizon optimization"
+}
+
 
 # plot_power_curves(**to_plot_rolling)
 plot_power_curves(**to_plot_without_rolling)
+plot_power_curves(**to_plot_w_rs)
 
-# print("Objectif with rolling horizon : ", with_rolling['aggregated_objs']['Objective'], "price", with_rolling['aggregated_objs']['price'], "enviro", with_rolling['aggregated_objs']['enviro'], "auto", with_rolling['aggregated_objs']['auto'], "comfort", with_rolling['aggregated_objs']['comfort'])
+print("Objectif with rolling horizon : ", with_rolling['aggregated_objs']['Objective'], "price", with_rolling['aggregated_objs']['price'], "enviro", with_rolling['aggregated_objs']['enviro'], "auto", with_rolling['aggregated_objs']['auto'], "comfort", with_rolling['aggregated_objs']['comfort'])
 print("Objectif WITHOUT rolling horizon : ", without_rolling['aggregated_objs']['Objective'], "price", without_rolling['aggregated_objs']['price'], "enviro", without_rolling['aggregated_objs']['enviro'], "auto", without_rolling['aggregated_objs']['auto'], "comfort", without_rolling['aggregated_objs']['comfort'])
 
 #%% plot first 2 members 

@@ -562,6 +562,7 @@ class member :
                 "comfort_white_goods" : pyo.value(self.mod_member.t_confort),
                 "comfort_EV" : pyo.value(sum(self.mod_member.charge_comfort[t] for t in self.time_index)),
             }
+            print("flex", objs["comfort_flex"], "white goods", objs["comfort_white_goods"], "EV", objs["comfort_EV"])
         else :
             objs = self.memory["Objs"].copy()
         if keys_not_to_send is not None :
@@ -755,7 +756,7 @@ class member :
             if d.__class__.__name__ == "white_good" :
                 start_pref = d.memory.get("start_pref", [])
                 actual_starts = d.memory.get("actual_starts", [])
-                # print(start_pref, actual_starts)
+                # print(d.name, start_pref, actual_starts)
                 # print("start_pref", start_pref, "actual_starts", actual_starts)
                 for k in range(len(actual_starts)) :
                     t_confort += abs(start_pref[k] - actual_starts[k])

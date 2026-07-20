@@ -1,6 +1,7 @@
 from . import pyo, np
 from .utils import calc_auto, calc_eco, calc_eco_total, calc_enviro, calc_invest_cost, calc_pena_pow, calc_confort
 from ..opti.solving import solve_model, treat_members_admm, set_values, debug_community
+from ..opti.rolling_horizon import minimal_rolling_opti
 from ..plotting.plot_functions import plot_power_curves, plot_hexagon_objective
 from .constraint_functions_comm import *
 import itertools
@@ -67,6 +68,7 @@ class community :
         self.mod.member_set = self.member_set
         self.mod.time_set = self.time_set
         self.mod.active_members = pyo.Param(self.member_set, initialize={i : 1 if i in self.current_members_id else 0 for i in self.members_id}, mutable=True)
+        self.mod.active_members_obj= pyo.Param(self.member_set, initialize={i : 1 if i in self.current_members_id else 0 for i in self.members_id}, mutable=True)
         # print("MEMBER SET DEFINED")
         already_done = set()
         self.P_exchange = pyo.Var(self.members_id, self.members_id, self.time_set, within=pyo.NonNegativeReals, initialize=0)
@@ -103,10 +105,20 @@ class community :
         for var in vars_to_remove:
             delattr(self.mod, var)
             
-    def update_model(self) : 
+    def update_model(self, custom_active_id=None, custom_independant_id=None) : 
         # For now just update the list of active members, maybe later we'll have other parameters to update.
-        self.active_members = {i : 1 if i in self.current_members_id else 0 for i in self.members_id}
-        
+        if custom_active_id is not None : 
+            self.mod.active_members.store_values({i : 1 if i in custom_active_id else 0 for i in self.members_id})
+        else : 
+            self.mod.active_members.store_values({i : 1 if i in self.current_members_id else 0 for i in self.members_id})
+        if custom_independant_id is not None : 
+            self.mod.active_members_obj.store_values({i : 1 if (i in self.current_members_id or i in custom_independant_id) else 0 for i in self.members_id})
+        else : 
+            self.mod.active_members_obj.store_values({i : 1 if i in self.current_members_id else 0 for i in self.members_id})
+    
+    def update_independant_members(self, independant_members) : 
+        self.mod.active_members_obj.store_values({i : 1 if (i in self.current_members_id or i in independant_members) else 0 for i in self.members_id})
+    
     def update_devices(self, **kwargs) :
         for k in self.current_members_id : 
             self.members[k].update_devices(**kwargs)
@@ -235,14 +247,14 @@ class community :
         self.mod.p_confort = pyo.Expression(self.time_set, rule=p_confort_expr)
         self.mod.t_confort = pyo.Expression(rule=t_confort_expr)
         
-        self.mod.obj = pyo.Objective(expr=sum(self.members[i].mod_member.obj_expr*self.mod.active_members[i] for i in self.mod.member_set), sense=pyo.minimize)
+        self.mod.obj = pyo.Objective(expr=sum(self.members[i].mod_member.obj_expr*self.mod.active_members_obj[i] for i in self.mod.member_set), sense=pyo.minimize)
         
-        self.price = pyo.Expression(expr=sum(self.members[i].price*self.mod.active_members[i] for i in self.mod.member_set))
-        self.price_operation = pyo.Expression(expr=sum(self.members[i].price_operation*self.mod.active_members[i] for i in self.mod.member_set))
-        self.price_invest = pyo.Expression(expr=sum(self.members[i].price_invest*self.mod.active_members[i] for i in self.mod.member_set))
-        self.enviro = pyo.Expression(expr=sum(self.members[i].enviro*self.mod.active_members[i] for i in self.mod.member_set))
-        self.auto = pyo.Expression(expr=sum(self.members[i].auto*self.mod.active_members[i] for i in self.mod.member_set))
-        self.confort = pyo.Expression(expr=sum(self.members[i].confort*self.mod.active_members[i] for i in self.mod.member_set))
+        self.price = pyo.Expression(expr=sum(self.members[i].price*self.mod.active_members_obj[i] for i in self.mod.member_set))
+        self.price_operation = pyo.Expression(expr=sum(self.members[i].price_operation*self.mod.active_members_obj[i] for i in self.mod.member_set))
+        self.price_invest = pyo.Expression(expr=sum(self.members[i].price_invest*self.mod.active_members_obj[i] for i in self.mod.member_set))
+        self.enviro = pyo.Expression(expr=sum(self.members[i].enviro*self.mod.active_members_obj[i] for i in self.mod.member_set))
+        self.auto = pyo.Expression(expr=sum(self.members[i].auto*self.mod.active_members_obj[i] for i in self.mod.member_set))
+        self.confort = pyo.Expression(expr=sum(self.members[i].confort*self.mod.active_members_obj[i] for i in self.mod.member_set))
         
         self.mod.price = self.price
         self.mod.enviro = self.enviro
@@ -568,27 +580,30 @@ class community :
     
     def calc_gains(self, solver, **options) :
         self.current_members_id = self.members_id[:]
-        self.update_model()
-        results = self.optimize(solver, **options)
-        community_obj = pyo.value(self.mod.obj)
-        community_price = pyo.value(self.mod.price)
+        self.kwargs["solver_options"] = self.kwargs.get("solver_options", {}).update(options)
+        results = self.full_optimization(solver, self.kwargs.get("solver_method", "centralized"), **self.kwargs)
+        objs = results["aggregated_objs"]
+        community_obj = objs['Objective']
+        community_price = objs['price']
         # print(f"Community objective value: {community_obj}")
-        results = self.optimize_selves(solver, **options)
-        members_gains = results["gains"]
-        members_price = results["price"]
+        if self.kwargs.get("solver_method", "centralized").startswith("rolling") : 
+            method = "rolling_selves"
+        else : 
+            method = "selves"
+        results = self.full_optimization(solver, method, **self.kwargs)
+        objs = results["aggregated_objs"]
+        members_obj = [objs[f"members_{i}"]['Objective'] for i in self.current_members_id]
+        members_price = objs['price']
         
-        self.members_obj = members_gains
         self.members_price = members_price
-        self.members_details = results
+        self.members_details = objs
         self.community_obj = community_obj
         self.community_price = community_price
-        self.tot_members_obj = sum(members_gains)
+        self.tot_members_obj = sum(members_obj)
         self.tot_obj_gains = self.tot_members_obj - community_obj
-        self.money_gains = sum(members_price) - community_price
+        self.price_gains = members_price - community_price
         
-        # print(f"Community objective gain: {self.tot_obj_gains}")
-        self.price_gains = sum(members_price) - community_price
-                    
+        # print(f"Community objective gain: {self.tot_obj_gains}")                    
         return
         
     def distribute_gains(self, method="proportional") : 
@@ -632,6 +647,9 @@ class community :
     def compute_combinations(self, combinations) :
         # Si vraiment trop long, faudra réécrire en faisant les choses dans le bon ordre 
         # pour ne pas faire 25 boucles différentes.
+        
+        method_commu = self.kwargs.get("solver_method", "centralized")
+        method_selves = "rolling_selves" if method_commu.startswith("rolling") else "selves"
         for comb in combinations :
             # print("combinaison", comb)
             self.current_members_id = list(comb)
@@ -639,13 +657,13 @@ class community :
             self.update_model()
             # self.build_model(**kwargs)
             solver = kwargs.get("solver", "gurobi")
-            options = kwargs.get("options", {})
-            self.optimize(solver, **options)
+            options = kwargs.get("solver_options", {})
+            results = self.full_optimization(solver, method_commu, **self.kwargs)
             
-            community_obj = pyo.value(self.mod.obj)
+            community_obj = results["aggregated_objs"]['Objective']
             
-            members_details = self.optimize_selves(solver, **options)
-            tot_members_obj = sum(members_details["gains"])
+            members_details = self.full_optimization(solver, method_selves, **self.kwargs)
+            tot_members_obj = members_details["aggregated_objs"]['Objective']
             
             # print(f"Combination {comb} : Community obj : {community_obj}, sum of members obj : {tot_members_obj}")
             
@@ -709,7 +727,32 @@ class community :
         self.results['aggregated_objs'] = objs
         
         self.results['power_exchange_commu'] = [[[pyo.value(self.P_exchange[i, j, t]) for t in self.time_set] for j in self.current_members_id] for i in self.current_members_id]
-
+    
+    def full_optimization(self, solver, method, **kwargs) : 
+        if kwargs.get("current_members_id") is not None:
+            self.current_members_id = kwargs.get("current_members_id")
+        self.update_model() 
+        if method == "rolling_centralized" : 
+            res = minimal_rolling_opti(self, "centralized", solver, **kwargs)
+        if method == "rolling_admm" :
+            res = minimal_rolling_opti(self, "admm", solver, **kwargs)
+        if method == "rolling_selves" : 
+            res = minimal_rolling_opti(self, "selves", solver, **kwargs)
+        if method == "centralized" : 
+            self.optimize(solver, **kwargs)
+            self.aggregate_distributed_information()
+            res = self.results.copy()
+        if method == "admm" :
+            self.optimize_admm(solver, **kwargs)
+            self.aggregate_distributed_information()
+            res = self.results.copy()
+        if method == "selves" : 
+            self.update_model(custom_active_id=[])
+            self.optimize(solver, **kwargs)
+            self.aggregate_distributed_information()
+            res = self.results.copy()
+        return res
+    
     def debug_model(self, folder_path=os.path.join(results_path, "debug")) : 
         debug_community(self, folder_path=folder_path)
     
