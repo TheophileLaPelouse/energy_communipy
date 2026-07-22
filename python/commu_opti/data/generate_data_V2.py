@@ -80,6 +80,7 @@ def get_price_data(date_start, date_end, deltat=1) :
         price = change_deltat(price_per_hour, 1, deltat)
     else : 
         price = price_per_hour
+    
     return price
 
 def generate_building() : 
@@ -490,7 +491,7 @@ def white_goods_profile(device_name, allocated, deltat, when_profile, activation
             if not (start, end) in already_done :
                 already_done.add((start, end))
                 indices = possible_starts(end-start, range(int(start/deltat), int(end/deltat)+1), deltat, cycle_length, finish_before_end=finish_before_end)
-                print(indices, start, end)
+                # print(indices, start, end)
                 for i in indices : 
                     if activation_profile[i] == 1 :
                         # Slow but I don't see how to accelerate it  

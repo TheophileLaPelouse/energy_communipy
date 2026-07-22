@@ -2,7 +2,11 @@ import math
 from functools import reduce
 from pyexpat import model
 from . import pyo
-from . import SolverFactory
+# from . import SolverFactory
+import numpy as np
+import gurobipy as gp
+from gurobipy import GRB
+
 
 def calc_enviro(Pgrid, Pex, Pself, **kwargs) : 
     # Peut être ajouter test pour si viens d'un modèle pyomo ou pas 
@@ -101,46 +105,85 @@ def extract_values(m, dico) :
     return dico
 
     
-def nucleolus(vs, n_player, solver="gurobi", solver_options=None) :
+
+
+def coalition_vector(S, n_player):
+    a = np.zeros(n_player)
+    a[list(S)] = 1.0
+    return a
+    
+
+def nucleolus(vs, n_player, tol=1e-8):
     """Compute nucleolus
 
     Args:
         vs (list): [set S of the coalition, value of the coalition] for all coalitions
         n_player (int): Number of players to consider 
     """
-    
-    if not solver_options.get("solver_io") : 
-        solver = SolverFactory(solver)
-    else : 
-        solver = SolverFactory(solver, solver_options.pop("solver_io"))
-    
-    for key in solver_options : 
-        solver.options[key] = solver_options[key]
             
     to_deactivate = set(range(len(vs)))
-    while to_deactivate : 
-        mod = pyo.ConcreteModel()
-        mod.x = pyo.Var(range(n_player), domain=pyo.Reals)
-        mod.eps = pyo.Var(domain=pyo.Reals)
-        mod.obj = pyo.Objective(expr=mod.eps, sense=pyo.minimize)
+    
+    mod = gp.Model("nucleolus")
+    mod.setParam("OutputFlag", 0)
+
+    x = mod.addVars(n_player, lb=-GRB.INFINITY, name="x")
+
+    eps = mod.addVar(lb=-GRB.INFINITY,name="eps")
+
+    mod.setObjective(eps, GRB.MINIMIZE)
+    
+    constraints = {}
+    
+    for k, (S, v) in enumerate(vs):
+        expr = gp.quicksum(x[i] for i in S)
+        if len(S) == n_player:
+            constraints[k] = mod.addConstr(expr == v, name=f"total")
+            to_deactivate.remove(k)
+        else:
+            constraints[k] = mod.addConstr(expr >= v - eps, name=f"coal_{k}")
+    
+    A = np.zeros((2*n_player, n_player))
+    A[0, :] = 1
+    r = 1
+    rank = np.linalg.matrix_rank(A)
+    
+    while rank < n_player and to_deactivate:
+        previous_r = r
+        mod.update()
+        mod.optimize()
+        if mod.Status != GRB.OPTIMAL:
+            raise RuntimeError("Optimization failed")
         
-        mod.coal_index = pyo.RangeSet(0, len(vs) - 1)
-        mod.constraints_basic = pyo.Constraint(mod.coal_index, rule=lambda mod, i: sum(mod.x[j] for j in vs[i][0]) + mod.surplus[i] == vs[i][1])
-        mod.constraints = pyo.ConstraintList()
-        results = solver.solve(model)
-        x_val = mod.x.extract_values()
-        eps_opti = pyo.value(mod.eps)
-        
+        eps_opti = eps.X
+        x_val = np.array([x[i].X for i in range(n_player)])
+        print("x_val:",x_val, "eps_opti:", eps_opti)
         to_pop = set()
-        for k in to_deactivate :
+        flag = False
+        for k in to_deactivate : 
+            if flag : break
             S, v = vs[k]
-            if v - eps_opti == sum(x_val[i] for i in S) : 
-                mod.constraints.add(sum(mod.x[i] for i in S) == v - eps_opti)
-                mod.constraints_basic[k].deactivate()
-                to_pop.add(k)
+            lhs = x_val[list(S)].sum()
+            print(f"Checking coalition {S} with value {v}: lhs = {lhs}, rhs = {v - eps_opti}")
+            if abs(lhs - (v - eps_opti)) < tol :
+                a = coalition_vector(S, n_player)
+                old_rank = rank
+                A[r, :] = a
+                new_rank = np.linalg.matrix_rank(A)
+                print(A, new_rank, old_rank, r)
+                if new_rank > old_rank :
+                    r += 1
+                    rank = new_rank
+                    if r >= n_player :
+                        flag = True
+                    constraints[k].RHS = v - eps_opti
+                    constraints[k].Sense = GRB.EQUAL
+                    to_pop.add(k)
         
-        to_deactivate = to_deactivate - to_pop
-        
+        to_deactivate -= to_pop
+        if previous_r == r:
+            break  # No new constraints were added, exit the loop
+            
+            
     return x_val
         
         

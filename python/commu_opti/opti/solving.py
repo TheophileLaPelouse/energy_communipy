@@ -87,5 +87,51 @@ def debug_unbounded(model, solver="gurobi") :
             results = solver.solve(model, tee=False)
             k +=1
     
+def minimal_rolling_opti(community, solving_method, solver, **kwargs) : 
+    weather_history = kwargs.get("weather_history", [0 for k in range(24)])
+    weather_forecast = kwargs.get("weather_forecast", [0 for k in range(24)])
+    irradiance_history = kwargs.get("irradiance_history", [0 for k in range(24)])
+    irradiance_forecast = kwargs.get("irradiance_forecast", [0 for k in range(24)])
+    price_options = kwargs.get("price_options")
+    total_time = kwargs.get("total_time", 24)
+    horizon = kwargs.get("horizon", 24)    
+    old_weather = [weather_history[0]] + weather_forecast[1:horizon]
+    old_irradiance = [irradiance_history[0]] + irradiance_forecast[1:horizon]
+    old_price_buy = price_options["eco"]["cost_grid_buy"][:horizon]
+    old_price_sell = price_options["eco"]["cost_grid_sell"][:horizon]
+    old_prices = {"price_buy" : old_price_buy, "price_sell" : old_price_sell}
+    for m in community.members :
+        m.reset_horizon(old_weather, old_irradiance, old_prices)
+        
+    if solving_method == "selves" : 
+        community.update_model(custom_active_id=[])  
+    if solving_method=="admm_selves" : 
+        community.update_model(custom_active_id=[])  
+        for m in community.members : 
+            m.update_model_admm(custom_active_id=[])
+    
+    for t in range(kwargs.get("until", total_time - horizon)) :
+        print("Starting optimization for time step", t)
+        if solving_method == "admm" or solving_method == "admm_selves" : 
+            community.optimize_admm(solver, **community.kwargs)
+        else : 
+            community.optimize(solver, **kwargs.get('solver_options', {}))
+        print("\nOptimization finished !", t)
+        
+        irradiance_t = irradiance_history[t+1]
+        new_irradiance = [irradiance_t] + irradiance_forecast[t+2:t+1+horizon]
+        weather_t = weather_history[t]
+        new_weather = [weather_t] + weather_forecast[t+1:t+horizon]
+        new_price_buy = price_options["eco"]["cost_grid_buy"][t+1:t+1+horizon]
+        new_price_sell = price_options["eco"]["cost_grid_sell"][t+1:t+1+horizon]
+        new_prices = {"price_buy" : new_price_buy, "price_sell" : new_price_sell}
+
+        for i in community.current_members_id : 
+            m = community.members[i]
+            m.keep_in_memory()
+            m.rolling_horizon_update(new_weather, new_irradiance, new_prices)
+            
+    community.aggregate_distributed_information(from_memory=True)
+    return community.results.copy()
 
     

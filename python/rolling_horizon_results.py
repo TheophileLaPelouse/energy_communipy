@@ -33,8 +33,8 @@ from commu_opti.plotting.plot_functions import plot_power_curves
 # Battery_rate = 1
 
 EV_rate = 0.3
-PV_rate = 0.2
-Battery_rate = 0.2
+PV_rate = 0.3
+Battery_rate = 0.3
 
 # generate agents data
 
@@ -46,7 +46,7 @@ for k in range(8) :
             possible_socio.append([0, 1, 1, 1])
             
 
-n = 5
+n = 100
 nb_of_days = 2
 method="centralized"
 # method="admm"
@@ -168,7 +168,7 @@ param_commu = {
         # "debug_admm" : True,
     }
 
-prices = get_price_data(date, date + dt.timedelta(days=nb_of_days))[:-1]/10e6
+prices = get_price_data(date, date + dt.timedelta(days=nb_of_days))[:(nb_of_days*24)]/10e6
 prices[24:] = prices[:24]
 
 price_options = {
@@ -221,7 +221,7 @@ kwargs = {
     "irradiance_forecast" : irradiance_history[:24] + irradiance_history[:25],
     "weather_forecast" : weather_history[:24] + weather_history[:25],
     # "skip_params" : True
-    "compare_selves" : True
+    # "compare_selves" : False
     }
 
 for param in params : 
@@ -231,6 +231,7 @@ for param in params :
 param_commu['method'] = 'centralized'
 
 # param_commu["ref_lp"] = True
+# with_rolling, without_rolling, debug = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
 with_rolling, without_rolling, wrs, w_rs, debug = rolling_horizon_optimization(params, param_commu, price_options, **kwargs)
 
 co = debug['community']
@@ -239,7 +240,10 @@ d = co.members[0].devices[0]
 print("Objectif WITHOUT rolling horizon : ", without_rolling['aggregated_objs']['Objective'], "price", without_rolling['aggregated_objs']['price'], "enviro", without_rolling['aggregated_objs']['enviro'], "auto", without_rolling['aggregated_objs']['auto'], "comfort", without_rolling['aggregated_objs']['comfort'])
 print("Objectif WITHOUT rolling horizon : ", w_rs['aggregated_objs']['Objective'], "price", w_rs['aggregated_objs']['price'], "enviro", w_rs['aggregated_objs']['enviro'], "auto", w_rs['aggregated_objs']['auto'], "comfort", w_rs['aggregated_objs']['comfort'])
 
-
+#%%
+co.kwargs.update(kwargs)
+co.kwargs['price_options'] = price_options
+res = co.full_optimization("gurobi", "rolling_centralized", **co.kwargs)
 #%%
 old_price_buy = price_options["eco"]["cost_grid_buy"][:horizon]
 old_price_sell = price_options["eco"]["cost_grid_sell"][:horizon]

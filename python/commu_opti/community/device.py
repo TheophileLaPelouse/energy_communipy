@@ -117,7 +117,7 @@ class white_good(device) :
         self.time_range = time_range
         self.cycle_length = cycle_length
         self.power_needed = power_needed
-        print(kwargs.get('name'), cycle_length)
+        # print(kwargs.get('name'), cycle_length)
         time_use = [[start_pref[k], start_pref[k] + cycle_length[k]] for k in range(len(start_pref))]
         self.n_set = len(start_pref)
         self.max_set = 4
@@ -125,9 +125,9 @@ class white_good(device) :
         # print("time_use", time_use)
         super().__init__(power_range, time_use, time_range, **kwargs)
         self.memory['original'] = {
-            "start_pref" : start_pref,
-            "time_range" : time_range,
-            "power_needed" : power_needed
+            "start_pref" : start_pref[:],
+            "time_range" : time_range[:],
+            "power_needed" : power_needed[:]
         }
         for times in time_use : 
             if times[1] > self.total_time : 
@@ -215,17 +215,18 @@ class white_good(device) :
         
         # print(f"\n Before any update, {self.start_pref=}, {self.cycle_length=}, {self.time_range=}, {self.power_needed=}")
         
-        
         n_set = len(self.start_pref)
         if not kwargs.get("keep_id_0", True) : 
+            # print("Removing first cycle", self.mod, self.start_pref, self.memory['original']['start_pref'])
             self.start_pref.pop(0)
             self.time_range.pop(0)
             self.power_needed.pop(0)
             self.cycle_length = [self.cycle_length[k+1] for k in range(self.max_set-1)] + [0]
             n_set -= 1
-        
+
         # For changing all the list
         if kwargs.get("other_changes") : 
+
             if kwargs["other_changes"].get("start_pref") :
                 self.start_pref = kwargs["other_changes"]["start_pref"]
             if kwargs["other_changes"].get("cycle_length") :              

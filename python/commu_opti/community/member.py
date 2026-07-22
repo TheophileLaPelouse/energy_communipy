@@ -112,21 +112,11 @@ class member :
         # Other methods could be implemented here in the future.
             
     
-    def add_to_community(self, commu, id_, method=None) :
+    def add_to_community(self, commu, id_) :
         if hasattr(self.mod_member, 'commu'):
             self.mod_member.commu.set_value(1)
-        if method == "admm" : # No direct link with the python object community. In the future there should be a better communication method
-            self.commu = {
-                "members_id" : commu.members_id[:],
-                "member_set" : set(commu.member_set),
-                "current_members_id" : commu.current_members_id[:],
-            }
-            self.full_commu = self.commu.copy()
-        
-        else : 
-            self.commu = commu  
-            self.full_commu = commu # Used for being able to optimize the member without a community and recover it after.
-        self.socio_commu = commu.socio  
+        self.commu = commu  
+        self.full_commu = commu # Used for being able to optimize the member without a community and recover it after.
         self.id=id_
     
     def calc_profile(self, deltat=1) : 
@@ -182,6 +172,16 @@ class member :
             if kwargs.get("help_surplus_admm", False) :
                 m.exchange_surplus = pyo.Constraint(self.time_index, rule=surplus_or_exchange_admm)
             
+    def update_model_admm(self, custom_active_id=None) : 
+        # For now just update the list of active members
+        current_id = self.commu["current_members_id"] if self.commu is not None else [self.id]
+        ids = self.commu["members_id"] if self.commu is not None else [self.id]
+        m = self.mod_member
+        if custom_active_id is not None : 
+            m.active_members.store_values({i : 1 if i in custom_active_id else 0 for i in ids})
+        else : 
+            m.active_members.store_values({i : 1 if i in current_id else 0 for i in ids})
+    
     def build_objective(self, **kwargs) :
         method = kwargs.get("method", "centralized")
         if method == "centralized" :
@@ -562,7 +562,7 @@ class member :
                 "comfort_white_goods" : pyo.value(self.mod_member.t_confort),
                 "comfort_EV" : pyo.value(sum(self.mod_member.charge_comfort[t] for t in self.time_index)),
             }
-            print("flex", objs["comfort_flex"], "white goods", objs["comfort_white_goods"], "EV", objs["comfort_EV"])
+            # print("flex", objs["comfort_flex"], "white goods", objs["comfort_white_goods"], "EV", objs["comfort_EV"])
         else :
             objs = self.memory["Objs"].copy()
         if keys_not_to_send is not None :
@@ -659,7 +659,7 @@ class member :
                     
             if d.__class__.__name__ == "battery" and not general_only : 
                 E0 = pyo.value(d.mod.E[1])
-                print("E0, E1 for battery", pyo.value(d.mod.E[0]), E0, "Power at t=0", pyo.value(d.mod.Pcons[0]))
+                # print("E0, E1 for battery", pyo.value(d.mod.E[0]), E0, "Power at t=0", pyo.value(d.mod.Pcons[0]))
                 # For now no Eend as we will be on 24 hours so make sense to begin and end at the same level, but should be changed in due time
                 if not new_params.get(d.name):
                     new_params[d.name] = {}
@@ -705,8 +705,10 @@ class member :
             if d.__class__.__name__ == "white_good" : 
                 kwargs[d.name] = {}
                 for key, value in d.memory['original'].items():
+
                     kwargs[d.name][key] = value[:]
-                white_goods_rolling(self.device_futur[d.name], self.total_time, self.current_time_index, d, new_params, remember=(self.current_time_index[0]%24==0), **kwargs)
+                white_goods_rolling(self.device_futur[d.name], self.total_time, self.current_time_index, d, new_params, remember=(self.current_time_index[0]%24==0), **kwargs, reset=True)
+                # print("After rolling function, other_changes:",  new_params[d.name]['other_changes']['start_pref'])
                 
             if d.__class__.__name__ == "AoN" : 
                 if pyo.value(d.mod.Pcons[0]) > 0 : 

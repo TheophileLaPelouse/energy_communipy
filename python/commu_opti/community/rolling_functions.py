@@ -5,6 +5,7 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
     
     previous_to_change = False
     old_dico = dico.copy()
+    
     if dico.get('length', 0) > 0 : 
         to_supply = dico['to_supply']
         length = dico['length']
@@ -17,7 +18,7 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
         keep_id_0=True
         
     else :
-        if pyo.value(d.mod.Pcons[0]) > 0 : 
+        if pyo.value(d.mod.Pcons[0]) > 0 and not kwargs.get("reset", True): 
             length = d.cycle_length[0]
             # print("length", length, "pcons", pyo.value(d.mod.Pcons[0]))
             to_supply = np.zeros(total_time)
@@ -91,6 +92,7 @@ def white_goods_rolling(dico, total_time, current_time_index, d, new_params, **k
         "cycle_length" : kwargs.get(d.name, {}).get("cycle_length", None),
         "power_needed" : kwargs.get(d.name, {}).get("power_needed", None)
     }
+    
     
         # print(f"Values to update : {time_range=}, {cycle_length=}, {start_pref=}, {power_needed=}")
     new_params[d.name] = {

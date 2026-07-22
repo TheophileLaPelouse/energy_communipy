@@ -297,11 +297,11 @@ import commu_opti.community.community as comm
 import commu_opti.community.member as memb
 
 options1 = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 
-           'method' : 'admm', "nb_commu" : 2, "calc_ref" : False, "max_iter" : 100, "power_max_random" : 10, 
+           'method' : 'admm', 'solver_method': 'admm', "nb_commu" : 2, "calc_ref" : False, "max_iter" : 100, "power_max_random" : 10, 
            "eps_r":1e-4, "eps_s":1e-4}
 
 options2 = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 
-           'method' : 'centralized', "nb_commu" : 2, "calc_ref" : False}
+           'method' : 'centralized', 'solver_method' : 'centralized', "nb_commu" : 2, "calc_ref" : False}
 
 members_dico = {
     "member1" : {
@@ -320,7 +320,7 @@ members_dico = {
                     }
                 }
         ],
-        "socio" : [1, 1, 1, 1],
+        "socio" : [1, 0, 0, 0],
         "id" : 0
     }, 
     "member2" : {
@@ -332,7 +332,7 @@ members_dico = {
                 }
             }
         ],
-        "socio" : [1, 1, 1, 1],
+        "socio" : [1, 0, 0, 0],
         "id" : 1
     },
     # "member3" : {
@@ -389,30 +389,53 @@ co1 = comm.community(members1, **options1, **coef_options)
 co2 = comm.community(members2, **options2, **coef_options)
 # co1.build_model()
 # co2.build_model()
-co1.socio = [1, 0, 0, 0]
-co2.socio = [1, 0, 0, 0]
+# co1.socio = [1, 0, 0, 0]
+# co2.socio = [1, 0, 0, 0]
 # co.ref_values[0] = 1
-co1.optimize_admm("gurobi", **co1.kwargs)
-co2.optimize("gurobi")
+res1 = co1.full_optimization("gurobi", "admm", **co1.kwargs)
+# co1.optimize_admm("gurobi", **co1.kwargs)
+res2 = co2.full_optimization("gurobi", "centralized", **co2.kwargs)
+# co2.optimize("gurobi")
 # co.mod.write('commu.lp', io_options={'symbolic_solver_labels': True})
 
 co1.aggregate_distributed_information()
 co2.aggregate_distributed_information()
 print("Optimization done \n")
-
-# co.calc_gains("gurobi")
+#%%
+co1.calc_gains("gurobi")
 # print("Gains calculated \n")
 
-# co.distribute_gains(method="proportional")
+co1.distribute_gains(method="proportional")
 # print("Gains distributed proportionaly \n")
 
-# co.distribute_gains(method="equal")
+co1.distribute_gains(method="equal")
 # print("Gains distributed equally \n")
 
 
-# co.distribute_gains(method="shapley")
+co1.distribute_gains(method="shapley")
 # print("Gains distributed with Shapley \n")
 
+co1.distribute_gains(method="nucleolus")
+# print("Gains distributed with Nucleolus \n")
+
+co2.calc_gains("gurobi")
+# print("Gains calculated \n")
+
+co2.distribute_gains(method="proportional")
+# print("Gains distributed proportionaly \n")
+
+co2.distribute_gains(method="equal")
+# print("Gains distributed equally \n")
+
+
+co2.distribute_gains(method="shapley")
+# print("Gains distributed with Shapley \n")
+
+co2.distribute_gains(method="nucleolus")
+# print("Gains distributed with Nucleolus \n")
+
+print(f"gains co1 : {co1.members_gains=}")
+print(f"gains co2 : {co2.members_gains=}")
 
 # to_plot = {
 #     "powers" : {
@@ -423,27 +446,47 @@ print("Optimization done \n")
 #     }
 # }
 
-to_plot = {
-    "powers" : {
-        "P_grid" : co1.results['aggregated_powers']['P_grid'],
-        "P_bat" : co1.results['aggregated_powers']['P_bat'],
-        "P_cons" : co1.results['aggregated_powers']['P_cons'], 
-        "P_exchange" : co1.results['aggregated_powers']['P_exchange'],
-    }
-}
+# to_plot = {
+#     "powers" : {
+#         "P_grid" : co1.results['aggregated_powers']['P_grid'],
+#         "P_bat" : co1.results['aggregated_powers']['P_bat'],
+#         "P_cons" : co1.results['aggregated_powers']['P_cons'], 
+#         "P_exchange" : co1.results['aggregated_powers']['P_exchange'],
+#     }
+# }
     
-co1.plot_power_curves(**to_plot, **options1)
+# co1.plot_power_curves(**to_plot, **options1)
         
 # to_plot_hex = {
 #     "values" : {
-#         "gain shapley" : co.members_gains["shapley"],
-#         "gain proportional" : co.members_gains["proportional"],
-#         "gain equal" : co.members_gains["equal"],
+#         "gain shapley" : co2.members_gains["shapley"],
+#         "gain proportional" : co2.members_gains["proportional"],
+#         "gain equal" : co2.members_gains["equal"],
 #     },
-#     "members" : [f"member {m}" for m in co.members_id],
+#     "members" : [f"member {m}" for m in co2.members_id],
 #     "title" : "Gains distribution comparison"
 # }
-# co.plot_hexagon(**to_plot_hex)
+# co2.plot_hexagon(**to_plot_hex)
+
+#%% Test du Nucleolus
+from commu_opti.community.utils import nucleolus
+import itertools
+vs = {}
+n = 10
+for k in range(1, n+1) : 
+    for comb in itertools.combinations(range(n), k) : 
+        if len(comb) < n : 
+            vs[comb] = 0
+        else : 
+            vs[comb] = 1
+            
+# vs[()] = 0
+
+vs = [[comb, v] for comb, v in vs.items()]
+
+results = nucleolus(vs, n)
+
+
 #%% Test de generate_data.py
 from commu_opti.data.generate_data import generate_n_profile
 import matplotlib.pyplot as plt
