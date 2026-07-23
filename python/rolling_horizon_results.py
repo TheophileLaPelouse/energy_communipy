@@ -34,7 +34,7 @@ from commu_opti.plotting.plot_functions import plot_power_curves
 
 EV_rate = 0.3
 PV_rate = 0.3
-Battery_rate = 0.3
+Battery_rate = 0.2
 
 # generate agents data
 
