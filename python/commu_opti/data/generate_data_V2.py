@@ -580,6 +580,10 @@ def heating_power_model(T, T_out, presence_profile, R1, R2, C, total_time, delta
     T_bs = []
     T_in = []
     
+    # if len(T_out) < total_time : 
+    #     while len(T_out) < total_time : 
+    #         T_out += T_out[:]
+    
     def iterate_thermic_model(T_b, T_out, R1, R2, C, deltat, T_set) : 
         if T_out < T['away'] : 
             T_in = T_set

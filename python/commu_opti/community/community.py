@@ -171,7 +171,9 @@ class community :
         # Optimize the community model
         t0 = time.time()
         results = solve_model(self.mod, solver, **options)
+        #verify if solved to optimality
         if self.kwargs["method"] == "centralized" :
+            self.results["solving_status"] = str(results.solver.termination_condition)
             if not self.results.get("centralized") :
                 self.results["centralized"] = {}
             if not self.results["centralized"].get("Times") : 
@@ -387,6 +389,7 @@ class community :
         list_objs = []
         list_penas = []
         wait = 0
+        print("eps_r, eps_s : ", eps_r, eps_s)
         while (r_k > eps_r or s_k > eps_s) and iter < max_iter :
             
             # Save argmin local 
@@ -480,7 +483,7 @@ class community :
             
             # Method to update rho for better convergence
             old_rho = rho
-            if wait > 20 : 
+            if wait > kwargs.get("wait_iter", 20) : 
                 if r_k > mu*s_k :
                     rho *= tau_incr
                 elif s_k > mu*r_k :
@@ -497,8 +500,8 @@ class community :
                 self.debug_model()
             iter += 1
             # print("Surplus : ", Surplus)
-            # print("\niter, r_k, s_k : ", iter, r_k, s_k)
-            # print("rho : ", rho)
+            print("\niter, r_k, s_k : ", iter, r_k, s_k)
+            print("rho : ", rho)
             # print("Z_k : ", z_k)
             # print("penas : ", penas, "objs : ", objs, "var : ", np.var(list_objs[-10:]))
             # print("pena_commu : ", pyo.value(self.mod.obj))

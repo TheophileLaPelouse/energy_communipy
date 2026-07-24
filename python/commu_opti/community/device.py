@@ -166,7 +166,8 @@ class white_good(device) :
                 for t2 in range(interval_min, interval_max+1) :
                     available_time[t, t2].set_value(1)
             for t in range(t_min[t_set], t_max[t_set]-cycle_length[t_set]) : 
-                available_time_set[t_set, t].set_value(1)
+                if t in self.mod.time_total_set : 
+                    available_time_set[t_set, t].set_value(1)
             t_set+=1
         
         self.mod.double_set = pyo.RangeSet(0, 2*self.total_time-1)
