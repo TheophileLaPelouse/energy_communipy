@@ -6,6 +6,7 @@ from . import pyo
 import numpy as np
 import gurobipy as gp
 from gurobipy import GRB
+import itertools
 
 
 def calc_enviro(Pgrid, Pex, Pself, **kwargs) : 
@@ -105,7 +106,34 @@ def extract_values(m, dico) :
     return dico
 
     
-
+def choose_combination(n, l, **kwargs) :
+    method = kwargs.get("method", "all")
+    if method == "all" :
+        combinations = {}
+        for k in range(1, n+1) :
+            for comb in itertools.combinations(l, k) :
+                combinations[comb] = None
+                
+    if method == "smallest_biggest" : 
+        small_size = kwargs.get("small_size", 2)
+        big_size = kwargs.get("big_size", 2)
+        combinations = {}
+        for k in range(1, n+1) :
+            if k <= small_size or k >= n-big_size :
+                for comb in itertools.combinations(l, k) :
+                    combinations[comb] = None
+    
+    if method == "random" : 
+        # Naive implementation, could probably be done way faster
+        rate = kwargs.get("rate", 0.1)
+        combinations = {}
+        for k in range(1, n+1) :
+            for comb in itertools.combinations(l, k) :
+                if np.random.rand() < rate : 
+                    combinations[comb] = None
+                
+    return combinations
+     
 
 def coalition_vector(S, n_player):
     a = np.zeros(n_player)
@@ -146,6 +174,8 @@ def nucleolus(vs, n_player, tol=1e-8):
     A[0, :] = 1
     r = 1
     rank = np.linalg.matrix_rank(A)
+    
+    x_val = [1/n_player for k in range(n_player)]
     
     while rank < n_player and to_deactivate:
         previous_r = r

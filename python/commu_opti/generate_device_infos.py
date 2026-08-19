@@ -422,6 +422,8 @@ def compute_results(**kwargs) :
         list_method : list of methods to use for each community optimization, default is ["centralized", "admm"]
         list_param_commu : list of parameters for the community optimization, one for each iteration
         list_more_members : list of parameters to add to each member parameters, one for each iteration
+        compute_gains : whether to compute the gains repartition for each community or not
+        gains_method : methods to use for computing the gains repartition, default is ["proportional", "egalitarian", "shapley", "nucleolus"]
         
         help_admm : whether to add a constraint to help the convergence of ADMM (not so good)
         help_admm2 : whether to add a penalization cost in objective to help the convergence of ADMM (not so good)
@@ -475,7 +477,22 @@ def compute_results(**kwargs) :
             
         for commu in communities : 
             res = commu.full_optimization("gurobi", **commu.kwargs)
+            commu.kwargs['solver_method'] = commu.kwargs['solving_method']
+            del commu.kwargs["solving_method"]
+            if kwargs.get("compute_gains", False) :
+                commu.calc_gains("gurobi")
+                for method in kwargs.get("gains_method", ["proportional", "egalitarian", "shapley", "nucleolus"]) :
+                    commu.distribute_gains(method=method)
+                res["gains"] = {method : 
+                                {
+                                    members_id : val[1] for members_id, val in commu.members_gains[method].items()
+                                }
+                    for method in commu.members_gains}
+                res["coalitions"] = commu.combinations.copy()
+            
             name = commu.kwargs.get("name", f"community_{commu.kwargs.get('method')}_{k_iter}")
+            if commu.kwargs.get('method') not in name : 
+                name += f"_{commu.kwargs.get('method')}"
             print(name)
             results[name] = res
         print(communities)

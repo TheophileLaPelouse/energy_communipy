@@ -192,8 +192,8 @@ param_commu = {
 
 price_options = {
     "eco" : {
-        "cost_grid_buy" : 0.0003, # €/wh
-        "cost_grid_sell" : -0.00003,
+        "cost_grid_buy" : [0.0003 for k in range(24)], # €/wh
+        "cost_grid_sell" : [-0.00003 for k in range(24)],
         "cost_ex" : 0, 
         "cost_PV" : 800, # € per m2
         # "cost_PV" : 0, # per m2
@@ -228,8 +228,11 @@ print("Gains distributed proportionaly \n")
 community.distribute_gains(method="equal")
 print("Gains distributed equally \n")
 
-community.distribute_gains(method="shapley")
+community.distribute_gains(method="shapley", compute_again_coalitions=True)
 print("Gains distributed with Shapley \n")
+
+community.distribute_gains(method="nucleolus")
+print("Gains distributed with Nucleolus \n")
 
 #%% test 
 community.current_members_id = community.members_id[:]
@@ -320,8 +323,8 @@ fig2, ax2 = plot_hexagon_objective(**to_plot)
 # fig2.canvas.manager.full_screen_toggle()
 
 to_plot = {
-    "values" : {#"Shapley allocation" : values["shapley"],
-                "" : {0:(0, 0), 1:(0, 0), 2:(0, 0), 3:(0, 0), 4:(0, 0)},
+    "values" : {"Shapley allocation" : values["shapley"],
+                # "" : {0:(0, 0), 1:(0, 0), 2:(0, 0), 3:(0, 0), 4:(0, 0)},
                 "Production rate" : values["Production"],
                 "Battery capacity rate" : values["Battery capacity"],
                 "Consumption rate" : values["Consumption"]
@@ -373,6 +376,33 @@ to_plot = {
         }
 }
 fig4, ax4 = plot_hexagon_objective(**to_plot)
+
+to_plot = {
+    "values" : {"Nucleolus allocation" : values["nucleolus"],
+                "Production rate" : values["Production"],
+                "Battery capacity rate" : values["Battery capacity"],
+                "Consumption rate" : values["Consumption"]
+                },  
+    "labels" : labels,
+    "dimension" : 1,
+    "circle" : True, 
+    "ylim" : 0.5, 
+    "title" : "Nucleolus allocation compared to production and battery capacity rates",
+    "save_path" : os.path.join(folder_path, "nucleolus_vs_production_battery.eps"), 
+    "options" : {
+        "Nucleolus allocation" : {
+            "plot" : {
+                "color" : "black",
+                "linewidth" : 1.5, 
+                },
+            "fill" : {
+                "color" : "black", 
+                "alpha" : 0.25
+                }
+            }
+        }
+}
+fig5, ax5 = plot_hexagon_objective(**to_plot)
 
 
 #%% plot

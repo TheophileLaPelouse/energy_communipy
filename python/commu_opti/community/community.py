@@ -1,5 +1,5 @@
 from . import pyo, np
-from .utils import nucleolus 
+from .utils import nucleolus, choose_combination
 from ..opti.solving import solve_model, treat_members_admm, set_values, debug_community, minimal_rolling_opti
 from ..plotting.plot_functions import plot_power_curves, plot_hexagon_objective
 from .constraint_functions_comm import *
@@ -111,12 +111,13 @@ class community :
             
     def update_model(self, custom_active_id=None, custom_independant_id=None) : 
         # For now just update the list of active members
+        # print("Updating model with custom_active_id: ", custom_active_id, " and custom_independant_id: ", custom_independant_id)
         if custom_active_id is not None : 
             self.mod.active_members.store_values({i : 1 if i in custom_active_id else 0 for i in self.members_id})
         else : 
             self.mod.active_members.store_values({i : 1 if i in self.current_members_id else 0 for i in self.members_id})
         if custom_independant_id is not None : 
-            self.mod.active_members_obj.store_values({i : 1 if (i in self.current_members_id or i in custom_independant_id) else 0 for i in self.members_id})
+            self.mod.active_members_obj.store_values({i : 1 if i in custom_independant_id else 0 for i in self.members_id})
         else : 
             self.mod.active_members_obj.store_values({i : 1 if i in self.current_members_id else 0 for i in self.members_id})
     
@@ -555,7 +556,7 @@ class community :
         # print(f"Community objective gain: {self.tot_obj_gains}")                    
         return
         
-    def distribute_gains(self, method="proportional", compute_again_coalitions=False) : 
+    def distribute_gains(self, method="proportional", compute_again_coalitions=False, combination_args={}) : 
         # Proportional to the gain of each member alone. 
         total_gains = self.tot_obj_gains
         if method == "proportional" : 
@@ -581,10 +582,7 @@ class community :
         elif method == "shapley" or method == "nucleolus": 
             n = len(self.members_id)
             if not self.combinations or compute_again_coalitions :
-                combinations = {}
-                for k in range(1, n+1) : 
-                    for comb in itertools.combinations(self.members_id, k) : 
-                        combinations[comb] = None
+                combinations = choose_combination(n, self.members_id, **combination_args)
                 combinations = self.compute_combinations(combinations)
                 self.combinations = combinations
             if method == "shapley" :
@@ -599,8 +597,6 @@ class community :
                 for m in self.members_id :
                     gain = nucleolus_values[m]
                     self.members_gains["nucleolus"][m] = (gain, gain/total_gains if total_gains != 0 else 0)
-
-            
             
         return
     
@@ -614,7 +610,7 @@ class community :
             method_selves += "_admm"
         for comb in combinations :
             # print("combinaison", comb)
-            # self.current_members_id = list(comb)
+            self.current_members_id = list(comb)
             kwargs = self.kwargs 
             # self.build_model(**kwargs)
             solver = kwargs.get("solver", "gurobi")
@@ -626,7 +622,8 @@ class community :
             members_details = self.full_optimization(solver, method_selves, **self.kwargs, custom_active_id=comb)
             tot_members_obj = members_details["aggregated_objs"]['Objective']
             
-            # print(f"Combination {comb} : Community obj : {community_obj}, sum of members obj : {tot_members_obj}")
+            print("methods : ", method_commu, method_selves)
+            print(f"Combination {comb} : Community obj : {community_obj}, sum of members obj : {tot_members_obj}")
             
             combinations[comb] = tot_members_obj - community_obj
         
@@ -692,6 +689,7 @@ class community :
     def full_optimization(self, solver, solving_method, **kwargs) : 
         if kwargs.get("current_members_id") is not None:
             self.current_members_id = kwargs.get("current_members_id")
+        print("Current members id : ", kwargs.get('custom_active_id'), self.current_members_id)
         self.update_model(custom_active_id=kwargs.get('custom_active_id'), custom_independant_id=kwargs.get('custom_active_id')) 
         if "admm" in solving_method : 
             for m in self.members : 
@@ -713,12 +711,12 @@ class community :
             self.aggregate_distributed_information()
             res = self.results.copy()
         if solving_method == "selves" : 
-            self.update_model(custom_active_id=[])
+            self.update_model(custom_active_id=[], custom_independant_id=kwargs.get('custom_active_id'))
             self.optimize(solver, **kwargs.get("solver_options", {}))
             self.aggregate_distributed_information()
             res = self.results.copy()
         if solving_method == "selves_admm" : 
-            self.update_model(custom_active_id=[])
+            self.update_model(custom_active_id=[], custom_independant_id=kwargs.get('custom_active_id'))
             for m in self.members : 
                 m.update_model_admm(custom_active_id=[])
             self.optimize_admm(solver, **kwargs)
