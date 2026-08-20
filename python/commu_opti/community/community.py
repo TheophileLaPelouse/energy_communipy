@@ -553,7 +553,7 @@ class community :
         self.tot_obj_gains = self.tot_members_obj - community_obj
         self.price_gains = members_price - community_price
         
-        # print(f"Community objective gain: {self.tot_obj_gains}")                    
+        print(f"Community objective gain: {self.tot_obj_gains}")                    
         return
         
     def distribute_gains(self, method="proportional", compute_again_coalitions=False, combination_args={}) : 
@@ -622,8 +622,8 @@ class community :
             members_details = self.full_optimization(solver, method_selves, **self.kwargs, custom_active_id=comb)
             tot_members_obj = members_details["aggregated_objs"]['Objective']
             
-            print("methods : ", method_commu, method_selves)
-            print(f"Combination {comb} : Community obj : {community_obj}, sum of members obj : {tot_members_obj}")
+            # print("methods : ", method_commu, method_selves)
+            # print(f"Combination {comb} : Community obj : {community_obj}, sum of members obj : {tot_members_obj}")
             
             combinations[comb] = tot_members_obj - community_obj
         
@@ -689,7 +689,7 @@ class community :
     def full_optimization(self, solver, solving_method, **kwargs) : 
         if kwargs.get("current_members_id") is not None:
             self.current_members_id = kwargs.get("current_members_id")
-        print("Current members id : ", kwargs.get('custom_active_id'), self.current_members_id)
+        # print("Current members id : ", kwargs.get('custom_active_id'), self.current_members_id)
         self.update_model(custom_active_id=kwargs.get('custom_active_id'), custom_independant_id=kwargs.get('custom_active_id')) 
         if "admm" in solving_method : 
             for m in self.members : 

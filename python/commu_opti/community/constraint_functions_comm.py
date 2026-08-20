@@ -5,7 +5,7 @@
 def surplus_only_centralized(m, t, i) :
     S = sum(m.P_exchange[i, j, t]*m.active_members[j]*m.active_members[i] for j in m.member_set)
     # S = what i send to others 
-    return S == getattr(m, f'member_{i}').P_surplus[t]*m.active_members[i]
+    return S == getattr(m, f'member_{i}').P_surplus[t]#*m.active_members[i]
 
 def ii_rule_centralized(m, t, i) : 
     return m.P_exchange[i, i, t] == 0

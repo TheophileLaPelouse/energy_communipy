@@ -186,20 +186,20 @@ def nucleolus(vs, n_player, tol=1e-8):
         
         eps_opti = eps.X
         x_val = np.array([x[i].X for i in range(n_player)])
-        print("x_val:",x_val, "eps_opti:", eps_opti)
+        # print("x_val:",x_val, "eps_opti:", eps_opti)
         to_pop = set()
         flag = False
         for k in to_deactivate : 
             if flag : break
             S, v = vs[k]
             lhs = x_val[list(S)].sum()
-            print(f"Checking coalition {S} with value {v}: lhs = {lhs}, rhs = {v - eps_opti}")
+            # print(f"Checking coalition {S} with value {v}: lhs = {lhs}, rhs = {v - eps_opti}")
             if abs(lhs - (v - eps_opti)) < tol :
                 a = coalition_vector(S, n_player)
                 old_rank = rank
                 A[r, :] = a
                 new_rank = np.linalg.matrix_rank(A)
-                print(A, new_rank, old_rank, r)
+                # print(A, new_rank, old_rank, r)
                 if new_rank > old_rank :
                     r += 1
                     rank = new_rank

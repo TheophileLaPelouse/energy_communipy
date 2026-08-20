@@ -223,8 +223,8 @@ def generate_member_params(**kwargs) :
     for k in range(8) : 
         for j in range(8-k) : 
             for i in range(8-j-k) : 
-                # possible_socio.append([k/8, j/8, i/8, (8-k-j-i)/8])
-                possible_socio.append([0, 1, 1, 1])
+                possible_socio.append([k/8, j/8, i/8, (8-k-j-i)/8])
+                # possible_socio.append([0, 1, 1, 1])
                 
 
     n = kwargs.get('n_members', 5)
@@ -368,7 +368,7 @@ def generate_member_params(**kwargs) :
             "coef_pena" : 1
         }, 
         "confort" : {
-            "coef_p" : 10e-3, 
+            "coef_p" : 10e-5, 
             "coef_t" : 1, 
             "coef_c" : 10e-3,
         },
@@ -476,26 +476,40 @@ def compute_results(**kwargs) :
             communities.append(community)
             
         for commu in communities : 
+            # General results
             res = commu.full_optimization("gurobi", **commu.kwargs)
             commu.kwargs['solver_method'] = commu.kwargs['solving_method']
             del commu.kwargs["solving_method"]
+            
+            # Adding members sociological profile
+            for i in commu.members_id :
+                res[f"members_{i}"]["socio"] = commu.members[i].socio
+            
+            # Gains computation
             if kwargs.get("compute_gains", False) :
                 commu.calc_gains("gurobi")
                 for method in kwargs.get("gains_method", ["proportional", "egalitarian", "shapley", "nucleolus"]) :
                     commu.distribute_gains(method=method)
+                res['total_gains'] = commu.tot_obj_gains
                 res["gains"] = {method : 
-                                {
-                                    members_id : val[1] for members_id, val in commu.members_gains[method].items()
-                                }
+                    {members_id : val[1] for members_id, val in commu.members_gains[method].items()}
                     for method in commu.members_gains}
-                res["coalitions"] = commu.combinations.copy()
+                if commu.combinations is not None : 
+                    res["coalitions"] = commu.combinations.copy()
+                else : 
+                    res["coalitions"] = {}
             
+            # name of the community in results
             name = commu.kwargs.get("name", f"community_{commu.kwargs.get('method')}_{k_iter}")
             if commu.kwargs.get('method') not in name : 
                 name += f"_{commu.kwargs.get('method')}"
             print(name)
+            
+            # Add community to results for debugging
+            if kwargs.get("return_commus", False) : 
+                res["commu"] = commu
             results[name] = res
         print(communities)
-            
+    
     return results
         
