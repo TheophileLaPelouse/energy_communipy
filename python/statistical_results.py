@@ -16,15 +16,29 @@ import pyomo.environ as pyo
 from pyomo.util.infeasible import find_infeasible_constraints, find_infeasible_bounds
 from pyomo.opt import SolverFactory
 
+from commu_opti.plotting.plot_functions import plot_3d, plot_hexagon_objective
 
 from commu_opti.plotting.plot_functions import plot_power_curves    
 
 from commu_opti.generate_device_infos import compute_results
+from commu_opti.community.utils import gini
 
+
+try:
+    rcParams['font.family'] = 'Times New Roman'
+except ValueError:
+    print("Warning: 'Times New Roman' not found. Falling back to 'Times'.")
+    rcParams['font.family'] = 'Times'
+
+rcParams['font.size'] = 25
 
 save_folder = pos.join(pos.dirname(__file__), "results", "stat_results")
 if not pos.exists(save_folder) :
     os.makedirs(save_folder)
+    
+plot_folder = pos.join(pos.dirname(__file__), "results", "plot_results")
+if not pos.exists(plot_folder) :
+    os.makedirs(plot_folder)
 
 #%% test d'erreur
 
@@ -110,7 +124,7 @@ with open(file_name, "w") as f :
     json.dump(res, f, indent=4)
     
 #%%
-file_name = pos.join(save_folder, "admm_vs_centralized_2026-08-19_00-34-52.json")
+file_name = pos.join(save_folder, "admm_vs_centralized_2026-08-20_02-02-57.json")
 with open(file_name, "r") as f : 
     results = json.load(f)
     
@@ -118,10 +132,10 @@ eps, diffs, values = results["eps"], results["diffs"], results["values"]
 
 eps_to_plot = [f"{e:.0e}" for e in eps]
 # plt.plot(eps_to_plot, diffs, '+')
+fig = plt.figure()
 plt.semilogy(eps_to_plot, diffs, '+')
 plt.xlabel("Epsilon")
 plt.ylabel("Average difference in objective function values (ADMM - Centralized)")
-
 
 
 #%% Simulation time
@@ -169,7 +183,7 @@ centralized_std  = [np.std(time_results[k]["centralized"]) for k in range(len(n_
 admm_mean = [np.mean(time_results[k]["admm"]) for k in range(len(n_ranges))]
 admm_std  = [np.std(time_results[k]["admm"]) for k in range(len(n_ranges))]
 
-plt.figure()
+fig1 = plt.figure()
 plt.errorbar(
     n_ranges,
     centralized_mean,
@@ -182,20 +196,27 @@ plt.xlabel("Number of members in the community")
 plt.ylabel("Average Simulation Time (s)")
 plt.legend()
 
-plt.figure()
+fig2 = plt.figure()
 plt.errorbar(
     n_ranges,
     admm_mean,
     yerr=admm_std,
     fmt='o',
     capsize=5,
-    label="ADMM"
+    label="ADMM",
+    color="orange"
+    
 )
 plt.xlabel("Number of members in the community")
 plt.ylabel("Average Simulation Time (s)")
 plt.legend()
 
 plt.show()
+
+save_path1 = pos.join(plot_folder, "time_centralized.pdf")
+save_path2 = pos.join(plot_folder, "time_admm.pdf")
+#fig1.savefig(save_path1)
+#fig2.savefig(save_path2)
 
 #%% gain repartition
 
@@ -230,21 +251,33 @@ with open(file_name, "wb") as f :
     pickle.dump(res, f)
     
 #%% Analysis
-
-
+file_name=pos.join(save_folder, "gain_repartition_2026-08-20_13-27-47.pickle")
+with open(file_name, "rb") as f : 
+    res = pickle.load(f)
+    
+results, gains_method = res["results"], res['gains_method']
 
 # for meritocratic correlation
 correlation_list = []
 excess = {method : [] for method in gains_method}
 
+Gini = {method : 0 for method in gains_method}
+
 for name in results : 
+    conso_tot = sum(results[name]['aggregated_powers']['P_cons'])
+    exchange_tot = sum(results[name]['aggregated_powers']['P_exchange'])
+    if exchange_tot == 0 : exchange_tot= 1
+    comfort_tot = results[name]['aggregated_objs']['comfort']
+    if comfort_tot ==0 : comfort_tot = 1
+    invest_tot = results[name]['aggregated_objs']['price_invest']
     for key in results[name] :
         if key.startswith("members_") : 
             k = int(key.split("_")[-1])
             dico = {}
-            dico['conso'] = sum(results[name][key]["P_cons"])
-            dico['comfort'] = results[name][key]["comfort"]
-            dico["invest"] = results[name][key]["price_invest"]
+            dico['conso'] = sum(results[name][key]["P_cons"])/conso_tot
+            dico['comfort'] = results[name][key]["comfort"]/comfort_tot
+            dico["invest"] = results[name][key]["price_invest"]/invest_tot
+            dico["exchange"] = sum(results[name][key]["P_exchange"])/exchange_tot
             for method in gains_method : 
                 dico[method] = results[name]["gains"][method][k]
             correlation_list.append(dico)
@@ -259,34 +292,97 @@ for name in results :
     for method in gains_method:
         excess[method].append(np.mean(ex[method][-5:-1]))
         
+    for method in gains_method : 
+        gains = list(results[name]["gains"][method].values())
+        Gini[method] += gini(gains)
+    
+        
 for method in gains_method :
     excess[method] = [np.mean(excess[method]), np.std(excess[method])]
+    
+for method in gains_method : 
+    Gini[method] /= len(results)
     
 
 # correlation
 indices_method = {}
-correlation_array = np.zeros((len(correlation_list), len(gains_method)+3))
+correlation_array = np.zeros((len(correlation_list), len(gains_method)+4))
 for i, dico in enumerate(correlation_list) :
     correlation_array[i, 0] = dico['conso']
     correlation_array[i, 1] = dico['comfort']
     correlation_array[i, 2] = dico['invest']
+    correlation_array[i, 3] = dico["exchange"]
     for j, method in enumerate(gains_method) :
-        indices_method[method] = j+3
-        correlation_array[i, j+3] = dico[method]
+        indices_method[method] = j+4
+        correlation_array[i, j+4] = dico[method]
         
 # Meritocratic correlation = positive gain / comfort, positive gain / invest
+comfort_correlation = {}
+invest_correlation = {}
 for method in gains_method :
     idx = indices_method[method]
+    comfort_correlation[method] = np.corrcoef(correlation_array[:, 1], correlation_array[:, idx])[0, 1]
+    invest_correlation[method] = np.corrcoef(correlation_array[:, 2], correlation_array[:, idx])[0, 1]
     meritocratic_correlation = (
         np.corrcoef(correlation_array[:, 1], correlation_array[:, idx])[0, 1] + 
-        np.corrcoef(correlation_array[:, 2], correlation_array[:, idx])[0, 1]
+        np.corrcoef(correlation_array[:, 2], correlation_array[:, idx])[0, 1] 
     ) / 2
     print(f"Meritocratic correlation for {method}: {meritocratic_correlation:.4f}")
+
+#%% PLot
+
+to_plot = {
+    "values" : {"Excess score" : excess},
+    "labels" : ['Proportional', "Equal", "Shapley", "Nucleolus"],
+    "dimension" : 0,
+    "title" : "",
+    "colors" : ['lightblue']
+    # "save_path" : os.path.join(folder_path, "gains_allocation_proportional.pdf")
+}
+save_path1 = pos.join(plot_folder, "excess_score.pdf")
+fig1, ax1 = plot_hexagon_objective(**to_plot)
+#fig1.savefig(save_path1)
+
+to_plot = {
+    "values" : {"Comfort correlation" : comfort_correlation},
+    "labels" : ['Proportional', "Equal", "Shapley", "Nucleolus"],
+    "dimension" : 0,
+    "title" : "",
+    "colors" : ["orange"]
+    # "save_path" : os.path.join(folder_path, "gains_allocation_proportional.pdf")
+}
+save_path2 = pos.join(plot_folder, "comfort_correlation.pdf")
+fig2, ax2 = plot_hexagon_objective(**to_plot)
+#fig2.savefig(save_path2)
+
+to_plot = {
+    "values" : {"Investment correlation" : invest_correlation},
+    "labels" : ['Proportional', "Equal", "Shapley", "Nucleolus"],
+    "dimension" : 0,
+    "title" : "",
+    "colors" : ["green"]
+    # "save_path" : os.path.join(folder_path, "gains_allocation_proportional.pdf")
+}
+save_path3 = pos.join(plot_folder, "invest_correlation.pdf")
+fig3, ax3 = plot_hexagon_objective(**to_plot)
+#fig3.savefig(save_path3)
+
+to_plot = {
+    "values" : {"Gini coefficient" : Gini},
+    "labels" : ['Proportional', "Equal", "Shapley", "Nucleolus"],
+    "dimension" : 0,
+    "title" : "",
+    # "colors" : ["green"]
+    # "save_path" : os.path.join(folder_path, "gains_allocation_proportional.pdf")
+}
+save_path4 = pos.join(plot_folder, "gini.pdf")
+fig4, ax4 = plot_hexagon_objective(**to_plot)
+#fig4.savefig(save_path4)
 
 #%% ADMM vs centralized correlation 
 
 methods = ["centralized", "admm"]
-n_iter = 30
+n_iter = 40
 n_range=[5, 20]
 
 kwargs = {
@@ -298,13 +394,14 @@ kwargs = {
 t0 = time()
 results = compute_results(**kwargs)
 delta = time() - t0
-
+#%%
 admm_vs_centr = {"admm" : {"members_objs" : [], "members_socio" : []}, "centralized" : {"members_objs" : [], "members_socio" : []}}
 for name in results :
     to_change = "admm" if "admm" in results[name] else "centralized" 
     for key, val in results[name].items() : 
         if key.startswith('members') : 
-            objs = [val['price'], val["enviro"], val["auto"], val['comfort']]
+            if val['Objective'] == 0 : continue
+            objs = [val['price']/val['Objective'], val["enviro"]/val['Objective'], val["auto"]/val['Objective'], val['comfort']/val['Objective']]
             socio = val['socio'][:]
             admm_vs_centr[to_change]["members_objs"].append(objs)
             admm_vs_centr[to_change]["members_socio"].append(socio)
@@ -320,6 +417,7 @@ with open(file_name, "wb") as f :
     pickle.dump({"n_range" : kwargs.get("n_range"), 
                  "n_iterations" : kwargs.get("n_iterations"),
                  "list_method" : kwargs.get("list_method"),
+                 "results" : results,
                  "admm_vs_centr" : admm_vs_centr}, 
                 f)
     
@@ -331,10 +429,43 @@ with open(file_name, "rb") as f :
 admm_vs_centr = results["admm_vs_centr"]
 #%%
 
-corr_admm = sum([np.corrcoef(admm_vs_centr["admm"]["members_objs"][:, k], admm_vs_centr["admm"]["members_socio"][:, k])[0, 1] for k in range(4)]) / 4
-corr_centr = sum([np.corrcoef(admm_vs_centr["centralized"]["members_objs"][:, k], admm_vs_centr["centralized"]["members_socio"][:, k])[0, 1] for k in range(4)]) / 4
-print(f"Correlation between members' objectives and sociological profiles for ADMM: {corr_admm:.4f}")
-print(f"Correlation between members' objectives and sociological profiles for CENTRALIZED: {corr_centr:.4f}")
+corr_admm = [np.corrcoef(admm_vs_centr["admm"]["members_objs"][:, k], admm_vs_centr["admm"]["members_socio"][:, k])[0, 1] for k in range(4)]
+corr_centr = [np.corrcoef(admm_vs_centr["centralized"]["members_objs"][:, k], admm_vs_centr["centralized"]["members_socio"][:, k])[0, 1] for k in range(4)]
+print(f"Correlation between members' objectives and sociological profiles for ADMM: {corr_admm}")
+print(f"Correlation between members' objectives and sociological profiles for CENTRALIZED: {corr_centr}")
+
+
+#%% Plot one community
+
+method = ["centralized"]
+n_iteration = 1
+compute_gains = True
+n_range = [20, 21]
+kwargs = {
+    "n_range" : n_range,
+    "n_iterations" : n_iteration,
+    "list_method" : method,
+}
+
+results = compute_results(**kwargs)
+#%%
+
+powers = results["community_centralized_0"]['aggregated_powers']
+to_plot = {
+    "powers" : {
+        "Puissance du réseau" : powers['P_grid'],
+        "Puissance des batteries" : powers['P_bat'],
+        "Puissance consommée" : powers['P_cons'], 
+        "Puissance échangée" : powers['P_exchange'],
+        "Puissance produite" : powers['P_prod'],
+    },
+    "title" : "", 
+    "xlabel" : "Temps (h)", 
+    "ylabel" : "Puissance (W)"
+}
+
+fig, ax = plot_power_curves(**to_plot)
+#fig.savefig(pos.join(plot_folder, "illustration_centralized.pdf"))
 
 #%% test autre
 

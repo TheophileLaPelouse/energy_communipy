@@ -341,7 +341,7 @@ class community :
         s_k = 1000000000000
         eps_r = kwargs.get("eps_r", 1e-2)
         eps_s = kwargs.get("eps_s", 1e-2)
-        max_iter = kwargs.get("max_iter", 100)
+        max_iter = kwargs.get("max_iter", 10)
         iter = 0
         
         # High resolution to try to get the best value (otherwise, does not always converge to the best value)
@@ -484,7 +484,7 @@ class community :
             
             # Method to update rho for better convergence
             old_rho = rho
-            if wait > kwargs.get("wait_iter", 20) : 
+            if wait > kwargs.get("wait_iter", 10) : 
                 if r_k > mu*s_k :
                     rho *= tau_incr
                 elif s_k > mu*r_k :

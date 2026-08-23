@@ -218,4 +218,11 @@ def nucleolus(vs, n_player, tol=1e-8):
         
         
         
-        
+def gini(x) : 
+    n = len(x)
+    
+    E = 1/n**2 * (sum([abs(x[i] - x[j]) for i in range(n) for j in range(n)]))
+    M = 1/n * sum(x[i] for i in range(n))
+    if M ==0 : 
+        return 0
+    return E/2/M

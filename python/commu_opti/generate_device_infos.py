@@ -455,7 +455,7 @@ def compute_results(**kwargs) :
                 "total_time" : kwargs.get("horizon", 24),
                 "calc_ref" : True, 
                 "rho" : 1e-8,
-                "power_max_random" : 10000,
+                "power_max_random" : 1000,
                 "eps_r" : 1e-2,
                 "eps_s" : 1e-2,
                 "max_iter" : 500
@@ -475,8 +475,11 @@ def compute_results(**kwargs) :
             community.kwargs.update(weather)
             communities.append(community)
             
+        c = 0
         for commu in communities : 
             # General results
+            print("Optimizing community", c)
+            c+=1
             res = commu.full_optimization("gurobi", **commu.kwargs)
             commu.kwargs['solver_method'] = commu.kwargs['solving_method']
             del commu.kwargs["solving_method"]
