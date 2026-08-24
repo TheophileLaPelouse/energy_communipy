@@ -21,7 +21,7 @@ def generate_devices_data(**kwargs) :
     nb_of_days = kwargs.get("nb_of_days", 1)
     if not date : 
         # Choose random date in 2020
-        day_number = randint(1, 365)
+        day_number = randint(1, 364)
         date = dt.datetime(2025, 1, 1) + dt.timedelta(days=day_number)
     date_start = date
     date_end = date + dt.timedelta(days=nb_of_days)

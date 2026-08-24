@@ -12,7 +12,7 @@ from commu_opti.commu_builder import define_community, define_members
 from commu_opti.community.utils import extract_values
 #%%
 
-n_iter_max = 1000
+n_iter_max = 10000
 averages = []
 variances = []
 eps_average = 0.001
@@ -24,8 +24,11 @@ created = []
 while c<2 or ((abs(averages[-1] - averages[-2])/averages[-1] > eps_average or abs(variances[-1] - variances[-2])/variances[-1] > eps_variance) and c < n_iter_max):
     print(f"Iteration {c}")
     param, final_result = generate_member_data_random()
-    # if param['devices'].get("heating_system") : 
-    #     del param['devices']["heating_system"]
+    if param['devices'].get("heating_system") : 
+        del param['devices']["heating_system"]
+    if not param.get("parameters") : 
+        param["parameters"] = {}
+    param["parameters"]['id_']=0
     param["parameters"]["socio"] = [0, 0, 0, 1] # maximize confort should represent the current situation for people
     param["parameters"]["calc_ref"] = False
     list_members_params = [param]
@@ -54,11 +57,11 @@ while c<2 or ((abs(averages[-1] - averages[-2])/averages[-1] > eps_average or ab
 # m = members[0]
 # m.self_optimize('gurobi')
 
-plt.figure()
+fig = plt.figure()
 plt.plot(averages, '+')
-plt.title("Average of Econs")
+plt.title("")
 plt.xlabel("Iteration")
-plt.ylabel("Average of Econs")
+plt.ylabel("Energy per day (Wh)")
 
 plt.figure()
 plt.plot(variances, '+')

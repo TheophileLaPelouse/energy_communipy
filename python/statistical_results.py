@@ -30,7 +30,7 @@ except ValueError:
     print("Warning: 'Times New Roman' not found. Falling back to 'Times'.")
     rcParams['font.family'] = 'Times'
 
-rcParams['font.size'] = 25
+rcParams['font.size'] = 35
 
 save_folder = pos.join(pos.dirname(__file__), "results", "stat_results")
 if not pos.exists(save_folder) :
@@ -422,18 +422,29 @@ with open(file_name, "wb") as f :
                 f)
     
 #%% Analysis of ADMM vs centralized correlation
-file_name = ""
+file_name = pos.join(save_folder, "ADMM_centralized_correlation_2026-08-21_21-39-35.pickle")
 with open(file_name, "rb") as f :
     results = pickle.load(f)
     
 admm_vs_centr = results["admm_vs_centr"]
 #%%
 
-corr_admm = [np.corrcoef(admm_vs_centr["admm"]["members_objs"][:, k], admm_vs_centr["admm"]["members_socio"][:, k])[0, 1] for k in range(4)]
-corr_centr = [np.corrcoef(admm_vs_centr["centralized"]["members_objs"][:, k], admm_vs_centr["centralized"]["members_socio"][:, k])[0, 1] for k in range(4)]
-print(f"Correlation between members' objectives and sociological profiles for ADMM: {corr_admm}")
-print(f"Correlation between members' objectives and sociological profiles for CENTRALIZED: {corr_centr}")
+corr_admm = {k : np.corrcoef(admm_vs_centr["admm"]["members_objs"][:, k], admm_vs_centr["admm"]["members_socio"][:, k])[0, 1] for k in range(4)}
+corr_centr = {k:np.corrcoef(admm_vs_centr["centralized"]["members_objs"][:, k], admm_vs_centr["centralized"]["members_socio"][:, k])[0, 1] for k in range(4)}
+# print(f"Correlation between members' objectives and sociological profiles for ADMM: {corr_admm}")
+# print(f"Correlation between members' objectives and sociological profiles for CENTRALIZED: {corr_centr}")
 
+to_plot = {
+    "values" : {"ADMM" : corr_admm, 
+                "Centralized" : corr_centr},
+    "labels" : ['Economy', "Environment", "Self-consumption", "Comfort penalties"],
+    "dimension" : 0,
+    "title" : "",
+    "colors" : ["green"]
+    # "save_path" : os.path.join(folder_path, "gains_allocation_proportional.pdf")
+}
+save_path3 = pos.join(plot_folder, "invest_correlation.pdf")
+fig3, ax3 = plot_hexagon_objective(**to_plot)
 
 #%% Plot one community
 
