@@ -226,3 +226,14 @@ def gini(x) :
     if M ==0 : 
         return 0
     return E/2/M
+
+def compare_indices(x, y) : 
+    s = 0
+    sum_x = sum(x)
+    sum_y = sum(y)
+    if sum_x == 0 or sum_y == 0 :
+        return 1
+    for i in range(len(x)) : 
+        s += abs(x[i]/sum_x-y[i]/sum_y)
+        
+    return 1 - s

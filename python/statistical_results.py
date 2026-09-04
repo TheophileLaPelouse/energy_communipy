@@ -21,7 +21,7 @@ from commu_opti.plotting.plot_functions import plot_3d, plot_hexagon_objective
 from commu_opti.plotting.plot_functions import plot_power_curves    
 
 from commu_opti.generate_device_infos import compute_results
-from commu_opti.community.utils import gini
+from commu_opti.community.utils import gini, compare_indices
 
 
 try:
@@ -30,7 +30,7 @@ except ValueError:
     print("Warning: 'Times New Roman' not found. Falling back to 'Times'.")
     rcParams['font.family'] = 'Times'
 
-rcParams['font.size'] = 35
+rcParams['font.size'] = 25
 
 save_folder = pos.join(pos.dirname(__file__), "results", "stat_results")
 if not pos.exists(save_folder) :
@@ -260,6 +260,7 @@ results, gains_method = res["results"], res['gains_method']
 # for meritocratic correlation
 correlation_list = []
 excess = {method : [] for method in gains_method}
+nucleolus_compare = {method : 0 for method in gains_method}
 
 Gini = {method : 0 for method in gains_method}
 
@@ -295,12 +296,24 @@ for name in results :
     for method in gains_method : 
         gains = list(results[name]["gains"][method].values())
         Gini[method] += gini(gains)
+        
+    for method in gains_method : 
+        n_member = len(results[name]["gains"][method])
+        x = [0 for k in range(n_member)]
+        y = [0 for k in range(n_member)]
+        for k, val in results[name]["gains"][method].items() :
+            x[k] = val
+            y[k] = results[name]["gains"]["nucleolus"][k]
+        
+        # print(name, method, compare_indices(x, y))
+        nucleolus_compare[method] += compare_indices(x, y)
+        
+    
     
         
 for method in gains_method :
     excess[method] = [np.mean(excess[method]), np.std(excess[method])]
-    
-for method in gains_method : 
+    nucleolus_compare[method] /= len(results)
     Gini[method] /= len(results)
     
 
@@ -464,10 +477,10 @@ results = compute_results(**kwargs)
 powers = results["community_centralized_0"]['aggregated_powers']
 to_plot = {
     "powers" : {
-        "Puissance du réseau" : powers['P_grid'],
+        "Puissance échangé avec le réseau" : powers['P_grid'],
         "Puissance des batteries" : powers['P_bat'],
         "Puissance consommée" : powers['P_cons'], 
-        "Puissance échangée" : powers['P_exchange'],
+        "Puissance échangée dans la communauté" : powers['P_exchange'],
         "Puissance produite" : powers['P_prod'],
     },
     "title" : "", 
