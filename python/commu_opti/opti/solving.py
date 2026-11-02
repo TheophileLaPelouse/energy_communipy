@@ -114,6 +114,8 @@ def minimal_rolling_opti(community, solving_method, solver, **kwargs) :
         print("Starting optimization for time step", t)
         if solving_method == "admm" or solving_method == "admm_selves" : 
             community.optimize_admm(solver, **community.kwargs)
+        elif solving_method == "heuristic" : 
+            community.heuristic_optimization(solver, **kwargs)
         else : 
             community.optimize(solver, **kwargs.get('solver_options', {}))
         print("\nOptimization finished !", t)

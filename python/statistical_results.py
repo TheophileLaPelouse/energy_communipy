@@ -7,7 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 from time import time
 import datetime as dt
-from bisect import insort
+from bisect import insort, bisect
 
 import sys
 sys.path.append("/Users/theophilemounier/Desktop/git/energy_communipy/python")
@@ -260,11 +260,16 @@ results, gains_method = res["results"], res['gains_method']
 # for meritocratic correlation
 correlation_list = []
 excess = {method : [] for method in gains_method}
+excess_analysis = {method : [] for method in gains_method}
 nucleolus_compare = {method : 0 for method in gains_method}
 
 Gini = {method : 0 for method in gains_method}
 
+prop = 0.1
+
 for name in results : 
+    n_members = len(results[name]) - 8
+    
     conso_tot = sum(results[name]['aggregated_powers']['P_cons'])
     exchange_tot = sum(results[name]['aggregated_powers']['P_exchange'])
     if exchange_tot == 0 : exchange_tot= 1
@@ -285,22 +290,47 @@ for name in results :
             
     # n_coal = len(results[name]["coalitions"])
     ex = {method :[] for method in gains_method}
+    ex2 = {method :[] for method in gains_method}
+    
     for coal, val in results[name]["coalitions"].items() :
         for method in gains_method:
             sum_x = sum(results[name]["gains"][method][k] for k in coal)*results[name]["total_gains"]
-            # print(method, sum_x, coal, val)
-            insort(ex[method], (val- sum_x)) # Change to smart way if too slow, could be done in nlogn here n2
+            
+            ind = bisect(ex[method], (val-sum_x))
+            
+            # print(val, -1e-5 <=val<=1e-5)
+            if val<=1e-5 : 
+                to_insert = (sum_x<0)*1000 - (sum_x>=0)*1000
+            else : 
+                to_insert = (val- sum_x)/val
+                
+            # insort(ex[method], (val- sum_x)) # Change to smart way if too slow, could be done in nlogn here n2
+            if to_insert != 1000 and to_insert !=-1000 : 
+                if to_insert >= 1: 
+                    print(method, coal, "sum of x", sum_x, "V(S)", val, "e(S, x)", to_insert)
+                insort(ex[method], to_insert) 
+                ex2[method].insert(ind, [val, sum_x])
+    
+    nb_coal_worst = int(prop*2**n_members) +1
+    # nb_coal_worst = 5
+    print("Number of coalitions considered", nb_coal_worst)
     for method in gains_method:
-        excess[method].append(np.mean(ex[method][-5:-1]))
         
+        # print()
+        # print(len(ex[method]))
+        # print(method, ex[method][-nb_coal_worst:])
+        if ex[method] : 
+            excess[method].append(np.mean(ex[method][-nb_coal_worst:]))
+            for val in ex2[method][-nb_coal_worst:] : 
+                excess_analysis[method].append(val)
+                
     for method in gains_method : 
         gains = list(results[name]["gains"][method].values())
         Gini[method] += gini(gains)
         
     for method in gains_method : 
-        n_member = len(results[name]["gains"][method])
-        x = [0 for k in range(n_member)]
-        y = [0 for k in range(n_member)]
+        x = [0 for k in range(n_members)]
+        y = [0 for k in range(n_members)]
         for k, val in results[name]["gains"][method].items() :
             x[k] = val
             y[k] = results[name]["gains"]["nucleolus"][k]
@@ -342,14 +372,22 @@ for method in gains_method :
     ) / 2
     print(f"Meritocratic correlation for {method}: {meritocratic_correlation:.4f}")
 
+
+print("excess score",{key : excess[key][0] for key in excess})
+
+
+for method in gains_method  :
+    vals = [excess_analysis[method][k][0] for k in range(len(excess_analysis[method]))]
+    sum_xs = [excess_analysis[method][k][1] for k in range(len(excess_analysis[method]))]
+    print(method, "Max val", max(vals), "mean val", np.mean(vals), "variance val", np.var(vals))
 #%% PLot
 
 to_plot = {
-    "values" : {"Excess score" : excess},
+    "values" : {"Relative excess score" : excess},
     "labels" : ['Proportional', "Equal", "Shapley", "Nucleolus"],
     "dimension" : 0,
     "title" : "",
-    "colors" : ['lightblue']
+    "colors" : ['orange']
     # "save_path" : os.path.join(folder_path, "gains_allocation_proportional.pdf")
 }
 save_path1 = pos.join(plot_folder, "excess_score.pdf")

@@ -171,7 +171,16 @@ class member :
             
             if kwargs.get("help_surplus_admm", False) :
                 m.exchange_surplus = pyo.Constraint(self.time_index, rule=surplus_or_exchange_admm)
-            
+        
+        elif method=="heuristic" : 
+            if kwargs.get("heuristic_step")==0 :
+                self.P_exchange = pyo.Param(self.time_index, initialize=0, mutable=True, within=pyo.Reals)
+                m.P_exchange = self.P_exchange 
+            else : 
+                self.P_exchange.store_values(kwargs.get("heuristic_values")[self.id])
+                
+                 
+        
     def update_model_admm(self, custom_active_id=None) : 
         # For now just update the list of active members
         current_id = self.commu["current_members_id"] if self.commu is not None else [self.id]
@@ -272,7 +281,7 @@ class member :
         
         # print("CALC PROFILE")
         
-        if self.commu is None : 
+        if self.commu is None or kwargs.get("heuristic") == True: 
             for t in self.time_index :
                 self.P_surplus[t].fix(0)
                 
@@ -813,6 +822,12 @@ class member :
         
         return
                 
+    def send_heuristic_values(self) : 
+        m = self.mod_member
+        return ({
+            "P_surplus" : [pyo.value(m.P_grid_minus[t]) + pyo.value(m.P_surplus[t]) for t in range(self.total_time)],
+            "P_need" : [pyo.value(m.P_grid_plus[t]) for t in range(self.total_time)]
+        })
                     
     def drop_device(self, k) :
         if k < 0 : 
