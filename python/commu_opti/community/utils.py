@@ -8,6 +8,7 @@ import gurobipy as gp
 from gurobipy import GRB
 import itertools
 
+centralized_methods = ["centralized", "heuristic"]
 
 def calc_enviro(Pgrid, Pex, Pself, **kwargs) : 
     # Peut être ajouter test pour si viens d'un modèle pyomo ou pas 

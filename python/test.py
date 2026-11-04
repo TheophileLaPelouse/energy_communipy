@@ -302,6 +302,8 @@ options1 = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False,
 
 options2 = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 
            'method' : 'centralized', 'solver_method' : 'centralized', "nb_commu" : 2, "calc_ref" : False}
+options_heuristic = {"total_time" : 2, "deltat" : 1, "def_irradiance" : False, 
+           'method' : 'heuristic', 'solver_method' : 'heuristic', "nb_commu" : 2, "calc_ref" : False}
 
 members_dico = {
     "member1" : {
@@ -309,13 +311,13 @@ members_dico = {
             {
                 "type" : "fixed", 
                 "parameters" : {
-                    "power_profile" : [10 for t in range(options["total_time"])]
+                    "power_profile" : [10 for t in range(options1["total_time"])]
                 }
             }, 
             {
                 "type" : "PV", 
                 "parameters" : {
-                    "irradiance_profile" : [20 for t in range(options["total_time"])],
+                    "irradiance_profile" : [25 for t in range(options1["total_time"])],
                     "surface" : 5,
                     }
                 }
@@ -328,7 +330,7 @@ members_dico = {
             {
                 "type" : "fixed", 
                 "parameters" : {
-                    "power_profile" : [10 for t in range(options["total_time"])]
+                    "power_profile" : [10 for t in range(options1["total_time"])]
                 }
             }
         ],
@@ -352,8 +354,8 @@ members_dico = {
 
 coef_options = {
     "eco" : {
-        "cost_grid_buy" : [10 for k in range(options["total_time"])], 
-        "cost_grid_sell" : [-2.5 for k in range(options["total_time"])],
+        "cost_grid_buy" : [10 for k in range(options1["total_time"])], 
+        "cost_grid_sell" : [-2.5 for k in range(options1["total_time"])],
         "cost_ex" : 0, 
     },
     "enviro" : {
@@ -371,35 +373,42 @@ coef_options = {
 
 members1 = []
 members2 = []
+members_heuristic = []
 co = None
 c = 0
 for key in members_dico : 
     m = members_dico[key]
     devices1 = []
     devices2 = []
+    devices_heuristic = []
     for device in m["devices"] : 
         devices1.append(getattr(d, device["type"])(**device["parameters"], **options1))
         devices2.append(getattr(d, device["type"])(**device["parameters"], **options2))
+        devices_heuristic.append(getattr(d, device["type"])(**device["parameters"], **options_heuristic))
     member1 = memb.member(devices1, m["socio"], m["id"], **options1)
     member2 = memb.member(devices2, m["socio"], m["id"], **options2)
     members1.append(member1)
     members2.append(member2)
+    members_heuristic.append(getattr(memb, "member")(devices_heuristic, m["socio"], m["id"], **options_heuristic))
     c += 1
 co1 = comm.community(members1, **options1, **coef_options)
 co2 = comm.community(members2, **options2, **coef_options)
+co3 = comm.community(members_heuristic, **options_heuristic, **coef_options)
 # co1.build_model()
 # co2.build_model()
 # co1.socio = [1, 0, 0, 0]
 # co2.socio = [1, 0, 0, 0]
 # co.ref_values[0] = 1
-res1 = co1.full_optimization("gurobi", "admm", **co1.kwargs)
+# res1 = co1.full_optimization("gurobi", "admm", **co1.kwargs)
 # co1.optimize_admm("gurobi", **co1.kwargs)
 res2 = co2.full_optimization("gurobi", "centralized", **co2.kwargs)
 # co2.optimize("gurobi")
 # co.mod.write('commu.lp', io_options={'symbolic_solver_labels': True})
+res3 = co3.full_optimization("gurobi", "heuristic", **co3.kwargs)
 
 co1.aggregate_distributed_information()
 co2.aggregate_distributed_information()
+co3.aggregate_distributed_information()
 print("Optimization done \n")
 #%%
 co1.calc_gains("gurobi")
@@ -437,14 +446,16 @@ co2.distribute_gains(method="nucleolus")
 print(f"gains co1 : {co1.members_gains=}")
 print(f"gains co2 : {co2.members_gains=}")
 
-# to_plot = {
-#     "powers" : {
-#         "P_grid" : [pyo.value(co.mod.P_grid_plus[t]+co.mod.P_grid_minus[t]) for t in range(co.total_time)],
-#         "P_bat" : [pyo.value(co.mod.P_bat[t]) for t in range(co.total_time)],
-#         "P_cons" : [pyo.value(co.mod.P_cons[t]) for t in range(co.total_time)], 
-#         "P_exchange" : [pyo.value(co.mod.P_commu_exchange[t]) for t in range(co.total_time)],
-#     }
-# }
+co=co3
+to_plot = {
+    "powers" : {
+        "P_grid" : [pyo.value(co.mod.P_grid_plus[t]+co.mod.P_grid_minus[t]) for t in range(co.total_time)],
+        "P_bat" : [pyo.value(co.mod.P_bat[t]) for t in range(co.total_time)],
+        "P_cons" : [pyo.value(co.mod.P_cons[t]) for t in range(co.total_time)], 
+        "P_exchange" : [pyo.value(co.mod.P_commu_exchange[t]) for t in range(co.total_time)],
+    }
+}
+co.plot_power_curves(**to_plot)
 
 # to_plot = {
 #     "powers" : {

@@ -11,6 +11,9 @@ import os
 import json
 path_file = os.path.dirname(os.path.abspath(__file__))
 results_path = os.path.join(path_file, "../../results")
+
+from .utils import centralized_methods
+
 class member : 
     def __init__(self, devices, socio, id_, **kwargs) :
         method = kwargs.get("method", "centralized")   
@@ -147,7 +150,7 @@ class member :
         """
         method = kwargs.get("method", "centralized")
         m = self.mod_member
-        if method == "centralized" : 
+        if method in centralized_methods : 
             
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_centralized)
             m.P_exchange = self.P_exchange
@@ -172,14 +175,16 @@ class member :
             if kwargs.get("help_surplus_admm", False) :
                 m.exchange_surplus = pyo.Constraint(self.time_index, rule=surplus_or_exchange_admm)
         
-        elif method=="heuristic" : 
-            if kwargs.get("heuristic_step")==0 :
-                self.P_exchange = pyo.Param(self.time_index, initialize=0, mutable=True, within=pyo.Reals)
-                m.P_exchange = self.P_exchange 
-            else : 
-                self.P_exchange.store_values(kwargs.get("heuristic_values")[self.id])
-                
-                 
+        # elif method=="heuristic" : 
+        #     print("HEURISTIC METHOD")
+        #     print("step", kwargs.get("heuristic_step"))
+            
+        #     if kwargs.get("heuristic_step", 0)==0 :
+        #         self.P_exchange = pyo.Var(self.time_index, initialize=0, mutable=True, within=pyo.Reals)
+        #         m.P_exchange = self.P_exchange 
+        #         m.P_exchange.fix()
+        #     else : 
+        #         self.P_exchange.unfix()
         
     def update_model_admm(self, custom_active_id=None) : 
         # For now just update the list of active members
@@ -193,7 +198,7 @@ class member :
     
     def build_objective(self, **kwargs) :
         method = kwargs.get("method", "centralized")
-        if method == "centralized" :
+        if method in centralized_methods :
             self.mod_member.obj = pyo.Objective(expr=self.mod_member.obj_expr, sense=pyo.minimize)
             
         elif method == "admm" :

@@ -13,6 +13,8 @@ import json
 path_file = os.path.dirname(os.path.abspath(__file__))
 results_path = os.path.join(path_file, "../../results")
 
+from .utils import centralized_methods
+
 class community : 
     def __init__(self, members, **kwargs) : 
         self.kwargs = kwargs
@@ -75,7 +77,7 @@ class community :
                    
         # print("EXCHANGE VARIABLES DEFINED")
         method = kwargs.get("method", "centralized")
-        if method == "centralized" :
+        if method in centralized_methods :
             for k in self.members_id :
                 member = self.members[k]
                 member.add_to_community(self, k)
@@ -688,6 +690,7 @@ class community :
     
     def heuristic_optimization(self, solver, **kwargs) :
         # Step 1 : optimize with exchanges fixed at 0
+        self.P_exchange.fix(0)
         self.optimize(solver, **kwargs.get("solver_options", {}))
         P_surplus = {}
         P_need = {}
@@ -696,6 +699,7 @@ class community :
         for i in self.current_members_id :
             member = self.members[i]
             P_m = member.send_heuristic_values()
+            print(i, "P_m", P_m)
             P_surplus[i] = P_m["P_surplus"]
             P_need[i] = P_m["P_need"]
         
@@ -705,7 +709,7 @@ class community :
                     needers[t].add(i)
                 if P_surplus[i][t] > kwargs.get("heuristic_tol", 1e-3) : 
                     givers[t].add(i)
-
+        print("Needers : ", needers, "Givers : ", givers)
         # Step 2 : provide the exchange energy needed.
         new_P_exchange = {(i, j, t) : 0 for i in self.current_members_id for j in self.current_members_id for t in self.time_set}
         
@@ -713,38 +717,45 @@ class community :
         full_need = [sum(P_need[i][t] for i in self.current_members_id) for t in self.time_set]
         for t in self.time_set :
             to_give = full_surplus[t]/full_need[t] if full_need[t] > 0 else 0
+            print("to_give t", to_give, t)
             if to_give < 1 : 
                 # Provide the necessary exchange energy, same value for each member, proportional to their need.
                 for i in needers[t] : 
                     p_need = P_need[i][t]*to_give
+                    print(i, "p_need", p_need)
                     while p_need > 0 and givers[t] :
                         j = givers[t].pop()
+                        print(j, "p_need", p_need)
                         p_give = P_surplus[j][t]
                         if p_give >= p_need : 
-                            new_P_exchange[i, j, t] = p_need
+                            new_P_exchange[j, i, t] = p_need
                             P_surplus[j][t] -= p_need
                             p_need = 0
                         else : 
-                            new_P_exchange[i, j, t] = p_give
+                            new_P_exchange[j, i, t] = p_give
                             P_surplus[j][t] = 0
                             p_need -= p_give
                             
             else : 
                 # Provide the necessary exchange energy, same value for each member, proportional to their surplus.
-                for j in givers[t] : 
-                    p_give = P_surplus[j][t]/full_surplus[t]
+                for j in givers[t] :   
+                    p_give = P_surplus[j][t]/to_give
+                    print(j, "p_give", p_give)
                     while p_give > 0 and needers[t] :
                         i = needers[t].pop()
                         p_need = P_need[i][t]
                         if p_need >= p_give : 
-                            new_P_exchange[i, j, t] = p_give
+                            new_P_exchange[j, i, t] = p_give
                             P_need[i][t] -= p_give
                             p_give = 0
                         else : 
-                            new_P_exchange[i, j, t] = p_need
+                            new_P_exchange[j, i, t] = p_need
                             P_need[i][t] = 0
                             p_give -= p_need
-        self.P_exchange.store_values(new_P_exchange)
+        print("new_P_exchange : ", new_P_exchange)
+        self.P_exchange.unfix()
+        self.P_exchange.set_values(new_P_exchange)
+        self.P_exchange.fix()
         return self.optimize(solver, **kwargs.get("solver_options", {}))
                         
     
@@ -787,7 +798,7 @@ class community :
             self.aggregate_distributed_information()
             res = self.results.copy()
         if solving_method == "heuristic" :
-            res = self.heuristic_optimization(self, solver, **kwargs)
+            res = self.heuristic_optimization(solver, **kwargs)
         return res
     
     def debug_model(self, folder_path=os.path.join(results_path, "debug")) : 
