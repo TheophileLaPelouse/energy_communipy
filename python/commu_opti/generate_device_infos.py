@@ -511,6 +511,7 @@ def compute_results(**kwargs) :
         
 def computations_on_community(commu, **kwargs) : 
     res = commu.full_optimization("gurobi", **commu.kwargs)
+    
     commu.kwargs['solver_method'] = commu.kwargs['solving_method']
     del commu.kwargs["solving_method"]
     

@@ -1,5 +1,5 @@
 from . import pyo, np
-from .utils import nucleolus, choose_combination
+from .utils import nucleolus, choose_combination, random_factor
 from ..opti.solving import solve_model, treat_members_admm, set_values, debug_community, minimal_rolling_opti
 from ..plotting.plot_functions import plot_power_curves, plot_hexagon_objective
 from .constraint_functions_comm import *
@@ -327,20 +327,23 @@ class community :
     #     self.mod.x_k_1.store_values(kwargs.get("x_k_1"))
     #     self.mod.Surplus_k_1.store_values(kwargs.get("Surplus_k_1"))
     
-    def init_admm(self, method, time_set, current_members_id, **kwargs) : 
-        if method == "random" : 
+    def init_admm(self, init_function_, time_set, current_members_id, **kwargs) : 
+        if init_function_ == "random" : 
             power_max_random = kwargs.get("power_max_random", 1000)
             x_k = kwargs.get("x_k", {(i, j, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id for j in current_members_id})
             Surplus = kwargs.get("Surplus", {(i, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id})
             z_k = kwargs.get("z_k", {(i, j, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id for j in current_members_id})
             z2_k = kwargs.get("z2_k", {(i, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id})
         
-        if method == "heuristic" : 
-            heuristic_exchange = self.heuristic_optimization(kwargs.get('solver', "gurobi"), for_initialization=True, **kwargs)
-            x_k = heuristic_exchange
-            z_k = heuristic_exchange
-            Surplus = {(i, t) : sum(heuristic_exchange[i, j, t] for j in current_members_id) for t in time_set for i in current_members_id}
-            z2_k = {(i, t) : sum(heuristic_exchange[i, j, t] for j in current_members_id) for t in time_set for i in current_members_id}
+        if init_function_ == "heuristic" : 
+            print(kwargs.get("for_initialization"))
+            heuristic_exchange = self.heuristic_optimization(for_initialization=True, **kwargs)
+
+            x_k = {key : heuristic_exchange[key]*random_factor(0.1) for key in heuristic_exchange}
+            z_k = {key : heuristic_exchange[key]*random_factor(0.1) for key in heuristic_exchange}
+            
+            Surplus = {(i, t) : sum(heuristic_exchange[i, j, t]*random_factor(0.1) for j in current_members_id) for t in time_set for i in current_members_id}
+            z2_k = {(i, t) : sum(heuristic_exchange[i, j, t]*random_factor(0.1) for j in current_members_id) for t in time_set for i in current_members_id}
             
         return x_k, Surplus, z_k, z2_k
     
@@ -714,8 +717,11 @@ class community :
             method_selves = "selves"
             global_method = "centralized"
         if method == "admm" :
-            method_selves = "admm_selves"
-        self.full_optimization(solver, method_selves, **kwargs)
+            method_selves = "selves_admm"
+            init_function = "random"
+        new_kwargs = kwargs.copy()
+        new_kwargs["init_function"] = init_function
+        self.full_optimization(solver, method_selves, **new_kwargs)
         # self.optimize(solver, **kwargs.get("solver_options", {}))
         P_surplus = {}
         P_need = {}

@@ -69,14 +69,14 @@ param_commus = [
         "deltat" : 1,
         "total_time" : 24,
         "calc_ref" : True, 
-        "rho" : 1e-9,
-        # "power_max_random" : 10000,
+        "rho" : 1,
+        "power_max_random" : 100,
         "eps_r" : e,
         "eps_s" : e,
         "max_iter" : 300, 
         # "mu" : 10, 
-        # "tau_incr" : 1.5, 
-        # "tau_decr" : 1.5, 
+        "tau_incr" : 1, 
+        "tau_decr" : 1, 
         # "wait_iter" : 0,
         "name" : f"{e}_{k}"
     }
@@ -433,13 +433,14 @@ fig4, ax4 = plot_hexagon_objective(**to_plot)
 #%% ADMM vs centralized correlation 
 
 methods = ["centralized", "admm"]
-n_iter = 40
+n_iter = 20
 n_range=[5, 20]
 
 kwargs = {
     "n_range" : n_range,
     "n_iterations" : n_iter,
     "list_method" : methods,
+    "compute_socio_ref" : True, 
 }
 
 t0 = time()
@@ -448,15 +449,16 @@ delta = time() - t0
 #%%
 admm_vs_centr = {"admm" : {"members_objs" : [], "members_socio" : []}, "centralized" : {"members_objs" : [], "members_socio" : []}}
 for name in results :
+    if name.endswith("_socioref") : continue
     to_change = "admm" if "admm" in results[name] else "centralized" 
     for key, val in results[name].items() : 
+        val_ref = results[name + "_socioref"][key]
         if key.startswith('members') : 
             if val['Objective'] == 0 : continue
-            objs = [val['price']/val['Objective'], val["enviro"]/val['Objective'], val["auto"]/val['Objective'], val['comfort']/val['Objective']]
+            objs = [val['price']/val_ref['price'], val["enviro"]/val_ref['enviro'], val["auto"]/val_ref['auto'], val['comfort']/val_ref['comfort']]
             socio = val['socio'][:]
             admm_vs_centr[to_change]["members_objs"].append(objs)
             admm_vs_centr[to_change]["members_socio"].append(socio)
-            
 
 admm_vs_centr["admm"]["members_objs"] = np.array(admm_vs_centr["admm"]["members_objs"])
 admm_vs_centr["centralized"]["members_objs"] = np.array(admm_vs_centr["centralized"]["members_objs"])
@@ -562,6 +564,7 @@ kwargs = {
 }
 
 results = compute_results(**kwargs)
+
 #%%
 
 powers = results["community_centralized_0"]['aggregated_powers']
@@ -585,29 +588,30 @@ fig, ax = plot_power_curves(**to_plot)
 
 method = ["centralized", "admm"]
 eps = [1, 0.5, 0.1, 0.05, 0.01, 0.005, 0.001, 0.0001, 0.00001]
-eps = eps[:2]
+eps = eps[2:3]
 param_commus = [
     {
         # "solving_method" : method,
         "deltat" : 1,
         "total_time" : 24,
         "calc_ref" : True, 
-        "rho" : 1e-9,
-        "power_max_random" : 10000,
+        "rho" : 1,
+        "power_max_random" : 100,
         "eps_r" : e,
         "eps_s" : e,
         "max_iter" : 500, 
         # "mu" : 10, 
-        # "tau_incr" : 1.5, 
-        # "tau_decr" : 1.5, 
+        "tau_incr" : 1, 
+        "tau_decr" : 1, 
         # "wait_iter" : 0,
+        # "init_function" : "heuristic",
     }
     for e in eps for k in range(5)
 ]
 
 n_iteration = len(param_commus)
 kwargs = {
-    "n_range" : [10, 11],
+    "n_range" : [20, 21],
     "n_iterations" : n_iteration,
     "list_param_commu" : param_commus
 }

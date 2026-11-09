@@ -240,3 +240,5 @@ def compare_indices(x, y) :
         
     return 1 - s
 
+def random_factor(fac) : 
+    return (1 + (0.5 - np.random.rand())*fac)
