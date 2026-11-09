@@ -510,10 +510,12 @@ def compute_results(**kwargs) :
     return results
         
 def computations_on_community(commu, **kwargs) : 
-    res = commu.full_optimization("gurobi", **commu.kwargs)
+    res = commu.full_optimization("gurobi", commu.kwargs["solving_method"], **commu.kwargs)
     
-    commu.kwargs['solver_method'] = commu.kwargs['solving_method']
-    del commu.kwargs["solving_method"]
+    # if commu.kwargs.get("solving_method") : 
+    #     # Used because some argument was names solving method, see if there is still a problem when computing gains
+    #     commu.kwargs['solver_method'] = commu.kwargs['solving_method']
+    #     del commu.kwargs["solving_method"]
     
     # Adding members sociological profile
     for i in commu.members_id :

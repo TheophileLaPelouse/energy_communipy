@@ -328,8 +328,9 @@ class community :
     #     self.mod.Surplus_k_1.store_values(kwargs.get("Surplus_k_1"))
     
     def init_admm(self, init_function_, time_set, current_members_id, **kwargs) : 
+        power_max_random = kwargs.get("power_max_random", 1000)
         if init_function_ == "random" : 
-            power_max_random = kwargs.get("power_max_random", 1000)
+            
             x_k = kwargs.get("x_k", {(i, j, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id for j in current_members_id})
             Surplus = kwargs.get("Surplus", {(i, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id})
             z_k = kwargs.get("z_k", {(i, j, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id for j in current_members_id})
@@ -339,22 +340,26 @@ class community :
             print(kwargs.get("for_initialization"))
             heuristic_exchange = self.heuristic_optimization(for_initialization=True, **kwargs)
 
-            x_k = {key : heuristic_exchange[key]*random_factor(0.1) for key in heuristic_exchange}
-            z_k = {key : heuristic_exchange[key]*random_factor(0.1) for key in heuristic_exchange}
+            x_k = {key : heuristic_exchange[key]*random_factor(0.5) + np.random.rand()*power_max_random for key in heuristic_exchange}
+            z_k = {key : heuristic_exchange[key]*random_factor(0.5) + np.random.rand()*power_max_random for key in heuristic_exchange}
             
-            Surplus = {(i, t) : sum(heuristic_exchange[i, j, t]*random_factor(0.1) for j in current_members_id) for t in time_set for i in current_members_id}
-            z2_k = {(i, t) : sum(heuristic_exchange[i, j, t]*random_factor(0.1) for j in current_members_id) for t in time_set for i in current_members_id}
+            Surplus = {(i, t) : sum(heuristic_exchange[i, j, t]*random_factor(0.5) + np.random.rand()*power_max_random for j in current_members_id) for t in time_set for i in current_members_id}
+            z2_k = {(i, t) : sum(heuristic_exchange[i, j, t]*random_factor(0.5) + np.random.rand()*power_max_random for j in current_members_id) for t in time_set for i in current_members_id}
+            
+            for id_ in self.current_members_id : 
+                member = self.members[id_]
+                member.init_values(x_k=x_k, Surplus=Surplus)
             
         return x_k, Surplus, z_k, z2_k
     
     
     def optimize_admm(self, solver, **kwargs) :
         
-        power_max_random = kwargs.get("power_max_random", 1000)
-        rho = kwargs.get("rho", 1/(power_max_random+1))
+        # power_max_random = kwargs.get("power_max_random", 1000)
+        rho = kwargs.get("rho", 1)
         mu = kwargs.get("mu", 100)
-        tau_incr = kwargs.get("tau_incr", 2)
-        tau_decr = kwargs.get("tau_decr", 2)
+        tau_incr = kwargs.get("tau_incr", 1)
+        tau_decr = kwargs.get("tau_decr", 1)
         
         init_function = kwargs.get("init_function", "random")
         x_k, Surplus, z_k, z2_k = self.init_admm(init_function, self.time_set, self.current_members_id, solver=solver, **kwargs)
@@ -420,7 +425,8 @@ class community :
             args = {"rho" : rho, "z_k" : z_k, "z2_k" : z2_k, "u_k" : self.U_exchange, "u2_k" : self.U_surplus}
             member_args.update(args)
             
-            
+            # if iter == 0 : 
+
             # Members part
             if parallel: # Problem with this on python is that all the objects needs to be built again, and this is taking a lot of time
                 t_opti_start = time.time()
@@ -793,45 +799,45 @@ class community :
         return self.optimize(solver, **kwargs.get("solver_options", {}))
                         
     
-    def full_optimization(self, solver, solving_method, **kwargs) : 
+    def full_optimization(self, solver, solving_method_, **kwargs) : 
         if kwargs.get("current_members_id") is not None:
             self.current_members_id = kwargs.get("current_members_id")
         # print("Current members id : ", kwargs.get('custom_active_id'), self.current_members_id)
         self.update_model(custom_active_id=kwargs.get('custom_active_id'), custom_independant_id=kwargs.get('custom_active_id')) 
-        if "admm" in solving_method : 
+        if "admm" in solving_method_ : 
             for m in self.members : 
                 m.update_model_admm(custom_active_id=kwargs.get('custom_active_id'))
-        if solving_method == "rolling_centralized" : 
+        if solving_method_ == "rolling_centralized" : 
             res = minimal_rolling_opti(self, "centralized", solver, **kwargs)
-        if solving_method == "rolling_admm" :
+        if solving_method_ == "rolling_admm" :
             res = minimal_rolling_opti(self, "admm", solver, **kwargs)
-        if solving_method == "rolling_selves" : 
+        if solving_method_ == "rolling_selves" : 
             res = minimal_rolling_opti(self, "selves", solver, **kwargs)
-        if solving_method == "rolling_selves_admm" : 
+        if solving_method_ == "rolling_selves_admm" : 
             res = minimal_rolling_opti(self, "admm_selves", solver, **kwargs)
-        if solving_method == "rolling_heuristic" : 
+        if solving_method_ == "rolling_heuristic" : 
             res = minimal_rolling_opti(self, "heuristic", solver, **kwargs)
-        if solving_method == "centralized" : 
+        if solving_method_ == "centralized" : 
             self.optimize(solver, **kwargs.get("solver_options", {}))
             self.aggregate_distributed_information()
             res = self.results.copy()
-        if solving_method == "admm" :
+        if solving_method_ == "admm" :
             self.optimize_admm(solver, **kwargs)
             self.aggregate_distributed_information()
             res = self.results.copy()
-        if solving_method == "selves" : 
+        if solving_method_ == "selves" : 
             self.update_model(custom_active_id=[], custom_independant_id=kwargs.get('custom_active_id'))
             self.optimize(solver, **kwargs.get("solver_options", {}))
             self.aggregate_distributed_information()
             res = self.results.copy()
-        if solving_method == "selves_admm" : 
+        if solving_method_ == "selves_admm" : 
             self.update_model(custom_active_id=[], custom_independant_id=kwargs.get('custom_active_id'))
             for m in self.members : 
                 m.update_model_admm(custom_active_id=[])
             self.optimize_admm(solver, **kwargs)
             self.aggregate_distributed_information()
             res = self.results.copy()
-        if solving_method == "heuristic" :
+        if solving_method_ == "heuristic" :
             self.heuristic_optimization(solver, **kwargs)
             self.aggregate_distributed_information()
             res = self.results.copy()

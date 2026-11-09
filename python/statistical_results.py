@@ -124,7 +124,7 @@ with open(file_name, "w") as f :
     json.dump(res, f, indent=4)
     
 #%%
-file_name = pos.join(save_folder, "admm_vs_centralized_2026-08-20_02-02-57.json")
+file_name = pos.join(save_folder, "admm_vs_centralized_2026-11-09_15-22-21.json")
 with open(file_name, "r") as f : 
     results = json.load(f)
     
@@ -433,7 +433,7 @@ fig4, ax4 = plot_hexagon_objective(**to_plot)
 #%% ADMM vs centralized correlation 
 
 methods = ["centralized", "admm"]
-n_iter = 20
+n_iter = 40
 n_range=[5, 20]
 
 kwargs = {
@@ -447,7 +447,51 @@ t0 = time()
 results = compute_results(**kwargs)
 delta = time() - t0
 #%%
+file_name = pos.join(save_folder, f"ADMM_centralized_correlation_{dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pickle")
+with open(file_name, "wb") as f :
+    pickle.dump({"n_range" : kwargs.get("n_range"), 
+                 "n_iterations" : kwargs.get("n_iterations"),
+                 "list_method" : kwargs.get("list_method"),
+                 "results" : results, }, f)
+
+#%% Analysis of ADMM vs centralized correlation
+file_name = pos.join(save_folder, "ADMM_centralized_correlation_2026-11-09_16-24-31.pickle")
+with open(file_name, "rb") as f :
+    file_load = pickle.load(f)
+    
+results = file_load["results"]
+#%%
+def socio_importance(socio) :
+    res = []
+    for i in range(len(socio)) : 
+        s = 0
+        for k in range(len(socio)) : 
+            if k != i : s += socio[k]
+        if s == 0 : res.append(10)
+        else : res.append(socio[i]/s)
+    return res
+
+n = len(results)
+compare = [0 for k in range(n//4)]
+centralized = [0 for k in range(n//4)]
+admm = [0 for k in range(n//4)]
+for name in results : 
+    parts = name.split('_')
+    nb = int(parts[2])
+    if len(parts) == 4 and parts[3] == "socioref" : continue
+    if parts[1] == "centralized" : 
+        centralized[nb] = results[name]["aggregated_objs"]['Objective']
+    else : 
+        admm[nb] = results[name]["aggregated_objs"]['Objective']
+for k in range(n//4) : 
+    compare[k] = (centralized[k] - admm[k]) / centralized[k]
+
+print(np.mean(compare), np.var(compare))
+            
+        
+
 admm_vs_centr = {"admm" : {"members_objs" : [], "members_socio" : []}, "centralized" : {"members_objs" : [], "members_socio" : []}}
+id_pref = {"price" : 0, "enviro" : 1, "auto": 2,"comfort" : 3}
 for name in results :
     if name.endswith("_socioref") : continue
     to_change = "admm" if "admm" in results[name] else "centralized" 
@@ -455,8 +499,14 @@ for name in results :
         val_ref = results[name + "_socioref"][key]
         if key.startswith('members') : 
             if val['Objective'] == 0 : continue
-            objs = [val['price']/val_ref['price'], val["enviro"]/val_ref['enviro'], val["auto"]/val_ref['auto'], val['comfort']/val_ref['comfort']]
+            objs = [0, 0, 0, 0]
+            for pref in ["price", "enviro", "auto", "comfort"] : 
+                i = id_pref[pref]
+                if val_ref[pref] != 0 : 
+                    objs[i] = val[pref]/val_ref[pref]
+            # objs = [val['price']/val_ref['price'], val["enviro"]/val_ref['enviro'], val["auto"]/val_ref['auto'], val['comfort']/val_ref['comfort']]
             socio = val['socio'][:]
+            # socio = socio_importance(socio)
             admm_vs_centr[to_change]["members_objs"].append(objs)
             admm_vs_centr[to_change]["members_socio"].append(socio)
 
@@ -464,23 +514,9 @@ admm_vs_centr["admm"]["members_objs"] = np.array(admm_vs_centr["admm"]["members_
 admm_vs_centr["centralized"]["members_objs"] = np.array(admm_vs_centr["centralized"]["members_objs"])
 admm_vs_centr["admm"]["members_socio"] = np.array(admm_vs_centr["admm"]["members_socio"])
 admm_vs_centr["centralized"]["members_socio"] = np.array(admm_vs_centr["centralized"]["members_socio"])
+
 #%%
-file_name = pos.join(save_folder, f"ADMM_centralized_correlation_{dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pickle")
-with open(file_name, "wb") as f :
-    pickle.dump({"n_range" : kwargs.get("n_range"), 
-                 "n_iterations" : kwargs.get("n_iterations"),
-                 "list_method" : kwargs.get("list_method"),
-                 "results" : results,
-                 "admm_vs_centr" : admm_vs_centr}, 
-                f)
-    
-#%% Analysis of ADMM vs centralized correlation
-file_name = pos.join(save_folder, "ADMM_centralized_correlation_2026-08-21_21-39-35.pickle")
-with open(file_name, "rb") as f :
-    results = pickle.load(f)
-    
-admm_vs_centr = results["admm_vs_centr"]
-#%%
+
 
 corr_admm = {k : np.corrcoef(admm_vs_centr["admm"]["members_objs"][:, k], admm_vs_centr["admm"]["members_socio"][:, k])[0, 1] for k in range(4)}
 corr_centr = {k:np.corrcoef(admm_vs_centr["centralized"]["members_objs"][:, k], admm_vs_centr["centralized"]["members_socio"][:, k])[0, 1] for k in range(4)}
@@ -595,8 +631,8 @@ param_commus = [
         "deltat" : 1,
         "total_time" : 24,
         "calc_ref" : True, 
-        "rho" : 1,
-        "power_max_random" : 100,
+        "rho" : 1e-5,
+        "power_max_random" : 1000,
         "eps_r" : e,
         "eps_s" : e,
         "max_iter" : 500, 
@@ -604,14 +640,14 @@ param_commus = [
         "tau_incr" : 1, 
         "tau_decr" : 1, 
         # "wait_iter" : 0,
-        # "init_function" : "heuristic",
+        "init_function" : "heuristic",
     }
     for e in eps for k in range(5)
 ]
 
 n_iteration = len(param_commus)
 kwargs = {
-    "n_range" : [20, 21],
+    "n_range" : [10, 11],
     "n_iterations" : n_iteration,
     "list_param_commu" : param_commus
 }

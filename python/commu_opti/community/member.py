@@ -239,6 +239,8 @@ class member :
         if kwargs.get("active_members") : 
             self.mod_member.active_members.store_values(kwargs.get("active_members"))
         
+    def init_values(self, **kwargs) :
+        
     # def update_devices(self, **kwargs) :
     #     for dev in self.devices : 
     #         dev.update_params(**kwargs)
