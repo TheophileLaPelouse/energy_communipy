@@ -274,7 +274,7 @@ class member :
         # print("ADDING DEVICES DONE")
         
         self.P_surplus = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
-        self.P_self = pyo.Var(self.time_index, within=pyo.NonNegativeReals, initialize=[0 for t in self.time_index])
+        self.P_self = pyo.Var(self.time_index, within=pyo.Reals, initialize=[0 for t in self.time_index]) # Attention point de vigilance sur le signe 
         m.P_surplus = self.P_surplus
         m.P_self = self.P_self
         

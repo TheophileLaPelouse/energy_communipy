@@ -327,6 +327,24 @@ class community :
     #     self.mod.x_k_1.store_values(kwargs.get("x_k_1"))
     #     self.mod.Surplus_k_1.store_values(kwargs.get("Surplus_k_1"))
     
+    def init_admm(self, method, time_set, current_members_id, **kwargs) : 
+        if method == "random" : 
+            power_max_random = kwargs.get("power_max_random", 1000)
+            x_k = kwargs.get("x_k", {(i, j, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id for j in current_members_id})
+            Surplus = kwargs.get("Surplus", {(i, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id})
+            z_k = kwargs.get("z_k", {(i, j, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id for j in current_members_id})
+            z2_k = kwargs.get("z2_k", {(i, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id})
+        
+        if method == "heuristic" : 
+            heuristic_exchange = self.heuristic_optimization(kwargs.get('solver', "gurobi"), for_initialization=True, **kwargs)
+            x_k = heuristic_exchange
+            z_k = heuristic_exchange
+            Surplus = {(i, t) : sum(heuristic_exchange[i, j, t] for j in current_members_id) for t in time_set for i in current_members_id}
+            z2_k = {(i, t) : sum(heuristic_exchange[i, j, t] for j in current_members_id) for t in time_set for i in current_members_id}
+            
+        return x_k, Surplus, z_k, z2_k
+    
+    
     def optimize_admm(self, solver, **kwargs) :
         
         power_max_random = kwargs.get("power_max_random", 1000)
@@ -335,10 +353,9 @@ class community :
         tau_incr = kwargs.get("tau_incr", 2)
         tau_decr = kwargs.get("tau_decr", 2)
         
-        x_k = kwargs.get("x_k", {(i, j, t) : np.random.rand() * power_max_random for t in self.time_set for i in self.current_members_id for j in self.current_members_id})
-        Surplus = kwargs.get("Surplus", {(i, t) : np.random.rand() * power_max_random for t in self.time_set for i in self.current_members_id})
-        z_k = kwargs.get("z_k", {(i, j, t) : np.random.rand() * power_max_random for t in self.time_set for i in self.current_members_id for j in self.current_members_id})
-        z2_k = kwargs.get("z2_k", {(i, t) : np.random.rand() * power_max_random for t in self.time_set for i in self.current_members_id})
+        init_function = kwargs.get("init_function", "random")
+        x_k, Surplus, z_k, z2_k = self.init_admm(init_function, self.time_set, self.current_members_id, solver=solver, **kwargs)
+        
         r_k = 1000000000000
         s_k = 1000000000000
         eps_r = kwargs.get("eps_r", 1e-2)
@@ -691,7 +708,15 @@ class community :
     def heuristic_optimization(self, solver, **kwargs) :
         # Step 1 : optimize with exchanges fixed at 0
         self.P_exchange.fix(0)
-        self.optimize(solver, **kwargs.get("solver_options", {}))
+        
+        method = kwargs.get("method", "centralized")
+        if method == "centralized" :
+            method_selves = "selves"
+            global_method = "centralized"
+        if method == "admm" :
+            method_selves = "admm_selves"
+        self.full_optimization(solver, method_selves, **kwargs)
+        # self.optimize(solver, **kwargs.get("solver_options", {}))
         P_surplus = {}
         P_need = {}
         needers = [set() for t in self.time_set]
@@ -699,7 +724,7 @@ class community :
         for i in self.current_members_id :
             member = self.members[i]
             P_m = member.send_heuristic_values()
-            print(i, "P_m", P_m)
+            # print(i, "P_m", P_m)
             P_surplus[i] = P_m["P_surplus"]
             P_need[i] = P_m["P_need"]
         
@@ -709,7 +734,7 @@ class community :
                     needers[t].add(i)
                 if P_surplus[i][t] > kwargs.get("heuristic_tol", 1e-3) : 
                     givers[t].add(i)
-        print("Needers : ", needers, "Givers : ", givers)
+        # print("Needers : ", needers, "Givers : ", givers)
         # Step 2 : provide the exchange energy needed.
         new_P_exchange = {(i, j, t) : 0 for i in self.current_members_id for j in self.current_members_id for t in self.time_set}
         
@@ -717,15 +742,15 @@ class community :
         full_need = [sum(P_need[i][t] for i in self.current_members_id) for t in self.time_set]
         for t in self.time_set :
             to_give = full_surplus[t]/full_need[t] if full_need[t] > 0 else 0
-            print("to_give t", to_give, t)
+            # print("to_give t", to_give, t)
             if to_give < 1 : 
                 # Provide the necessary exchange energy, same value for each member, proportional to their need.
                 for i in needers[t] : 
                     p_need = P_need[i][t]*to_give
-                    print(i, "p_need", p_need)
+                    # print(i, "p_need", p_need)
                     while p_need > 0 and givers[t] :
                         j = givers[t].pop()
-                        print(j, "p_need", p_need)
+                        # print(j, "p_need", p_need)
                         p_give = P_surplus[j][t]
                         if p_give >= p_need : 
                             new_P_exchange[j, i, t] = p_need
@@ -740,7 +765,7 @@ class community :
                 # Provide the necessary exchange energy, same value for each member, proportional to their surplus.
                 for j in givers[t] :   
                     p_give = P_surplus[j][t]/to_give
-                    print(j, "p_give", p_give)
+                    # print(j, "p_give", p_give)
                     while p_give > 0 and needers[t] :
                         i = needers[t].pop()
                         p_need = P_need[i][t]
@@ -752,10 +777,13 @@ class community :
                             new_P_exchange[j, i, t] = p_need
                             P_need[i][t] = 0
                             p_give -= p_need
-        print("new_P_exchange : ", new_P_exchange)
-        self.P_exchange.unfix()
+        # print("new_P_exchange : ", new_P_exchange)
+        # self.P_exchange.unfix()
         self.P_exchange.set_values(new_P_exchange)
-        self.P_exchange.fix()
+        # self.P_exchange.fix()
+        if kwargs.get("for_initialization", False) : 
+            return new_P_exchange
+        
         return self.optimize(solver, **kwargs.get("solver_options", {}))
                         
     
@@ -798,7 +826,9 @@ class community :
             self.aggregate_distributed_information()
             res = self.results.copy()
         if solving_method == "heuristic" :
-            res = self.heuristic_optimization(solver, **kwargs)
+            self.heuristic_optimization(solver, **kwargs)
+            self.aggregate_distributed_information()
+            res = self.results.copy()
         return res
     
     def debug_model(self, folder_path=os.path.join(results_path, "debug")) : 

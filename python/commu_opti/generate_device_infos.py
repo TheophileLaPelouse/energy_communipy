@@ -12,6 +12,12 @@ import datetime as dt
 from random import randint
 import numpy as np
 
+possible_socio = []
+for k in range(8) : 
+    for j in range(8-k) : 
+        for i in range(8-j-k) : 
+            possible_socio.append([k/8, j/8, i/8, (8-k-j-i)/8])
+
 def generate_devices_data(**kwargs) : 
     
     # define time parameters
@@ -218,12 +224,6 @@ def generate_member_params(**kwargs) :
     Battery_rate = kwargs.get("Battery_rate", 0.2)
 
     # generate agents data
-
-    possible_socio = []
-    for k in range(8) : 
-        for j in range(8-k) : 
-            for i in range(8-j-k) : 
-                possible_socio.append([k/8, j/8, i/8, (8-k-j-i)/8])
                 # possible_socio.append([0, 1, 1, 1])
                 
 
@@ -433,13 +433,18 @@ def compute_results(**kwargs) :
         dict : results of the optimization for each community, with keys being either a given name of the community or "community_{method}_{k}" where k is the iteration number and method is the optimization method used
     """
     
+    list_method = kwargs.get("list_method", ["centralized", "admm"])
+    
     n_range = kwargs.get("n_range", [5, 20])
     n_iterations = kwargs.get("n_iterations", 10)
+    n_commu = n_iterations*len(list_method)
     
-    list_param_commu = kwargs.get("list_param_commu", [{} for k in range(n_iterations)])
-    list_more_members = kwargs.get("list_more_members", [{} for k in range(n_iterations)])
+    list_param_commu = kwargs.get("list_param_commu", [{} for k in range(n_commu)])
+    list_more_members = kwargs.get("list_more_members", [{} for k in range(n_commu)])
         
     results = {}    
+    
+    socio_ref = [0.25, 0.25, 0.25, 0.25]
     
     for k_iter in range(n_iterations) : 
         for_generation = {}
@@ -448,7 +453,7 @@ def compute_results(**kwargs) :
         params, date, weather, price_options = generate_member_params(**for_generation)
         for_generation["date"] = date
         param_commus = []
-        for method in kwargs.get("list_method", ["centralized", "admm"]) : 
+        for method in list_method : 
             param_commu = {
                 "solving_method" : method,
                 "deltat" : kwargs.get("deltat", 1),
@@ -479,40 +484,56 @@ def compute_results(**kwargs) :
         for commu in communities : 
             # General results
             print("Optimizing community", c)
-            c+=1
-            res = commu.full_optimization("gurobi", **commu.kwargs)
-            commu.kwargs['solver_method'] = commu.kwargs['solving_method']
-            del commu.kwargs["solving_method"]
-            
-            # Adding members sociological profile
-            for i in commu.members_id :
-                res[f"members_{i}"]["socio"] = commu.members[i].socio
-            
-            # Gains computation
-            if kwargs.get("compute_gains", False) :
-                commu.calc_gains("gurobi")
-                for method in kwargs.get("gains_method", ["proportional", "egalitarian", "shapley", "nucleolus"]) :
-                    commu.distribute_gains(method=method)
-                res['total_gains'] = commu.tot_obj_gains
-                res["gains"] = {method : 
-                    {members_id : val[1] for members_id, val in commu.members_gains[method].items()}
-                    for method in commu.members_gains}
-                if commu.combinations is not None : 
-                    res["coalitions"] = commu.combinations.copy()
-                else : 
-                    res["coalitions"] = {}
-            
+            c+=1    
+                
+            res = computations_on_community(commu, **kwargs)
             # name of the community in results
             name = commu.kwargs.get("name", f"community_{commu.kwargs.get('method')}_{k_iter}")
             if commu.kwargs.get('method') not in name : 
                 name += f"_{commu.kwargs.get('method')}"
             print(name)
-            
-            # Add community to results for debugging
-            if kwargs.get("return_commus", False) : 
-                res["commu"] = commu
             results[name] = res
+            
+            if kwargs.get("compute_socio_ref", False) :    
+                for members in commu.members : 
+                    members.socio = socio_ref
+                res = computations_on_community(commu, **kwargs)
+                # name of the community in results
+                name = commu.kwargs.get("name", f"community_{commu.kwargs.get('method')}_{k_iter}_socioref")
+                if commu.kwargs.get('method') not in name : 
+                    name += f"_{commu.kwargs.get('method')}"
+                print(name)
+                results[name] = res
+                
         print(communities)
     
     return results
         
+def computations_on_community(commu, **kwargs) : 
+    res = commu.full_optimization("gurobi", **commu.kwargs)
+    commu.kwargs['solver_method'] = commu.kwargs['solving_method']
+    del commu.kwargs["solving_method"]
+    
+    # Adding members sociological profile
+    for i in commu.members_id :
+        res[f"members_{i}"]["socio"] = commu.members[i].socio
+    
+    # Gains computation
+    if kwargs.get("compute_gains", False) :
+        commu.calc_gains("gurobi")
+        for method in kwargs.get("gains_method", ["proportional", "egalitarian", "shapley", "nucleolus"]) :
+            commu.distribute_gains(method=method)
+        res['total_gains'] = commu.tot_obj_gains
+        res["gains"] = {method : 
+            {members_id : val[1] for members_id, val in commu.members_gains[method].items()}
+            for method in commu.members_gains}
+        if commu.combinations is not None : 
+            res["coalitions"] = commu.combinations.copy()
+        else : 
+            res["coalitions"] = {}
+    
+    # Add community to results for debugging
+    if kwargs.get("return_commus", False) : 
+        res["commu"] = commu
+        
+    return res

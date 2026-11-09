@@ -42,9 +42,9 @@ if not pos.exists(plot_folder) :
 
 #%% test d'erreur
 
-method = ["centralized"]
+method = ["heuristic"]
 
-n_iteration = 100
+n_iteration = 10
 kwargs = {
     "n_range" : [5, 10],
     "n_iterations" : n_iteration,
@@ -439,7 +439,7 @@ n_range=[5, 20]
 kwargs = {
     "n_range" : n_range,
     "n_iterations" : n_iter,
-    "list_mehtod" : methods,
+    "list_method" : methods,
 }
 
 t0 = time()
@@ -496,6 +496,58 @@ to_plot = {
 }
 save_path3 = pos.join(plot_folder, "invest_correlation.pdf")
 fig3, ax3 = plot_hexagon_objective(**to_plot)
+
+#%% Optimization vs heuristic (only for exchanges)
+
+methods = ["centralized", "heuristic"]
+n_iter = 100
+n_range=[5, 20]
+
+kwargs = {
+    "n_range" : n_range,
+    "n_iterations" : n_iter,
+    "list_method" : methods,
+}
+
+t0 = time()
+results = compute_results(**kwargs)
+delta = time() - t0
+
+#%% show results
+
+objs_centr = [{key : results[f"community_centralized_{k}"]['aggregated_objs'][key]  
+              for key in results[f"community_centralized_{k}"]['aggregated_objs']}
+              for k in range(n_iter)
+              ]
+objs_heur = [{key : results[f"community_heuristic_{k}"]['aggregated_objs'][key]  
+              for key in results[f"community_heuristic_{k}"]['aggregated_objs']}
+              for k in range(n_iter)
+              ]
+
+diff = {key : [] for key in objs_centr[0]}
+for k in range(n_iter) : 
+    for key in objs_centr[k] : 
+        if objs_centr[k][key] <= 10**-5 : 
+            diff[key].append(0)
+        else : 
+            diff[key].append((objs_centr[k][key] - objs_heur[k][key]) / objs_centr[k][key])
+    
+means_vars = {key : {"mean" : np.mean(diff[key]), "var" : np.var(diff[key])} for key in diff}
+
+
+# print("Average relative difference on objective function between heuristic and centralized optimization", np.mean(diff))
+# print("Variance relative difference on objective function between heuristic and centralized optimization", np.var(diff))
+
+#%% Save data 
+
+file_name = pos.join(save_folder, f"centralized_vs_heuristic_{dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pickle")
+with open(file_name, "wb") as f :
+    pickle.dump({"n_range" : kwargs.get("n_range"), 
+                 "n_iterations" : kwargs.get("n_iterations"),
+                 "list_method" : kwargs.get("list_method"),
+                 "results" : results,
+                 "means_vars" : means_vars}, 
+                f)
 
 #%% Plot one community
 

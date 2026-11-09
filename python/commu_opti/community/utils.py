@@ -106,7 +106,8 @@ def extract_values(m, dico) :
     dico["Egrid_minus"].append(sum(pyo.value(m.P_grid_minus[t]) for t in m.time_index)*m.deltat)
     return dico
 
-    
+
+
 def choose_combination(n, l, **kwargs) :
     method = kwargs.get("method", "all")
     if method == "all" :
@@ -238,3 +239,4 @@ def compare_indices(x, y) :
         s += abs(x[i]/sum_x-y[i]/sum_y)
         
     return 1 - s
+
