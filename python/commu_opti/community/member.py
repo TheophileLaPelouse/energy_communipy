@@ -172,6 +172,7 @@ class member :
             self.P_exchange = pyo.Expression(self.time_index, rule=simple_power_exchange_sum_admm)
             m.P_exchange = self.P_exchange
             
+            # print("help_surplus_admm", kwargs.get("help_surplus_admm", False))
             if kwargs.get("help_surplus_admm", False) :
                 m.exchange_surplus = pyo.Constraint(self.time_index, rule=surplus_or_exchange_admm)
         
@@ -218,10 +219,10 @@ class member :
                 m.z2_k = z2_k
                 m.u2_k = u2_k
             
-            m.sqr_pena_expr = pyo.Expression(expr=sum((m.P_exchange_repr[i, t] - m.z_k[i, id_, t] + m.u_k[i, id_, t])**2*m.active_members[i] 
+            m.sqr_pena_expr = pyo.Expression(expr=sum(((m.P_exchange_repr[i, t] - m.z_k[i, id_, t] + m.u_k[i, id_, t])/1000)**2*m.active_members[i] 
                                                     for t in self.time_index 
                                                     for i in m.member_set)
-                                                    + sum((self.P_surplus[t] - m.z2_k[id_, t] + m.u2_k[id_, t])**2 
+                                                    + sum(((self.P_surplus[t] - m.z2_k[id_, t] + m.u2_k[id_, t])/1000)**2 
                                                           for t in self.time_index)
                                                     )
             if kwargs.get("help_surplus_admm2", False) : 
@@ -240,6 +241,18 @@ class member :
             self.mod_member.active_members.store_values(kwargs.get("active_members"))
         
     def init_values(self, **kwargs) :
+        self.mod_member.P_exchange_repr.set_values(kwargs.get("x_k", {}))
+        self.mod_member.P_surplus.set_values(kwargs.get("Surplus", {}))
+        self.mod_member.P_self.set_values(kwargs.get("Self", {}))
+        
+    def admm_repair(self, P_exchange, P_surplus, solver, **solver_options) : 
+        self.P_surplus.set_values(P_surplus)
+        self.P_exchange_repr.set_values(P_exchange)
+        self.P_surplus.fix()
+        self.P_exchange_repr.fix()
+        self.self_optimize(solver, options=solver_options)
+        self.P_surplus.unfix()
+        self.P_exchange_repr.unfix()
         
     # def update_devices(self, **kwargs) :
     #     for dev in self.devices : 

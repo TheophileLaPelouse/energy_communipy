@@ -623,31 +623,36 @@ fig, ax = plot_power_curves(**to_plot)
 #%% test autre
 
 method = ["centralized", "admm"]
-eps = [1, 0.5, 0.1, 0.05, 0.01, 0.005, 0.001, 0.0001, 0.00001]
-eps = eps[2:3]
+eps = [1e-2, 1, 0.5, 0.1, 0.05, 0.01, 0.005, 0.001, 0.0001, 0.00001]
+eps = eps[0:1]
 param_commus = [
     {
         # "solving_method" : method,
         "deltat" : 1,
         "total_time" : 24,
         "calc_ref" : True, 
-        "rho" : 1e-5,
+        "rho" : 1e-2,
         "power_max_random" : 1000,
+        "random_factor" : 1,
         "eps_r" : e,
         "eps_s" : e,
-        "max_iter" : 500, 
-        # "mu" : 10, 
-        "tau_incr" : 1, 
-        "tau_decr" : 1, 
+        "max_iter" : 100, 
+        "mu" : 10, 
+        # "tau_incr" : 1, 
+        # "tau_decr" : 1, 
+        "tau_incr" : 1.5, 
+        "tau_decr" : 1.5,
         # "wait_iter" : 0,
-        "init_function" : "heuristic",
+        # "init_function" : "heuristic",
+        # "plot_convergence" : True,
+        # "help_surplus_admm2" : True
     }
-    for e in eps for k in range(5)
+    for e in eps for k in range(1)
 ]
 
 n_iteration = len(param_commus)
 kwargs = {
-    "n_range" : [10, 11],
+    "n_range" : [20,21],
     "n_iterations" : n_iteration,
     "list_param_commu" : param_commus
 }

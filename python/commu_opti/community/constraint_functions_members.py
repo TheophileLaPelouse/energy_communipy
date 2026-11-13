@@ -79,6 +79,8 @@ def simple_power_exchange_sum_centralized(m, t) :  # Vérifier que ça marche qu
 def simple_power_exchange_sum_admm(m, t) : 
     s = sum(m.P_exchange_repr[k, t]*m.active_members[k] for k in m.member_set)
     return s
+
+# def 
     
 def no_self_exchange(m, t) :
     return m.P_exchange_repr[m.id.value, t] == 0

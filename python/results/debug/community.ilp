@@ -1,14 +1,9 @@
 \ Model unknown_copy
 \ LP format - for model browsing. Use MPS format to capture full model detail.
-\ Signature: 0x5989b700d590d41e
+\ Signature: 0x267ae670d662c388
 Minimize
  
 Subject To
- surplus_only(2_0): - member_0_P_surplus(2) = -3404.022416801974
- member_0_P_prod_con(2): member_0_P_self(2) + member_0_P_surplus(2)
-   + member_0_device12_Pcons(2) = 0
- member_0_device12_pow_con(2): member_0_device12_Pcons(2) = 0
+ ii_rule(0_0): = -755.0016357799245
 Bounds
- member_0_P_surplus(2) free
- member_0_device12_Pcons(2) free
 End

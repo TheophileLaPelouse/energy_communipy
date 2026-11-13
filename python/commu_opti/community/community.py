@@ -337,18 +337,38 @@ class community :
             z2_k = kwargs.get("z2_k", {(i, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id})
         
         if init_function_ == "heuristic" : 
+            print("Initializing ADMM with heuristic optimization")
             print(kwargs.get("for_initialization"))
+            active_members = self.mod.active_members.extract_values()
+            active_members_obj = self.mod.active_members_obj.extract_values()
             heuristic_exchange = self.heuristic_optimization(for_initialization=True, **kwargs)
-
-            x_k = {key : heuristic_exchange[key]*random_factor(0.5) + np.random.rand()*power_max_random for key in heuristic_exchange}
-            z_k = {key : heuristic_exchange[key]*random_factor(0.5) + np.random.rand()*power_max_random for key in heuristic_exchange}
+            print("WHO", active_members, active_members_obj)
+            self.update_model(custom_active_id=active_members, custom_independant_id=active_members_obj)
+            for i in self.current_members_id :
+                member = self.members[i]
+                member.update_model_admm(custom_active_id=active_members)
             
-            Surplus = {(i, t) : sum(heuristic_exchange[i, j, t]*random_factor(0.5) + np.random.rand()*power_max_random for j in current_members_id) for t in time_set for i in current_members_id}
-            z2_k = {(i, t) : sum(heuristic_exchange[i, j, t]*random_factor(0.5) + np.random.rand()*power_max_random for j in current_members_id) for t in time_set for i in current_members_id}
+            fac = kwargs.get("random_factor", 0.1)
+            x_k = {key : heuristic_exchange[key]*random_factor(fac) + np.random.rand()*power_max_random for key in heuristic_exchange}
+            z_k = {key : heuristic_exchange[key]*random_factor(fac) + np.random.rand()*power_max_random for key in heuristic_exchange}
+            
+            Surplus = {(i, t) : sum(heuristic_exchange[i, j, t]*random_factor(fac) + np.random.rand()*power_max_random for j in current_members_id) for t in time_set for i in current_members_id}
+            z2_k = {(i, t) : sum(heuristic_exchange[i, j, t]*random_factor(fac) + np.random.rand()*power_max_random for j in current_members_id) for t in time_set for i in current_members_id}
+            
+            # x_k = kwargs.get("x_k", {(i, j, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id for j in current_members_id})
+            # Surplus = kwargs.get("Surplus", {(i, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id})
+            # z_k = kwargs.get("z_k", {(i, j, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id for j in current_members_id})
+            # z2_k = kwargs.get("z2_k", {(i, t) : np.random.rand() * power_max_random for t in time_set for i in current_members_id})
+                    
             
             for id_ in self.current_members_id : 
                 member = self.members[id_]
-                member.init_values(x_k=x_k, Surplus=Surplus)
+                x_k_member = {(j, t) : x_k[j, id_, t] for j in self.current_members_id for t in time_set}
+                Surplus_member = {t : Surplus[id_, t] for t in time_set}
+                member.init_values(x_k=x_k_member, Surplus=Surplus_member)
+                
+            self.mod.P_exchange.set_values(x_k)
+            self.mod.Surplus_repr.set_values(Surplus)
             
         return x_k, Surplus, z_k, z2_k
     
@@ -418,6 +438,27 @@ class community :
         list_penas = []
         wait = 0
         print("eps_r, eps_s : ", eps_r, eps_s)
+        plot_flag = kwargs.get("plot_convergence", False)
+        if plot_flag : 
+            import matplotlib.pyplot as plt
+            plt.ion()
+            fig1, ax1 = plt.subplots()
+            ax1.set_title("ADMM convergence")
+            ax1.set_xlabel("Iteration")
+            ax1.set_ylabel("Residuals")
+            ax1.set_yscale("log")
+            ax1.grid()
+
+            if kwargs.get("centralized_optimal") :
+                opti_res = kwargs.get("centralized_optimal")
+                centralized_obj = opti_res["aggregated_objs"]['Objective']
+                fig2, ax2 = plt.subplots()
+                ax2.set_title("ADMM objective vs centralized objective")
+                ax2.set_xlabel("Iteration")
+                ax2.set_ylabel("Distance to centralized objective")
+                ax2.set_yscale("symlog")
+                ax2.grid()
+            
         while (r_k > eps_r or s_k > eps_s) and iter < max_iter :
             
             # Save argmin local 
@@ -489,11 +530,13 @@ class community :
             self.optimize(solver, options=solver_options)
             t_optimizer2 += time.time() - t_opti_start
 
+            
             Surplus_repr_values = self.Surplus_repr.extract_values()
             # print("Surplus_repr_values : ", Surplus_repr_values)
             Surplus_k_1_values = self.mod.Surplus_k_1.extract_values()
             P_exchange_values = self.P_exchange.extract_values()
             x_k_1_values = self.mod.x_k_1.extract_values()
+            
             
             z_k.update(z2_k)
             dico_to_numpy(z_k, z_k_numpy)
@@ -502,9 +545,18 @@ class community :
             z_k_1_values = {**P_exchange_values, **Surplus_repr_values}
             dico_to_numpy(z_k_1_values, z_k_1_numpy)
             
+            # print("z_k", z_k)
+            # print("z_k_1", z_k_1_values)
+            
             r_k = np.linalg.norm(x_k_1_numpy - z_k_1_numpy)
             s_k = np.linalg.norm(z_k_numpy - z_k_1_numpy)
             
+            if len(z_k_1_numpy[abs(z_k_1_numpy) >= 1]) >0 : 
+                max_val_sup_0 = (abs(x_k_1_numpy - z_k_1_numpy)[abs(z_k_1_numpy) >= 1]/z_k_1_numpy[abs(z_k_1_numpy) >= 1]).max()
+                max_ecart = (abs(x_k_1_numpy - z_k_1_numpy)).max()
+                print("ecart max grandes valeures", max_val_sup_0, "ecart max petite valeures",max_ecart, "average z_k_1_numpy", z_k_1_numpy.mean())
+                print("z_k_numpy - z_k_1_numpy", (z_k_numpy - z_k_1_numpy).max())
+
             U_numpy = U_numpy + x_k_1_numpy - z_k_1_numpy
 
             z_k = P_exchange_values
@@ -512,11 +564,14 @@ class community :
             
             # Method to update rho for better convergence
             old_rho = rho
-            if wait > kwargs.get("wait_iter", 10) : 
-                if r_k > mu*s_k :
-                    rho *= tau_incr
-                elif s_k > mu*r_k :
-                    rho /= tau_decr
+            if wait > kwargs.get("wait_iter", 20) and wait < 100 : 
+                # if wait > 
+                rho*= 1.2
+                
+                # if r_k > mu*s_k :
+                #     rho *= tau_incr
+                # elif s_k > mu*r_k :
+                #     rho /= tau_decr
             wait += 1
             
             if rho != old_rho :
@@ -531,6 +586,44 @@ class community :
             # print("Surplus : ", Surplus)
             print("\niter, r_k, s_k : ", iter, r_k, s_k)
             print("rho : ", rho)
+            self.aggregate_distributed_information()
+            objs_admm_false = self.results['aggregated_objs'].copy()
+            print(f"{objs_admm_false=}")
+            if plot_flag :
+                ax1.scatter(iter, r_k, color='blue', label='r_k' if iter == 1 else "")
+                ax1.scatter(iter, s_k, color='orange', label='s_k' if iter == 1 else "")
+                ax1.legend()
+                
+                if kwargs.get("centralized_optimal") :
+                    centralized_objs = kwargs.get("centralized_optimal")["aggregated_objs"]
+                    self.aggregate_distributed_information()
+                    objs_admm_false = self.results['aggregated_objs'].copy()
+                    # print(f"{objs_admm_false=}")
+                    self.repair_admm_solution(solver, **kwargs.get("solver_options", {}))
+                    objs_admm = self.results['aggregated_objs']
+                    for objective, centralized_obj in centralized_objs.items():
+                        if objective not in objs_admm or objective not in objs_admm_false:
+                            continue
+                        obj_admm = objs_admm[objective]
+                        obj_admm_false = objs_admm_false[objective]
+                        if centralized_obj == 0:
+                            distance_to_centralized = float('inf')  # Avoid division by zero
+                            distance_to_centralized_false = float('inf')
+                        else:
+                            distance_to_centralized = (obj_admm - centralized_obj)/centralized_obj
+                            distance_to_centralized_false = (obj_admm_false - centralized_obj)/centralized_obj
+                        ax2.scatter(iter, distance_to_centralized,
+                                    label=f'{objective} (repaired)' if iter == 1 else "", marker='+')
+                        ax2.scatter(iter, distance_to_centralized_false,
+                                    label=f'{objective} (false)' if iter == 1 else "", marker='x')
+                    ax2.legend()
+                    # print("Distance to centralized objectives: ", {
+                    #     objective: (objs_admm[objective] - centralized_obj) / centralized_obj
+                    #     for objective, centralized_obj in centralized_objs.items()
+                    #     if objective in objs_admm
+                    # })
+                plt.pause(1)
+            
             # print("Z_k : ", z_k)
             # print("penas : ", penas, "objs : ", objs, "var : ", np.var(list_objs[-10:]))
             # print("pena_commu : ", pyo.value(self.mod.obj))
@@ -714,6 +807,53 @@ class community :
         
         self.results['power_exchange_commu'] = [[[pyo.value(self.P_exchange[i, j, t]) for t in self.time_set] for j in self.current_members_id] for i in self.current_members_id]
     
+    def repair_admm_solution(self, solver, **solver_options) : 
+        """
+        Repair the solution obtained by ADMM to make it feasible for the original problem. 
+        This is done by fixing sent power proportionnally to what the community thought the members would send.
+        The correction is supposed to be vert small, some percent at most.
+        """
+        
+        # Searching for the real values
+        self.aggregate_distributed_information()
+            
+        ids = set()
+        true_surplus = {}
+        for key in self.results : 
+            if key.startswith("members_") : 
+                member_id = int(key.split("_")[1])
+                ids.add(member_id)
+                true_surplus[member_id] = []
+                for t in self.time_set : 
+                    true_value = self.results[key]['P_exchange'][t] - self.results[key]['P_surplus'][t]
+                    if true_value < 0 :
+                        true_surplus[member_id].append(-true_value)
+                    else :
+                        true_surplus[member_id].append(0)
+                        
+        numpy_exchange = np.array(self.results['power_exchange_commu'])
+        new_exchange = {}
+        for i in ids : 
+            sent_t = numpy_exchange[i, :, :].sum(axis=0)
+            rec_t = numpy_exchange[:, i, :].sum(axis=0)
+            ex_t = sent_t - rec_t
+            for t in self.time_set :
+                for j in self.current_members_id :
+                    if ex_t[t] <= 1e-3 : 
+                        new_exchange[i, j, t] = true_surplus[i][t]/len(ids)
+                    new_exchange[i, j, t] = true_surplus[i][t]/ex_t[t]*numpy_exchange[i, j, t]
+        
+        # Update the model with the new values, fixing the values and optimize again to get the final solution.
+        for i in ids : 
+            member = self.members[i]
+            P_exchange = {(j, t) : new_exchange[j, i, t] for j in self.current_members_id for t in self.time_set}
+            P_surplus = {t : true_surplus[i][t] for t in self.time_set}
+            member.admm_repair(P_exchange, P_surplus, solver, **solver_options)
+            
+        self.aggregate_distributed_information()
+        return
+            
+                
     def heuristic_optimization(self, solver, **kwargs) :
         # Step 1 : optimize with exchanges fixed at 0
         self.P_exchange.fix(0)
@@ -725,8 +865,13 @@ class community :
         if method == "admm" :
             method_selves = "selves_admm"
             init_function = "random"
+            new_rho = 0.1
         new_kwargs = kwargs.copy()
         new_kwargs["init_function"] = init_function
+        new_kwargs["rho"] = new_rho
+        new_kwargs['eps_r'] = 1e-2
+        new_kwargs['eps_s'] = 1e-2
+        del new_kwargs["plot_convergence"]
         self.full_optimization(solver, method_selves, **new_kwargs)
         # self.optimize(solver, **kwargs.get("solver_options", {}))
         P_surplus = {}
@@ -792,7 +937,11 @@ class community :
         # print("new_P_exchange : ", new_P_exchange)
         # self.P_exchange.unfix()
         self.P_exchange.set_values(new_P_exchange)
-        # self.P_exchange.fix()
+        
+        self.P_exchange.unfix()
+        for i in self.current_members_id :
+            member = self.members[i]
+            member.P_surplus.unfix()
         if kwargs.get("for_initialization", False) : 
             return new_P_exchange
         
@@ -823,7 +972,8 @@ class community :
             res = self.results.copy()
         if solving_method_ == "admm" :
             self.optimize_admm(solver, **kwargs)
-            self.aggregate_distributed_information()
+            # self.aggregate_distributed_information()
+            self.repair_admm_solution(solver, **kwargs.get("solver_options", {}))
             res = self.results.copy()
         if solving_method_ == "selves" : 
             self.update_model(custom_active_id=[], custom_independant_id=kwargs.get('custom_active_id'))

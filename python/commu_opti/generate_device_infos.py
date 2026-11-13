@@ -401,6 +401,7 @@ def generate_community(params_member, param_commu, price_options, **kwargs) :
         for param in params_member : 
             # Changes needed for building member models
             param["parameters"]["method"] = param_commu.get("method", "centralized")
+            print(f'{kwargs.get("more_member_params", {})=}')
             param["parameters"].update(kwargs.get("more_member_params", {}))
             if "PV" in param["devices"] : 
                 horizon = param["parameters"]['horizon']
@@ -466,9 +467,10 @@ def compute_results(**kwargs) :
                 "max_iter" : 500
             }
             param_commu.update(list_param_commu[k_iter])
-            print(param_commu)
-            param_commu['help_surplus_admm'] = kwargs.get('help_admm', False)
-            param_commu['help_surplus_admm2'] = kwargs.get('help_admm2', False)
+            # print(f"{kwargs.get('help_admm', False)=}")
+            # Directly in param_commu is better I think
+            # param_commu['help_surplus_admm'] = kwargs.get('help_admm', False)
+            # param_commu['help_surplus_admm2'] = kwargs.get('help_admm2', False)
             param_commu["method"] = method
             param_commus.append(param_commu)
             
@@ -476,22 +478,29 @@ def compute_results(**kwargs) :
         for i in range(len(param_commus)) :
             param_commu = param_commus[i]
             more_param_members = list_more_members[i]
+            more_param_members['help_surplus_admm'] = param_commu.get('help_surplus_admm', False)
+            more_param_members['help_surplus_admm2'] = param_commu.get('help_surplus_admm2', False)
+            print(f'{more_param_members=}')
             community = generate_community(params, param_commu, price_options, **more_param_members, **weather, **for_generation)
             community.kwargs.update(weather)
             communities.append(community)
             
         c = 0
+        optimal_result = None
         for commu in communities : 
             # General results
             print("Optimizing community", c)
             c+=1    
-                
+            if optimal_result is not None : 
+                kwargs["centralized_optimal"] = optimal_result
             res = computations_on_community(commu, **kwargs)
             # name of the community in results
             name = commu.kwargs.get("name", f"community_{commu.kwargs.get('method')}_{k_iter}")
             if commu.kwargs.get('method') not in name : 
                 name += f"_{commu.kwargs.get('method')}"
             print(name)
+            if commu.kwargs.get('method') == "centralized" : 
+                optimal_result = res
             results[name] = res
             
             if kwargs.get("compute_socio_ref", False) :    
@@ -510,6 +519,8 @@ def compute_results(**kwargs) :
     return results
         
 def computations_on_community(commu, **kwargs) : 
+    if kwargs.get("centralized_optimal") :
+        commu.kwargs["centralized_optimal"] = kwargs.get("centralized_optimal")
     res = commu.full_optimization("gurobi", commu.kwargs["solving_method"], **commu.kwargs)
     
     # if commu.kwargs.get("solving_method") : 
